@@ -520,7 +520,7 @@ export default function CustomerPortal() {
         </div>
       </nav>
 
-      <div className="max-w-2xl mx-auto px-4 py-8 space-y-5">
+      <div className="max-w-2xl mx-auto px-4 py-8 space-y-5 pb-32">
 
         {/* Install App Prompt — shows on mobile when token-based and not installed as PWA */}
         {typeof window !== 'undefined' && localStorage.getItem(TOKEN_KEY) && !window.matchMedia('(display-mode: standalone)').matches && (
@@ -697,20 +697,12 @@ export default function CustomerPortal() {
               </div>
               {dueSummary.nextDueDate && <p className="text-xs text-slate-500 mt-3">Due: {format(new Date(dueSummary.nextDueDate), 'd MMM yyyy')}</p>}
 
-              <button
-                onClick={handleOnlinePay}
-                disabled={isLaunchingUpi}
-                className="btn-primary w-full py-3.5 text-base mt-4 flex items-center justify-center gap-2"
-              >
-                {isLaunchingUpi ? 'Opening UPI app…' : `Pay ${fmt(totalDue)} Online`}
-              </button>
-
               <div className="mt-3 rounded-xl bg-surface-2 border border-surface-4 px-3 py-2">
                 <p className="text-[10px] uppercase tracking-wide text-slate-500 mb-0.5">UPI reference</p>
                 <p className="text-xs text-slate-400 break-words font-num">{buildUpiNote()}</p>
               </div>
               <p className="text-[11px] text-slate-600 mt-2 leading-relaxed">
-                Opens your UPI app with the amount and reference pre-filled. This does not update your account — payment reflects in 1–2 days after verification.
+                Use the <strong>Pay Online</strong> button below to pay everything due up to this month in one go. This does not update your account — payment reflects in 1–2 days after verification.
               </p>
             </div>
           ) : null;
@@ -887,6 +879,26 @@ export default function CustomerPortal() {
         </div>
         <p className="text-center text-xs text-slate-700 pb-4">Read-only view · TelePoint EMI Portal</p>
       </div>
+
+      {/* Fixed Pay Online bar — always visible while scrolling when any balance is due.
+          Pays the full combined amount (EMI + fine + 1st EMI charge) up to this month. */}
+      {dueSummary.totalDue > 0 && (
+        <div className="fixed bottom-0 inset-x-0 z-50 border-t border-surface-4 bg-white/95 backdrop-blur-md shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
+          <div className="max-w-2xl mx-auto px-4 py-3">
+            <button
+              onClick={handleOnlinePay}
+              disabled={isLaunchingUpi}
+              className="btn-primary w-full py-3.5 text-base flex items-center justify-between gap-2"
+            >
+              <span>{isLaunchingUpi ? 'Opening UPI app…' : 'Pay Online'}</span>
+              <span className="font-num font-bold">{fmt(dueSummary.totalDue)}</span>
+            </button>
+            <p className="text-[10px] text-center text-slate-500 mt-1.5">
+              All dues up to this month — EMI + fine + 1st EMI charge combined
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
