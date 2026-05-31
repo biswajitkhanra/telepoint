@@ -29,11 +29,15 @@ export default function CustomerPaymentSummary({
   const paidEmiCount  = paidEmis.length;
 
   // Money: EMI principal
+  // An APPROVED EMI is fully paid even if partial_paid_amount was never written
+  // (e.g. settlement / direct-approve / manual SQL paths set status only). Treat
+  // it as the full amount so paid totals match the X/Y EMI count above.
+  const emiPaidAmount = (e: EMISchedule) =>
+    e.status === 'APPROVED'
+      ? Number(e.amount || 0)
+      : Math.min(Number(e.amount || 0), Number(e.partial_paid_amount || 0));
   const totalEmiScheduled = emis.reduce((s, e) => s + Number(e.amount || 0), 0);
-  const totalEmiPaid      = emis.reduce(
-    (s, e) => s + Math.min(Number(e.amount || 0), Number(e.partial_paid_amount || 0)),
-    0,
-  );
+  const totalEmiPaid      = emis.reduce((s, e) => s + emiPaidAmount(e), 0);
   const totalEmiDue = Math.max(0, totalEmiScheduled - totalEmiPaid);
 
   // Money: Fines
