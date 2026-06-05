@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo, memo } from 'react';
 import { EMISchedule } from '@/lib/types';
 import { format, differenceInDays, addDays } from 'date-fns';
 import { createClient } from '@/lib/supabase/client';
@@ -72,7 +72,7 @@ export default function EMIScheduleTable({
   });
   const [saving, setSaving] = useState(false);
 
-  const sortedEmis = [...emis].sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+  const sortedEmis = useMemo(() => [...emis].sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()), [emis]);
   const paidCount  = sortedEmis.filter(e => e.status === 'APPROVED').length;
   const maxEmiNo   = sortedEmis.length > 0 ? Math.max(...sortedEmis.map(e => e.emi_no)) : 0;
 
@@ -615,3 +615,4 @@ export default function EMIScheduleTable({
     </div>
   );
 }
+

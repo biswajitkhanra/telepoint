@@ -14,6 +14,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { formatCurrency } from '@/lib/formatters';
+import { PaymentSummarySkeleton } from './SkeletonLoaders';
 
 interface Props {
   retailerId: string;
@@ -78,6 +79,10 @@ export default function RetailerPaymentSummary({ retailerId, retailerName, baseF
   }, [retailerId]);
 
   useEffect(() => { load(); }, [load]);
+
+  if (loading && !totals) {
+    return <PaymentSummarySkeleton />;
+  }
 
   const t = totals ?? {
     customerCount: 0, runningCount: 0, loanAmount: 0, collected: 0,
