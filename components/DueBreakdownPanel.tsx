@@ -2,13 +2,12 @@
 
 import { DueBreakdown } from '@/lib/types';
 import { format, addDays, differenceInDays } from 'date-fns';
-import { memo } from 'react';
 
 function fmt(n: number) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(n);
 }
 
-const DueBreakdownPanel = memo(function DueBreakdownPanel({ breakdown }: { breakdown: DueBreakdown }) {
+export default function DueBreakdownPanel({ breakdown }: { breakdown: DueBreakdown }) {
   if (!breakdown || !breakdown.next_emi_no) return null;
 
   const dueDate = breakdown.next_emi_due_date ? new Date(breakdown.next_emi_due_date) : null;
@@ -66,9 +65,7 @@ const DueBreakdownPanel = memo(function DueBreakdownPanel({ breakdown }: { break
       </div>
     </div>
   );
-});
-
-export default DueBreakdownPanel;
+}
 
 function Row({ label, value, tint }: { label: string; value: string; tint: 'emerald' | 'amber' | 'rose' | 'sky' | 'ink' }) {
   const labelCls: Record<string, string> = {

@@ -1,5 +1,5 @@
 'use client';
-import { useRef, memo } from 'react';
+import { useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import toast from 'react-hot-toast';
@@ -8,7 +8,7 @@ import Logo from '@/components/Logo';
 
 interface NavBarProps { role: 'admin' | 'retailer'; userName?: string; pendingCount?: number; }
 
-const NavBar = memo(function NavBar({ role, pendingCount = 0 }: NavBarProps) {
+export default function NavBar({ role, pendingCount = 0 }: NavBarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const _sbRef = useRef<ReturnType<typeof createClient> | null>(null);
@@ -59,6 +59,4 @@ const NavBar = memo(function NavBar({ role, pendingCount = 0 }: NavBarProps) {
       </div>
     </header>
   );
-});
-
-export default NavBar;
+}
