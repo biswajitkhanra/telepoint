@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState, useCallback, memo } from 'react';
+import { useRef, useEffect, useState } from 'react';
 
 interface SearchInputProps {
   value?: string;
@@ -11,7 +11,7 @@ interface SearchInputProps {
   autoFocus?: boolean;
 }
 
-const SearchInput = memo(function SearchInput({
+export default function SearchInput({
   value: externalValue,
   onChange,
   onSearch,
@@ -27,25 +27,12 @@ const SearchInput = memo(function SearchInput({
 
   const displayValue = isControlled ? externalValue! : internalValue;
 
-  // Debounce timer for uncontrolled mode
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const debouncedSearch = useCallback((v: string) => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => onSearch?.(v), 300);
-  }, [onSearch]);
-
-  // Cleanup debounce timer on unmount
-  useEffect(() => {
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, []);
-
   function handleChange(v: string) {
     if (isControlled) {
       onChange!(v);
     } else {
       setInternalValue(v);
-      debouncedSearch(v);
+      onSearch?.(v);
     }
   }
 
@@ -54,7 +41,6 @@ const SearchInput = memo(function SearchInput({
       onChange!('');
     } else {
       setInternalValue('');
-      if (debounceRef.current) clearTimeout(debounceRef.current);
       onSearch?.('');
     }
     setTimeout(() => inputRef.current?.focus(), 0);
@@ -117,6 +103,4 @@ const SearchInput = memo(function SearchInput({
       )}
     </div>
   );
-});
-
-export default SearchInput;
+}

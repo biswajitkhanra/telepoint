@@ -4,7 +4,6 @@ import { Customer, EMISchedule, DueBreakdown } from '@/lib/types';
 import { calculateTotalFineFromEmis, getPerEmiFineBreakdown } from '@/lib/fineCalc';
 import { formatCurrency, formatDateOnly } from '@/lib/formatters';
 import { differenceInDays } from 'date-fns';
-import { memo } from 'react';
 
 interface Props {
   customer: Customer;
@@ -18,7 +17,7 @@ interface Props {
 
 const fmt = formatCurrency;
 
-const CustomerPaymentSummary = memo(function CustomerPaymentSummary({
+export default function CustomerPaymentSummary({
   customer, emis, breakdown,
   baseFine = 450, weeklyIncrement = 25,
   hideLoanAmount = false,
@@ -181,9 +180,7 @@ const CustomerPaymentSummary = memo(function CustomerPaymentSummary({
       )}
     </div>
   );
-});
-
-export default CustomerPaymentSummary;
+}
 
 // ── Tile (single-metric card) ──────────────────────────────────────────────
 function Tile({
