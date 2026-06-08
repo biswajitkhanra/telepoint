@@ -14,6 +14,16 @@
  *     ₹450 base + ₹25/week after the 30-day grace, until paid.
  *
  * Multiple EMIs: Each calculated independently.
+ *
+ * COLLECTION-DATE FINE ELIGIBILITY (collection_requested_at):
+ *   Fine eligibility is decided by when collection was *initiated* by the
+ *   retailer — never by the admin approval date.
+ *     collection_requested_at <= due_date  → NO fine (paid on time, even if the
+ *                                             admin approves days later).
+ *     collection_requested_at >  due_date  → fine applies and stays pending
+ *                                             until explicitly paid.
+ *   A rejected request clears collection_requested_at so normal overdue accrual
+ *   resumes from the due date.
  */
 
 import { EMISchedule } from './types';
@@ -21,6 +31,24 @@ import { EMISchedule } from './types';
 const BASE = 450;
 const WEEKLY = 25;
 const GRACE = 30;
+
+function dateOnly(value: string | Date): number {
+  const d = new Date(value);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+/** Collection was initiated on or before the due date → fine permanently waived. */
+export function isCollectedOnTime(emi: EMISchedule): boolean {
+  if (!emi.collection_requested_at) return false;
+  return dateOnly(emi.collection_requested_at) <= dateOnly(emi.due_date);
+}
+
+/** Collection was initiated AFTER the due date → fine applies (and survives approval). */
+function isCollectedLate(emi: EMISchedule): boolean {
+  if (!emi.collection_requested_at) return false;
+  return dateOnly(emi.collection_requested_at) > dateOnly(emi.due_date);
+}
 
 /** Calculate fine for a single EMI position.
  *  isLastEmiUnpaid = TRUE  → last EMI rule (₹baseFine every 30d, no weekly)
@@ -65,6 +93,10 @@ export function calculateTotalFineFromEmis(
   for (const emi of emis) {
     if (emi.fine_waived) continue;
 
+    // Collection-date gate: collection was initiated on/before the due date —
+    // no fine ever applies, regardless of when the admin approves it.
+    if (isCollectedOnTime(emi)) continue;
+
     // Pending grace: once a retailer submits and the EMI is awaiting admin verdict,
     // late-fine accrual freezes. Use the stored fine_amount as-is until APPROVED
     // (locked in) or REJECTED (the reject pipeline reactivates fines retroactively).
@@ -79,7 +111,9 @@ export function calculateTotalFineFromEmis(
     const hasFineUnpaid = (emi.fine_amount || 0) > 0 &&
                           (emi.fine_paid_amount || 0) < (emi.fine_amount || 0);
 
-    if (!isOverdueUnpaid && !hasFineUnpaid) continue;
+    // A late-collected EMI keeps its fine even after it is APPROVED — the fine
+    // must remain pending until explicitly paid.
+    if (!isOverdueUnpaid && !hasFineUnpaid && !isCollectedLate(emi)) continue;
 
     // Last-EMI rule only applies when the LAST EMI itself is still UNPAID.
     // Once it is APPROVED (paid), fine accrues per normal weekly rule.
@@ -110,6 +144,9 @@ export function getPerEmiFineBreakdown(
 
   for (const emi of emis) {
     if (emi.fine_waived) continue;
+
+    // Collection-date gate: collected on/before the due date → no fine at all.
+    if (isCollectedOnTime(emi)) continue;
 
     // Pending grace: while awaiting admin verdict, the stored fine is frozen.
     if (emi.status === 'PENDING_APPROVAL') {
@@ -143,7 +180,8 @@ export function getPerEmiFineBreakdown(
     const isOverdueUnpaid = ['UNPAID', 'PARTIALLY_PAID'].includes(emi.status) && new Date(emi.due_date) < new Date();
     const hasFineUnpaid = (emi.fine_amount || 0) > 0 &&
                           (emi.fine_paid_amount || 0) < (emi.fine_amount || 0);
-    if (!isOverdueUnpaid && !hasFineUnpaid) continue;
+    // Late-collected EMIs keep their fine even once APPROVED.
+    if (!isOverdueUnpaid && !hasFineUnpaid && !isCollectedLate(emi)) continue;
 
     const due = new Date(emi.due_date);
     const today = new Date();

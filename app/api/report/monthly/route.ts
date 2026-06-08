@@ -128,7 +128,7 @@ export async function GET(req: NextRequest) {
 
     const { data: emiRows } = await svc
       .from('emi_schedule')
-      .select('id, customer_id, emi_no, due_date, amount, status, partial_paid_amount, fine_amount, fine_waived, fine_paid_amount, paid_at, mode, utr')
+      .select('id, customer_id, emi_no, due_date, amount, status, partial_paid_amount, fine_amount, fine_waived, fine_paid_amount, paid_at, mode, utr, collection_requested_at')
       .in('customer_id', custIds);
     const allEmis = (emiRows as EmiRow[] | null) ?? [];
 

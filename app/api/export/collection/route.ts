@@ -240,7 +240,7 @@ export async function GET(req: NextRequest) {
     const rawEmis = await fetchAllByIds<EmiRow>(custIds, (chunk, from, to) =>
       svc
         .from('emi_schedule')
-        .select('customer_id, emi_no, due_date, amount, status, fine_amount, fine_waived, fine_paid_amount, partial_paid_amount')
+        .select('customer_id, emi_no, due_date, amount, status, fine_amount, fine_waived, fine_paid_amount, partial_paid_amount, collection_requested_at')
         .in('customer_id', chunk)
         .order('customer_id')
         .order('emi_no')

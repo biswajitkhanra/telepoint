@@ -137,6 +137,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to record payment items' }, { status: 500 });
     }
 
+    // Stamp the ORIGINAL collection date on each EMI (only if not already set).
+    // Fine eligibility is decided by THIS date vs the due date — never by the
+    // admin approval date. Set BEFORE the rows go PENDING_APPROVAL so the
+    // recalc below can still see (and lock in) any late fine.
+    const collectedAt = new Date().toISOString();
+    await svc.from('emi_schedule')
+      .update({ collection_requested_at: collectedAt })
+      .in('id', emi_ids)
+      .is('collection_requested_at', null);
+
+    // Persist any late fine now so it survives approval. recalc honours the
+    // collection-date gate: on-time collections accrue nothing, late ones lock
+    // in their fine. PENDING_APPROVAL rows are frozen, so we recalc first.
+    await svc.rpc('recalc_customer_fines', { p_customer_id: customer_id }).then(() => null, () => null);
+
     await svc.from('emi_schedule').update({ status: 'PENDING_APPROVAL' }).in('id', emi_ids);
   }
 
