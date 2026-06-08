@@ -19,9 +19,13 @@ export async function POST(req: NextRequest) {
   const serviceClient = createServiceClient();
   const email = `${username.toLowerCase()}@tele.local`;
 
+  // The auth login credential is the `password` field. retail_pin is a separate
+  // app-level payment-confirmation PIN (stored on the retailers row) and must not
+  // double as the login password. Fall back to retail_pin only if no password was
+  // given, preserving prior behaviour for callers that send only a PIN.
   const { data: authUser, error: authErr } = await serviceClient.auth.admin.createUser({
     email,
-    password: retail_pin || password,
+    password: password || retail_pin,
     email_confirm: true,
   });
 
@@ -69,12 +73,16 @@ export async function PATCH(req: NextRequest) {
   const { data: retailer } = await serviceClient.from('retailers').select('auth_user_id').eq('id', id).single();
   if (!retailer) return NextResponse.json({ error: 'Retailer not found' }, { status: 404 });
 
+  // Only touch the Supabase Auth credential when an explicit NEW login password
+  // is supplied. Changing a user's password resets their auth credential and can
+  // invalidate that retailer's active sessions — so it must never happen as a
+  // side effect of an unrelated edit (name / mobile / active toggle / PIN).
+  //
+  // retail_pin is a SEPARATE app-level field (the payment-confirmation PIN shown
+  // in the UI as "Separate from login password"). It is persisted to the
+  // retailers table below but must NOT rewrite the auth login password.
   if (password && retailer.auth_user_id) {
     const { error } = await serviceClient.auth.admin.updateUserById(retailer.auth_user_id, { password });
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-  if (retail_pin && !password && retailer.auth_user_id) {
-    const { error } = await serviceClient.auth.admin.updateUserById(retailer.auth_user_id, { password: retail_pin });
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
