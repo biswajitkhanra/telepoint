@@ -98,7 +98,7 @@ export async function GET(req: NextRequest) {
   const emiList = await fetchAllByIds<EMISchedule>(ids, (chunk, from, to) =>
     svc
       .from('emi_schedule')
-      .select('id, customer_id, emi_no, due_date, amount, status, partial_paid_amount, fine_amount, fine_waived, fine_paid_amount')
+      .select('id, customer_id, emi_no, due_date, amount, status, partial_paid_amount, fine_amount, fine_waived, fine_paid_amount, collection_requested_at')
       .in('customer_id', chunk)
       .order('customer_id')
       .order('emi_no')

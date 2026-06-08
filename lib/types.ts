@@ -85,6 +85,14 @@ export interface EMISchedule {
   fine_paid_at?: string;
   fine_utr?: string;
   fine_mode?: 'CASH' | 'UPI';
+  /**
+   * When the retailer (or admin) first initiated collection for this EMI.
+   * This — NOT the admin approval date — drives fine eligibility:
+   *   collection_requested_at <= due_date  → no fine (collected on time)
+   *   collection_requested_at >  due_date  → fine applies (collected late)
+   * Cleared when a payment request is rejected so normal overdue accrual resumes.
+   */
+  collection_requested_at?: string | null;
   collected_by_role?: 'admin' | 'retailer';
   collected_by_user_id?: string;
   created_at: string;

@@ -38,6 +38,13 @@ export async function POST(req: NextRequest) {
       const items = emi_ids.map((eid: string, i: number) => ({ payment_request_id: request.id, emi_schedule_id: eid, emi_no: emi_nos[i], amount: eachAmount }));
       const { error: itemErr } = await svc.from('payment_request_items').insert(items);
       if (itemErr) return NextResponse.json({ error: itemErr.message }, { status: 500 });
+
+      // Stamp the collection date (admin collects on the spot) so fine
+      // eligibility is anchored to it, not to any later re-processing.
+      await svc.from('emi_schedule')
+        .update({ collection_requested_at: now })
+        .in('id', emi_ids)
+        .is('collection_requested_at', null);
     }
 
     await applyApprovedRequestEffects(svc, request, user.id, now);

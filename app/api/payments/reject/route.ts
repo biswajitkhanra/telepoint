@@ -31,9 +31,17 @@ export async function POST(req: NextRequest) {
       const { data: emiRows } = await svc.from('emi_schedule').select('id, amount, partial_paid_amount').in('id', emiIds);
       for (const emi of emiRows || []) {
         const partialPaid = Number((emi as { partial_paid_amount?: number }).partial_paid_amount || 0);
-        await svc.from('emi_schedule').update({ status: partialPaid > 0 ? 'PARTIALLY_PAID' : 'UNPAID' }).eq('id', (emi as { id: string }).id);
+        // Reject = payment cancelled → customer returns to unpaid state and the
+        // collection-date protection is removed so the fine resumes per the
+        // normal overdue rules (clear collection_requested_at).
+        await svc.from('emi_schedule')
+          .update({ status: partialPaid > 0 ? 'PARTIALLY_PAID' : 'UNPAID', collection_requested_at: null })
+          .eq('id', (emi as { id: string }).id);
       }
     }
+
+    // Re-accrue fines now that the rejected EMIs are unpaid again.
+    await svc.rpc('recalc_customer_fines', { p_customer_id: request.customer_id }).then(() => null, () => null);
 
     const { error: reqErr } = await svc.from('payment_requests').update({
       status: 'REJECTED',

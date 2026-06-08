@@ -23,6 +23,21 @@ function fmt(n: number) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(n);
 }
 
+interface UpcomingRow {
+  customer_id: string; customer_name: string; mobile: string; imei: string;
+  due_date: string; emi_no: number; emi_amount: number; remaining_balance: number;
+}
+interface DueRow {
+  customer_id: string; customer_name: string; mobile: string; imei: string;
+  overdue_count: number; earliest_due_date: string; total_fine: number;
+  total_due: number; total_outstanding: number;
+}
+
+// Short, readable form of the customer UUID for display.
+function shortId(id: string) {
+  return id.slice(0, 8).toUpperCase();
+}
+
 export default function RetailerDashboard() {
   const supabaseRef2 = useRef<ReturnType<typeof createClient> | null>(null);
   if (typeof window !== 'undefined' && !supabaseRef2.current) supabaseRef2.current = createClient();
@@ -36,11 +51,14 @@ export default function RetailerDashboard() {
   const [myRequests, setMyRequests] = useState<PaymentRequest[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [fineSettings, setFineSettings] = useState({ default_fine_amount: 450, weekly_fine_increment: 25 });
-  const [upcomingEmis, setUpcomingEmis] = useState<{
-    id: string; emi_no: number; due_date: string; amount: number;
-    customer_name: string; imei: string; mobile: string; customer_id: string;
-  }[] | null>(null);
-  const [showUpcoming, setShowUpcoming] = useState(false);
+
+  // Upcoming EMI + Show Due dashboard lists (computed server-side).
+  const [upcoming, setUpcoming] = useState<UpcomingRow[] | null>(null);
+  const [due, setDue] = useState<DueRow[] | null>(null);
+  const [listsLoading, setListsLoading] = useState(false);
+  const [activeList, setActiveList] = useState<'upcoming' | 'due' | null>(null);
+  // Where the open customer was launched from, so "Back to EMI List" returns there.
+  const [detailSource, setDetailSource] = useState<'upcoming' | 'due' | null>(null);
 
   // Direct message to the selected customer (pops up on their screen)
   const [showMsgBox, setShowMsgBox] = useState(false);
@@ -97,54 +115,27 @@ export default function RetailerDashboard() {
     }
   }
 
-  async function loadUpcomingEmis(retailerId: string) {
-    const sb = supabaseRef.current;
-    const today = new Date().toISOString().split('T')[0];
-    const in5 = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-    // Fetch this retailer's RUNNING customers first (DB-level filter, no data leakage)
-    const { data: custData } = await sb
-      .from('customers')
-      .select('id, customer_name, imei, mobile')
-      .eq('retailer_id', retailerId)
-      .eq('status', 'RUNNING');
-
-    if (!custData || custData.length === 0) {
-      setUpcomingEmis([]);
-      setShowUpcoming(true);
-      return;
+  // Load both dashboard lists (Upcoming EMI + Show Due) from the server, which
+  // computes them over the retailer's WHOLE portfolio with the same fine rules
+  // used everywhere else. `which` decides which section opens.
+  async function loadLists(which: 'upcoming' | 'due') {
+    setActiveList(which);
+    if (upcoming === null || due === null) {
+      setListsLoading(true);
+      try {
+        const res = await fetch('/api/retailer/emi-lists', { cache: 'no-store' });
+        if (!res.ok) {
+          const e = await res.json().catch(() => null);
+          toast.error(e?.error || 'Failed to load EMI lists');
+          return;
+        }
+        const d = await res.json();
+        setUpcoming((d.upcoming as UpcomingRow[]) || []);
+        setDue((d.due as DueRow[]) || []);
+      } finally {
+        setListsLoading(false);
+      }
     }
-
-    type CustInfo = { id: string; customer_name: string; imei: string; mobile: string };
-    const custIds = (custData as CustInfo[]).map(c => c.id);
-    const custMap = new Map<string, CustInfo>((custData as CustInfo[]).map(c => [c.id, c]));
-
-    const { data } = await sb
-      .from('emi_schedule')
-      .select('id, emi_no, due_date, amount, customer_id')
-      .in('customer_id', custIds)
-      .in('status', ['UNPAID', 'PARTIALLY_PAID'])
-      .gte('due_date', today)
-      .lte('due_date', in5)
-      .order('due_date');
-
-    type EmiInfo = { id: string; emi_no: number; due_date: string; amount: number; customer_id: string };
-    const result = ((data || []) as EmiInfo[]).map(row => {
-      const cust = custMap.get(row.customer_id);
-      return {
-        id: row.id,
-        emi_no: row.emi_no,
-        due_date: row.due_date,
-        amount: row.amount,
-        customer_name: cust?.customer_name || '',
-        imei: cust?.imei || '',
-        mobile: cust?.mobile || '',
-        customer_id: row.customer_id,
-      };
-    });
-
-    setUpcomingEmis(result);
-    setShowUpcoming(true);
   }
 
   async function loadMyRequests(retailerId: string) {
@@ -195,6 +186,7 @@ export default function RetailerDashboard() {
   }, []);
 
   async function selectCustomer(customer: Customer) {
+    setDetailSource(null); // default: not from a list (openCustomerById re-sets it)
     setSelectedCustomer(customer);
     const sb = supabaseRef.current;
     const { data: emis } = await sb
@@ -216,9 +208,10 @@ export default function RetailerDashboard() {
   // Always keep ref in sync
   selectCustomerRef.current = selectCustomer;
 
-  // Open a customer from the Upcoming EMIs list — fetch the full record
-  // (scoped to this retailer) and show the same detail view as search.
-  async function openCustomerById(customerId: string) {
+  // Open a customer from a dashboard list — fetch the full record (scoped to
+  // this retailer) and show the same detail view as search. `source` records
+  // which list to return to via the "Back to EMI List" button.
+  async function openCustomerById(customerId: string, source: 'upcoming' | 'due' | null = null) {
     const sb = supabaseRef.current;
     const retailerId = retailerRef.current?.id;
     if (!retailerId) return;
@@ -232,6 +225,17 @@ export default function RetailerDashboard() {
     const cust = data as Customer;
     setSearchResults([cust]);
     await selectCustomer(cust);
+    setDetailSource(source); // re-set after selectCustomer clears it
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // Return from an EMI-detail screen to the list it was opened from.
+  function backToEmiList() {
+    const src = detailSource;
+    setSelectedCustomer(null);
+    setSearchResults(null);
+    setDetailSource(null);
+    if (src) setActiveList(src);
     if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -401,57 +405,123 @@ export default function RetailerDashboard() {
           )}
         </div>
 
-        {/* Upcoming EMI panel */}
-        <div className="mb-4 flex flex-wrap gap-2 items-center">
-          <button
-            onClick={() => retailer && loadUpcomingEmis(retailer.id)}
-            className="btn-secondary text-sm"
-          >
-            🔔 Show Upcoming EMIs (Next 5 Days)
-          </button>
-        </div>
-
-        {showUpcoming && upcomingEmis !== null && (
-          <div className="card overflow-hidden mb-6 animate-fade-in">
-            <div className="px-5 py-3 border-b border-white/[0.05] flex items-center justify-between">
-              <span className="text-sm font-semibold text-ink">Upcoming EMIs — Next 5 Days</span>
-              <button onClick={() => setShowUpcoming(false)} className="text-xs text-ink-muted hover:text-ink">Hide</button>
+        {/* Upcoming EMI / Show Due dashboard — hidden while a customer is open */}
+        {!selectedCustomer && (
+          <>
+            <div className="mb-4 flex flex-wrap gap-2 items-center">
+              <button
+                onClick={() => loadLists('upcoming')}
+                className={activeList === 'upcoming' ? 'btn-primary text-sm' : 'btn-secondary text-sm'}
+              >
+                🔔 Upcoming EMI
+              </button>
+              <button
+                onClick={() => loadLists('due')}
+                className={activeList === 'due' ? 'btn-primary text-sm' : 'btn-secondary text-sm'}
+              >
+                ⚠️ Show Due{due && due.length > 0 ? ` (${due.length})` : ''}
+              </button>
+              {activeList && (
+                <button onClick={() => setActiveList(null)} className="btn-ghost text-xs">Hide</button>
+              )}
             </div>
-            {upcomingEmis.length === 0 ? (
-              <div className="px-5 py-6 text-ink-muted text-sm text-center">No EMIs due in the next 5 days 🎉</div>
-            ) : (
-              <table className="data-table text-xs sm:text-sm">
-                <thead>
-                  <tr><th>Customer</th><th>EMI #</th><th>Due Date</th><th>Amount</th><th>Mobile</th></tr>
-                </thead>
-                <tbody>
-                  {upcomingEmis.map(e => {
-                    const daysLeft = Math.ceil((new Date(e.due_date).getTime() - Date.now()) / 86400000);
-                    return (
-                      <tr
-                        key={e.id}
-                        onClick={() => openCustomerById(e.customer_id)}
-                        className="cursor-pointer hover:bg-brand-50 transition-colors"
-                        title="Open customer"
-                      >
-                        <td>
-                          <p className="text-ink font-medium">{e.customer_name}</p>
-                          <p className="text-xs font-num text-ink-muted">{e.imei}</p>
-                        </td>
-                        <td><span className="font-num">#{e.emi_no}</span></td>
-                        <td>
-                          <p className="text-xs font-num font-semibold text-warning">{format(new Date(e.due_date), 'd MMM yyyy')}</p>
-                          <p className="text-xs text-ink-muted">{daysLeft === 0 ? 'Today' : `${daysLeft}d left`}</p>
-                        </td>
-                        <td><span className="font-num text-brand-600">{fmt(e.amount)}</span></td>
-                        <td><span className="font-num text-ink-muted">{e.mobile}</span></td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+
+            {listsLoading && (
+              <div className="card px-5 py-6 mb-6 text-ink-muted text-sm text-center animate-fade-in">Loading…</div>
             )}
-          </div>
+
+            {/* ── UPCOMING EMI ─────────────────────────────────────────────── */}
+            {!listsLoading && activeList === 'upcoming' && upcoming !== null && (
+              <div className="card overflow-hidden mb-6 animate-fade-in">
+                <div className="px-5 py-3 border-b border-white/[0.05] flex items-center justify-between">
+                  <span className="text-sm font-semibold text-ink">🔔 Upcoming EMI — sorted by nearest due date</span>
+                  <span className="text-xs text-ink-muted">{upcoming.length} customer{upcoming.length === 1 ? '' : 's'}</span>
+                </div>
+                {upcoming.length === 0 ? (
+                  <div className="px-5 py-6 text-ink-muted text-sm text-center">No upcoming EMIs 🎉</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="data-table text-xs sm:text-sm">
+                      <thead>
+                        <tr>
+                          <th>Customer</th><th>Customer ID</th><th>Mobile</th>
+                          <th>Due Date</th><th>EMI Amount</th><th>Remaining Balance</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {upcoming.map(u => {
+                          const daysLeft = Math.ceil((new Date(u.due_date).getTime() - Date.now()) / 86400000);
+                          return (
+                            <tr
+                              key={u.customer_id}
+                              onClick={() => openCustomerById(u.customer_id, 'upcoming')}
+                              className="cursor-pointer hover:bg-brand-50 transition-colors"
+                              title="Open EMI details"
+                            >
+                              <td><p className="text-ink font-medium">{u.customer_name}</p></td>
+                              <td><span className="font-num text-xs text-ink-muted" title={u.customer_id}>{shortId(u.customer_id)}</span></td>
+                              <td><span className="font-num text-ink-muted">{u.mobile || '—'}</span></td>
+                              <td>
+                                <p className="text-xs font-num font-semibold text-warning">{format(new Date(u.due_date), 'd MMM yyyy')}</p>
+                                <p className="text-xs text-ink-muted">{daysLeft <= 0 ? 'Today' : `${daysLeft}d left`}</p>
+                              </td>
+                              <td><span className="font-num text-brand-600">{fmt(u.emi_amount)}</span></td>
+                              <td><span className="font-num text-ink">{fmt(u.remaining_balance)}</span></td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── SHOW DUE (overdue customers, combined per customer) ───────── */}
+            {!listsLoading && activeList === 'due' && due !== null && (
+              <div className="card overflow-hidden mb-6 animate-fade-in border-l-4 border-crimson-400">
+                <div className="px-5 py-3 border-b border-white/[0.05] flex items-center justify-between">
+                  <span className="text-sm font-semibold text-ink">⚠️ Show Due — overdue customers</span>
+                  <span className="text-xs text-ink-muted">{due.length} customer{due.length === 1 ? '' : 's'}</span>
+                </div>
+                {due.length === 0 ? (
+                  <div className="px-5 py-6 text-ink-muted text-sm text-center">No overdue customers 🎉</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="data-table text-xs sm:text-sm">
+                      <thead>
+                        <tr>
+                          <th>Customer</th><th>Customer ID</th><th>Mobile</th>
+                          <th>Overdue EMIs</th><th>Total Due</th><th>Total Fine</th><th>Total Outstanding</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {due.map(d => (
+                          <tr
+                            key={d.customer_id}
+                            onClick={() => openCustomerById(d.customer_id, 'due')}
+                            className="cursor-pointer hover:bg-rose-50 transition-colors"
+                            title="Open detailed breakdown"
+                          >
+                            <td>
+                              <p className="text-ink font-medium">{d.customer_name}</p>
+                              <p className="text-xs text-ink-muted">Since {format(new Date(d.earliest_due_date), 'd MMM yyyy')}</p>
+                            </td>
+                            <td><span className="font-num text-xs text-ink-muted" title={d.customer_id}>{shortId(d.customer_id)}</span></td>
+                            <td><span className="font-num text-ink-muted">{d.mobile || '—'}</span></td>
+                            <td><span className="badge bg-rose-100 text-rose-800 border border-rose-300 font-num">{d.overdue_count}</span></td>
+                            <td><span className="font-num font-semibold text-crimson-500">{fmt(d.total_due)}</span></td>
+                            <td><span className="font-num text-rose-700">{fmt(d.total_fine)}</span></td>
+                            <td><span className="font-num font-bold text-ink">{fmt(d.total_outstanding)}</span></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         )}
 
         {/* Search */}
@@ -574,8 +644,17 @@ export default function RetailerDashboard() {
         {/* Selected customer view */}
         {selectedCustomer && (
           <div className="space-y-5 animate-slide-up pb-32 sm:pb-0">
-            {/* Back button */}
-            {searchResults && searchResults.length > 1 && (
+            {/* Back to the EMI list this customer was opened from */}
+            {detailSource && (
+              <button onClick={backToEmiList} className="btn-ghost flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M15 18l-6-6 6-6" />
+                </svg>
+                Back to EMI List
+              </button>
+            )}
+            {/* Back button (multi-result search) */}
+            {!detailSource && searchResults && searchResults.length > 1 && (
               <button onClick={() => setSelectedCustomer(null)} className="btn-ghost flex items-center gap-2">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M15 18l-6-6 6-6" />
