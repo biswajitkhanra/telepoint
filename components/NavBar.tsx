@@ -16,7 +16,12 @@ export default function NavBar({ role, pendingCount = 0 }: NavBarProps) {
   const supabase = _sbRef.current!;
 
   async function logout() {
-    await supabase.auth.signOut();
+    // scope: 'local' clears ONLY this browser's session. The default ('global')
+    // revokes every refresh token for the user across all devices/tabs — which
+    // is wrong for a multi-session app and is what made logging out (or any
+    // server-side password touch) cascade into other sessions. Each user/session
+    // must be independent, so we only ever drop the local tokens here.
+    await supabase.auth.signOut({ scope: 'local' });
     toast.success('Logged out');
     router.replace('/login');
   }
