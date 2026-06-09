@@ -1541,6 +1541,7 @@ type MetricNumbers = {
   emiCollected: number;
   fineCollected: number;
   firstEmiChargeCollected: number;
+  fineCollectedByYear: Record<string, number>;
 };
 
 function MetricDashboard({
@@ -1552,6 +1553,7 @@ function MetricDashboard({
 }) {
   const [metrics, setMetrics] = useState<MetricNumbers | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fineYear, setFineYear] = useState<number>(new Date().getFullYear());
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1574,6 +1576,7 @@ function MetricDashboard({
         emiCollected: d.emiCollected,
         fineCollected: d.fineCollected,
         firstEmiChargeCollected: d.firstChargeCollected,
+        fineCollectedByYear: d.fineCollectedByYear ?? {},
       });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not load metrics');
@@ -1584,7 +1587,7 @@ function MetricDashboard({
 
   useEffect(() => { load(); }, [load]);
 
-  const m = metrics || { loanAmount: 0, emiDue: 0, fineDue: 0, firstEmiChargeDue: 0, emiCollected: 0, fineCollected: 0, firstEmiChargeCollected: 0 };
+  const m = metrics || { loanAmount: 0, emiDue: 0, fineDue: 0, firstEmiChargeDue: 0, emiCollected: 0, fineCollected: 0, firstEmiChargeCollected: 0, fineCollectedByYear: {} };
   const totalLoanValue = m.loanAmount;
   // Collection = everything actually received: EMI + fines + 1st EMI charges.
   const totalCollection = m.emiCollected + m.fineCollected + m.firstEmiChargeCollected;
@@ -1678,6 +1681,82 @@ function MetricDashboard({
           graphic="alert"
         />
       </motion.div>
+
+      {/* Fine collected — year-wise (transaction-level, bucketed by approval year) */}
+      {(() => {
+        const byYear = m.fineCollectedByYear || {};
+        const nowY = new Date().getFullYear();
+        const years = Array.from(
+          new Set<number>([nowY, ...Object.keys(byYear).map(Number).filter(Number.isFinite)]),
+        ).sort((a, b) => b - a);
+        const selected = byYear[fineYear] || 0;
+        const allTime = years.reduce((s, y) => s + (byYear[y] || 0), 0);
+        const maxY = Math.max(1, ...years.map(y => byYear[y] || 0));
+        const noneYet = years.every(y => (byYear[y] || 0) === 0);
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-40px' }}
+            transition={SPRING}
+            className="mt-4 rounded-xl border-2 border-rose-500/30 bg-rose-500/5 p-4"
+          >
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-widest text-rose-700">💸 Fine Collected — Year-wise</p>
+                <p className="mt-0.5 text-[11px] text-ink-muted">Late-fine money actually collected, by the year it was approved</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-[11px] text-ink-muted">Year</label>
+                <select
+                  value={fineYear}
+                  onChange={e => setFineYear(Number(e.target.value))}
+                  className="form-input !w-auto !py-1.5 text-sm"
+                  aria-label="Fine collection year"
+                >
+                  {years.map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-ink-muted">Collected in {fineYear}</p>
+                <CountUp value={selected} format={fmt} className="num block text-3xl font-extrabold text-rose-700" />
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] uppercase tracking-wide text-ink-muted">All years</p>
+                <CountUp value={allTime} format={fmt} className="num block text-lg font-bold text-ink" />
+              </div>
+            </div>
+
+            {/* Clickable per-year breakdown bars */}
+            <div className="mt-4 space-y-2">
+              {noneYet ? (
+                <p className="py-2 text-center text-xs text-ink-muted">No fine collected yet.</p>
+              ) : years.map((y, i) => {
+                const v = byYear[y] || 0;
+                const pct = maxY > 0 ? Math.max(v > 0 ? 3 : 0, (v / maxY) * 100) : 0;
+                const active = y === fineYear;
+                return (
+                  <button key={y} onClick={() => setFineYear(y)} className="flex w-full items-center gap-3 text-left">
+                    <span className={`num w-12 text-xs font-bold ${active ? 'text-rose-700' : 'text-ink-muted'}`}>{y}</span>
+                    <span className="h-2.5 flex-1 overflow-hidden rounded-full bg-surface-3">
+                      <motion.span
+                        className={`block h-full rounded-full ${active ? 'bg-rose-500' : 'bg-rose-400/50'}`}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${pct}%` }}
+                        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.05 * i }}
+                      />
+                    </span>
+                    <span className={`num w-24 text-right text-xs font-semibold ${active ? 'text-rose-700' : 'text-ink'}`}>{fmt(v)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
+        );
+      })()}
     </div>
   );
 }
