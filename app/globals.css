@@ -7,36 +7,20 @@
 
 html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; overflow-x: hidden; }
 body {
-  background: #f6f8fc; color: #1e293b;
-  font-family: 'Inter', 'Plus Jakarta Sans', 'Noto Sans Bengali', 'Noto Sans Devanagari', system-ui, sans-serif;
-  line-height: 1.5;
-  letter-spacing: -0.006em;
+  background: #f8fafc; color: #1e293b;
+  font-family: 'Inter', 'Noto Sans Bengali', 'Noto Sans Devanagari', system-ui, sans-serif; line-height: 1.5;
   overflow-x: hidden; /* Prevent horizontal scroll on mobile */
   -webkit-tap-highlight-color: transparent;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
 }
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #c7d2fe; border-radius: 8px; }
-::-webkit-scrollbar-thumb:hover { background: #818cf8; }
-::selection { background: rgba(99,102,241,0.22); color: #1e1b4b; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: #f1f5f9; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #eab308; }
+::selection { background: rgba(234,179,8,0.2); }
 
-/* ── Typography scale — premium hierarchy ────────────────── */
-h1, h2, h3, h4 { font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif; }
-.font-display { font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif; letter-spacing: -0.025em; font-weight: 700; }
-.text-display-1 { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-size: clamp(1.9rem, 5vw, 2.6rem); font-weight: 800; letter-spacing: -0.035em; line-height: 1.05; }
-.text-display-2 { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-size: clamp(1.5rem, 4vw, 2rem); font-weight: 700; letter-spacing: -0.03em; line-height: 1.1; }
-.text-eyebrow { font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+.font-display { font-family: inherit; letter-spacing: -0.02em; }
 
-/* Gradient text helper (navy → indigo → cyan) */
-.text-gradient {
-  background: linear-gradient(120deg, #1e1b4b 0%, #4f46e5 55%, #06b6d4 120%);
-  -webkit-background-clip: text; background-clip: text;
-  -webkit-text-fill-color: transparent; color: transparent;
-}
 
 button, a, th, td, label, select, input, .badge, .btn, .tab, .nav-link, .nav-link-active {
   word-break: normal;
@@ -55,64 +39,31 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 /* ── Component layer ─────────────────────────────────────── */
 @layer components {
 
-  /* Cards — layered depth, hairline ring, soft elevation */
-  .card {
-    @apply bg-white rounded-2xl shadow-card;
-    border: 1px solid rgba(15,23,42,0.06);
-  }
-  .card-hover {
-    @apply card cursor-pointer;
-    transition: transform 0.25s cubic-bezier(0.16,1,0.3,1), box-shadow 0.25s cubic-bezier(0.16,1,0.3,1);
-  }
-  .card-hover:hover { @apply shadow-card-hover; transform: translateY(-3px); }
-
-  /* Frosted / glass surface for premium chrome */
-  .glass {
-    background: rgba(255,255,255,0.72);
-    backdrop-filter: saturate(180%) blur(14px);
-    -webkit-backdrop-filter: saturate(180%) blur(14px);
-    border: 1px solid rgba(255,255,255,0.5);
-  }
+  /* Cards */
+  .card { @apply bg-white rounded-2xl shadow-card border border-surface-4; }
+  .card-hover { @apply card transition-shadow hover:shadow-md cursor-pointer; }
 
   /* Buttons — all have minimum touch target */
   .btn {
     @apply inline-flex items-center justify-center gap-2 font-semibold rounded-xl
-           text-sm transition-all duration-200 active:scale-[0.97]
+           text-sm transition-all duration-150 active:scale-95
            disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100;
     min-height: 44px; /* Touch target */
   }
-  .btn-primary {
-    @apply btn px-5 py-2.5 text-white relative overflow-hidden;
-    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 50%, #4338ca 100%);
-    box-shadow: 0 6px 18px rgba(79,70,229,0.32), inset 0 1px 0 rgba(255,255,255,0.18);
-  }
-  .btn-primary:hover:not(:disabled) {
-    background: linear-gradient(135deg, #6d6ff5 0%, #5b53ec 50%, #4a41d6 100%);
-    box-shadow: 0 10px 26px rgba(79,70,229,0.44), inset 0 1px 0 rgba(255,255,255,0.22);
-    transform: translateY(-1px);
-  }
-  .btn-accent {
-    @apply btn px-5 py-2.5 text-navy-900 font-bold;
-    background: linear-gradient(135deg, #67e8f9 0%, #22d3ee 50%, #06b6d4 100%);
-    box-shadow: 0 6px 18px rgba(34,211,238,0.32);
-  }
-  .btn-secondary { @apply btn px-5 py-2.5 bg-white hover:bg-surface-2 text-ink; border: 1px solid rgba(15,23,42,0.10); box-shadow: 0 1px 2px rgba(15,23,42,0.04); }
-  .btn-danger { @apply btn px-5 py-2.5 bg-danger-light hover:bg-rose-100 text-danger border border-danger-border; }
-  .btn-success { @apply btn px-5 py-2.5 bg-success-light hover:bg-emerald-100 text-success border border-success-border; }
+  .btn-primary { @apply btn px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white shadow-sm shadow-brand-500/20; }
+  .btn-secondary { @apply btn px-5 py-2.5 bg-surface-3 hover:bg-surface-4 text-ink border border-surface-4; }
+  .btn-danger { @apply btn px-5 py-2.5 bg-danger-light hover:bg-red-100 text-danger border border-danger-border; }
+  .btn-success { @apply btn px-5 py-2.5 bg-success-light hover:bg-green-100 text-success border border-success-border; }
   .btn-ghost { @apply btn px-4 py-2 text-ink-muted hover:text-ink hover:bg-surface-3; }
   .btn-icon { @apply btn p-2 rounded-xl text-ink-muted hover:text-ink hover:bg-surface-3; min-width: 44px; }
 
-  /* Inputs — soft, glassy, glowing focus */
+  /* Inputs — proper mobile sizing */
   .input {
-    @apply w-full rounded-xl bg-white px-4 py-2.5 text-sm text-ink
-           placeholder-ink-muted/50 transition-all duration-200;
-    border: 1px solid rgba(15,23,42,0.10);
+    @apply w-full rounded-xl border border-surface-4 bg-white px-4 py-2.5 text-sm text-ink
+           placeholder-ink-muted/50 transition-all duration-150
+           focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/15;
     min-height: 44px; /* Touch-friendly */
     font-size: 16px; /* Prevents iOS zoom on focus */
-  }
-  .input:focus {
-    @apply outline-none border-brand-400;
-    box-shadow: 0 0 0 4px rgba(99,102,241,0.14), 0 1px 2px rgba(15,23,42,0.04);
   }
   .label { @apply block text-xs font-semibold text-ink-muted uppercase tracking-wide mb-1.5; }
 
@@ -132,92 +83,68 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 
   .form-section { @apply text-xs font-bold text-ink-muted uppercase tracking-widest mb-3 mt-1; }
 
-  /* Modal — slide up from bottom on mobile (bottom-sheet) */
+  /* Modal — slide up from bottom on mobile */
   .modal-backdrop {
-    @apply fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4;
-    background: rgba(10,15,34,0.45);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    animation: fadeIn 0.25s ease both;
+    @apply fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4
+           bg-ink/40 backdrop-blur-sm;
   }
   .modal-panel {
     @apply bg-white rounded-t-3xl sm:rounded-2xl w-full sm:max-w-lg max-h-[92vh] overflow-y-auto
            shadow-modal;
-    animation: sheetUp 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+    animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
-  /* Bottom-sheet grab handle */
-  .sheet-handle { @apply mx-auto mt-2.5 mb-1 h-1.5 w-11 rounded-full bg-surface-4 sm:hidden; }
 
   /* Table — responsive */
   .tbl { @apply w-full text-sm; }
   .tbl th { @apply text-left text-xs font-semibold text-ink-muted uppercase tracking-wide py-3 px-4 border-b border-surface-4 bg-surface-2; }
   .tbl td { @apply py-3 px-4 border-b border-surface-3 text-ink; }
   .tbl tr:last-child td { @apply border-0; }
-  .tbl tbody tr { transition: background-color 0.15s ease; }
-  .tbl tbody tr:hover td { @apply bg-brand-50/60; }
+  .tbl tbody tr:hover td { @apply bg-surface-2; }
 
   .divider { @apply h-px bg-surface-4 my-6; }
 
-  .nav-link { @apply flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all; min-height: 44px; color: rgba(255,255,255,0.66); }
-  .nav-link:hover { color: #fff; background: rgba(255,255,255,0.08); }
-  .nav-link-active { @apply flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold; min-height: 44px; color: #fff; background: rgba(255,255,255,0.14); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.10); }
+  .nav-link { @apply flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-3 transition-colors; min-height: 44px; }
+  .nav-link-active { @apply nav-link bg-brand-50 text-brand-700 hover:bg-brand-100 hover:text-brand-700; }
 
   .stat-card { @apply card p-5; }
-  /* Numbers — clean tabular figures for ledger-style column alignment. */
+  /* Numbers use a clean-zero SANS stack with tabular figures for ledger-style
+     column alignment. We deliberately avoid `font-mono` / bare `monospace`
+     here: common system mono fallbacks (Consolas, SF Mono, DejaVu Sans Mono)
+     draw a slashed or dotted "0" that reads as a cut / struck-through zero.
+     Every font below renders a plain, fully-visible zero. `zero 0` disables
+     any slashed-zero opentype feature as a further safeguard. */
   .num {
-    font-family: 'Inter', 'DM Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'DM Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     font-variant-numeric: tabular-nums lining-nums;
     font-feature-settings: 'tnum' 1, 'lnum' 1, 'zero' 0;
-    letter-spacing: -0.01em;
   }
 }
 
 /* ── Animations ──────────────────────────────────────────── */
 @keyframes slideUp {
-  from { transform: translateY(18px); opacity: 0; }
+  from { transform: translateY(100%); opacity: 0.5; }
   to { transform: translateY(0); opacity: 1; }
 }
-@keyframes sheetUp {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
-}
 @keyframes scaleIn {
-  from { transform: scale(0.96); opacity: 0; }
+  from { transform: scale(0.9); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
 }
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
 }
-.animate-slide-up { animation: slideUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
-.animate-scale-in { animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
-.animate-fade-in { animation: fadeIn 0.4s ease both; }
-
-/* Honor reduced-motion preference */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-    scroll-behavior: auto !important;
-  }
-}
+.animate-slide-up { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+.animate-scale-in { animation: scaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+.animate-fade-in { animation: fadeIn 0.3s ease; }
 
 /* ── Layout ──────────────────────────────────────────────── */
 .page-bg {
   background:
-    radial-gradient(1100px 560px at -8% -16%, #e0e7ff 0%, transparent 60%),
-    radial-gradient(900px 600px at 112% -8%, #cffafe 0%, transparent 55%),
-    radial-gradient(900px 720px at 50% 124%, #ede9fe 0%, transparent 62%),
-    linear-gradient(135deg, #f5f7ff 0%, #eef2ff 48%, #f0fdff 100%);
-  background-attachment: fixed;
+    radial-gradient(1200px 600px at -10% -20%, #fef3c7 0%, transparent 60%),
+    radial-gradient(900px 600px at 110% -10%, #dbeafe 0%, transparent 60%),
+    radial-gradient(900px 600px at 50% 120%, #ede9fe 0%, transparent 60%),
+    linear-gradient(135deg, #fefce8 0%, #f0f9ff 50%, #faf5ff 100%);
   min-height: 100vh;
-}
-
-/* Deep-navy chrome (nav bars / premium headers) */
-.navy-chrome {
-  background: linear-gradient(120deg, #0f1730 0%, #162041 55%, #1e2a52 100%);
-  color: #fff;
 }
 
 /* Section accent palette — distinct colour per area */
@@ -254,8 +181,9 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 
 @media (max-width: 767px) {
   .modal-panel {
-    border-radius: 1.25rem 1.25rem 0 0 !important;
-    max-height: 94dvh !important;
+    border-radius: 0 !important;
+    max-height: 100dvh !important;
+    height: 100dvh;
   }
 
   .responsive-table-card .data-table,
@@ -285,11 +213,11 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 /* Safe area for bottom nav */
 .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
 
-/* Skeleton loading — indigo-tinted shimmer */
+/* Skeleton loading */
 @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
 .skeleton {
-  background: linear-gradient(90deg, #eef2f9 25%, #e0e7ff 50%, #eef2f9 75%);
-  background-size: 200% 100%; animation: shimmer 1.6s ease-in-out infinite; border-radius: 10px;
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%; animation: shimmer 1.5s ease-in-out infinite; border-radius: 8px;
 }
 
 /* Print */
@@ -318,16 +246,16 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 .text-ink-400, .text-ink-500 { @apply text-ink-muted; }
 .text-ink-600 { @apply text-ink-muted opacity-70; }
 .text-ink-700 { @apply text-ink-muted opacity-50; }
-.text-gold-300 { color: #6366f1; }
-.text-gold-400 { color: #4f46e5; }
-.text-gold-500 { color: #4338ca; }
-.text-jade-400 { color: #059669; }
-.text-jade-500 { color: #047857; }
-.text-crimson-300 { color: #f43f5e; }
-.text-crimson-400 { color: #e11d48; }
-.text-crimson-500 { color: #be123c; }
-.text-sapphire-300 { color: #6366f1; }
-.text-sapphire-400 { color: #4f46e5; }
+.text-gold-300 { color: #a16207; }
+.text-gold-400 { color: #ca8a04; }
+.text-gold-500 { color: #eab308; }
+.text-jade-400 { color: #16a34a; }
+.text-jade-500 { color: #15803d; }
+.text-crimson-300 { color: #ef4444; }
+.text-crimson-400 { color: #dc2626; }
+.text-crimson-500 { color: #b91c1c; }
+.text-sapphire-300 { color: #3b82f6; }
+.text-sapphire-400 { color: #2563eb; }
 .text-slate-200, .text-slate-300 { @apply text-ink; }
 .text-slate-400, .text-slate-500 { @apply text-ink-muted; }
 .text-slate-600, .text-slate-700 { color: #94a3b8; }
