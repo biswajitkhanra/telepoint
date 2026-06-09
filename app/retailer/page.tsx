@@ -304,19 +304,28 @@ export default function RetailerDashboard() {
       <NavBar role="retailer" userName={retailer?.name || 'Retailer'} />
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24">
-        {/* Welcome Banner */}
-        <div className="card p-5 mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="font-display text-2xl font-bold text-ink">
-              Welcome, {retailer?.name || 'Retailer'}
+        {/* Welcome Banner — premium navy gradient */}
+        <motion.div
+          className="relative overflow-hidden rounded-2xl navy-chrome p-5 mb-8 flex items-center justify-between shadow-float"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+        >
+          {/* ambient glow */}
+          <div className="pointer-events-none absolute -top-16 -right-10 h-44 w-44 rounded-full bg-accent-400/20 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-20 -left-10 h-44 w-44 rounded-full bg-brand-400/20 blur-3xl" />
+          <div className="relative">
+            <p className="text-eyebrow text-accent-300 mb-1">Welcome back</p>
+            <h1 className="font-display text-2xl font-extrabold text-white tracking-tight">
+              {retailer?.name || 'Retailer'}
             </h1>
-            <p className="text-ink-muted text-sm mt-0.5">Search your customers to collect EMI payments</p>
+            <p className="text-white/60 text-sm mt-0.5">Search your customers to collect EMI payments</p>
           </div>
-          <div className="text-right">
-            <p className="text-xs text-ink-muted">Today</p>
-            <p className="font-num text-sm text-ink">{format(new Date(), 'd MMM yyyy')}</p>
+          <div className="relative text-right">
+            <p className="text-[11px] text-white/50 uppercase tracking-wide">Today</p>
+            <p className="font-num text-sm font-semibold text-white">{format(new Date(), 'd MMM yyyy')}</p>
           </div>
-        </div>
+        </motion.div>
 
         {/* Consolidated retailer payment summary — top of the page */}
         {retailer && (
@@ -514,11 +523,15 @@ export default function RetailerDashboard() {
         {searchResults === null && (
           <div className="animate-fade-in">
             <div className="flex flex-col items-center justify-center py-16 text-center mb-8">
-              <div className="w-20 h-20 rounded-3xl bg-surface-2 border border-white/[0.05] flex items-center justify-center mb-5">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(232,184,0,0.4)" strokeWidth="1.5">
+              <motion.div
+                className="w-20 h-20 rounded-3xl bg-gradient-to-br from-brand-50 to-accent-50 border border-brand-100 flex items-center justify-center mb-5 shadow-card"
+                animate={{ y: [0, -7, 0] }}
+                transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' }}
+              >
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeOpacity="0.6" strokeWidth="1.6">
                   <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
                 </svg>
-              </div>
+              </motion.div>
               <p className="text-ink-muted text-lg">Search for a customer to begin</p>
               <p className="text-ink-muted text-sm mt-1">Only your own customers are shown</p>
             </div>
