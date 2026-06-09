@@ -20,6 +20,8 @@ import { calculateTotalFineFromEmis } from '@/lib/fineCalc';
 import BottomNav from '@/components/BottomNav';
 import { addDays, subMonths, format, differenceInDays } from 'date-fns';
 import { formatCurrency, formatDateOnly, readJsonSafe } from '@/lib/formatters';
+import { motion } from 'framer-motion';
+import { CountUp } from '@/components/motion';
 
 type Tab = 'search' | 'retailers' | 'reports' | 'analysis' | 'broadcast';
 
@@ -420,7 +422,7 @@ export default function AdminDashboard() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Tab Navigation */}
-        <div className="flex items-center gap-1 mb-8 bg-surface-2 rounded-2xl p-1.5 border border-surface-4 overflow-x-auto" style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}>
+        <div className="flex items-center gap-1 mb-8 glass rounded-2xl p-1.5 overflow-x-auto shadow-card" style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}>
           {([
             { key: 'search', label: '🔍 Search' },
             { key: 'retailers', label: '🏪 Shops' },
@@ -431,11 +433,19 @@ export default function AdminDashboard() {
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 whitespace-nowrap flex-shrink-0 ${
-                tab === t.key ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/20' : 'text-ink-muted hover:text-ink'
+              className={`relative px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors duration-200 whitespace-nowrap flex-shrink-0 z-10 ${
+                tab === t.key ? 'text-white' : 'text-ink-muted hover:text-ink'
               }`}
             >
-              {t.label}
+              {tab === t.key && (
+                <motion.span
+                  layoutId="admin-tab-pill"
+                  className="absolute inset-0 rounded-xl"
+                  style={{ background: 'linear-gradient(135deg,#6366f1,#4f46e5)', boxShadow: '0 6px 18px rgba(79,70,229,0.32)' }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 34 }}
+                />
+              )}
+              <span className="relative">{t.label}</span>
             </button>
           ))}
         </div>
@@ -457,11 +467,15 @@ export default function AdminDashboard() {
 
             {searchResults === null && (
               <div className="flex flex-col items-center justify-center py-20 text-center">
-                <div className="w-20 h-20 rounded-3xl bg-surface-2 border border-surface-4 flex items-center justify-center mb-5">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(232,184,0,0.4)" strokeWidth="1.5">
+                <motion.div
+                  className="w-20 h-20 rounded-3xl bg-gradient-to-br from-brand-50 to-accent-50 border border-brand-100 flex items-center justify-center mb-5 shadow-card"
+                  animate={{ y: [0, -7, 0] }}
+                  transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' }}
+                >
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeOpacity="0.6" strokeWidth="1.6">
                     <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
                   </svg>
-                </div>
+                </motion.div>
                 <p className="text-ink-muted text-lg">Enter name, IMEI, or Aadhaar to search</p>
                 <p className="text-ink-muted text-sm mt-1">Results appear as you type — no button needed</p>
               </div>
@@ -478,7 +492,12 @@ export default function AdminDashboard() {
                 <div className="px-5 py-3 border-b border-surface-4">
                   <span className="text-xs text-ink-muted uppercase tracking-widest">{searchResults.length} customers found — tap a card to view</span>
                 </div>
-                <div className="divide-y divide-surface-3">
+                <motion.div
+                  className="divide-y divide-surface-3"
+                  initial="hidden"
+                  animate="show"
+                  variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.05, delayChildren: 0.03 } } }}
+                >
                   {searchResults.map((c) => {
                     const rowTint =
                       c.status === 'RUNNING'  ? 'hover:bg-emerald-50' :
@@ -499,8 +518,10 @@ export default function AdminDashboard() {
                         ? <span className="badge bg-rose-100 text-rose-800 border border-rose-300">⚠ NPA</span>
                         : <span className="badge bg-sky-100 text-sky-800 border border-sky-300">✓ Complete</span>;
                     return (
-                      <button
+                      <motion.button
                         key={c.id}
+                        variants={{ hidden: { opacity: 0, y: 16, scale: 0.98 }, show: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 380, damping: 30, mass: 0.7 } } }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={() => selectCustomerFn(c)}
                         className={`w-full text-left px-4 py-3.5 border-l-4 ${stripe} ${rowTint} transition-colors flex flex-col gap-2`}
                       >
@@ -517,10 +538,10 @@ export default function AdminDashboard() {
                           <span className="text-ink-muted">Retailer <span className="text-ink">{(c.retailer as Retailer)?.name || '—'}</span></span>
                           <span className="text-ink-muted">EMI/mo <span className="font-num font-bold text-brand-700">{fmt(c.emi_amount)}</span></span>
                         </div>
-                      </button>
+                      </motion.button>
                     );
                   })}
-                </div>
+                </motion.div>
               </div>
             )}
 
@@ -1598,18 +1619,23 @@ function MetricDashboard({
           </button>
         </div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+      <motion.div
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3"
+        initial="hidden"
+        animate="show"
+        variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.07, delayChildren: 0.04 } } }}
+      >
         <MetricCard
           title="LOAN AMOUNT"
           formula="Phone Value − Down Payment"
-          value={fmt(totalLoanValue)}
+          numeric={totalLoanValue}
           colorTheme="bg-emerald-500/10 border-emerald-500 text-emerald-700"
           graphic="trending-up"
         />
         <MetricCard
           title="MARKET DUE"
           formula="EMI Due + Fine Due + 1st EMI Charge"
-          value={fmt(marketDue)}
+          numeric={marketDue}
           colorTheme="bg-amber-500/10 border-amber-500 text-amber-700"
           graphic="progress-ring"
           progress={marketPct}
@@ -1617,14 +1643,14 @@ function MetricDashboard({
         <MetricCard
           title="BTD (Balance To Date)"
           formula="Total Loan Value − Total Collection"
-          value={fmt(btd)}
+          numeric={btd}
           colorTheme="bg-blue-600/10 border-blue-600 text-blue-700"
           graphic="sparkline"
         />
         <MetricCard
           title="COLLECTION"
           formula="EMI + Fine + 1st Charge Collected"
-          value={fmt(totalCollection)}
+          numeric={totalCollection}
           colorTheme="bg-teal-500/10 border-teal-500 text-teal-700"
           graphic="filled-bar"
           progress={collectionPct}
@@ -1632,39 +1658,50 @@ function MetricDashboard({
         <MetricCard
           title="INV / DUE"
           formula="Expected Revenue − Total Collection"
-          value={fmt(invDue)}
+          numeric={invDue}
           colorTheme="bg-rose-600/10 border-rose-600 text-rose-700"
           graphic="alert"
         />
-      </div>
+      </motion.div>
     </div>
   );
 }
 
 function MetricCard({
-  title, formula, value, colorTheme, graphic, progress,
+  title, formula, numeric, colorTheme, graphic, progress,
 }: {
   title: string;
   formula: string;
-  value: string;
+  numeric: number;
   colorTheme: string;
   graphic: 'trending-up' | 'progress-ring' | 'sparkline' | 'filled-bar' | 'alert';
   progress?: number;
 }) {
   return (
-    <div className={`rounded-xl border-2 p-4 ${colorTheme}`}>
+    <motion.div
+      className={`rounded-2xl border-2 p-4 ${colorTheme}`}
+      variants={{ hidden: { opacity: 0, y: 16, scale: 0.97 }, show: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 360, damping: 26 } } }}
+      whileHover={{ y: -4 }}
+    >
       <div className="flex items-start justify-between gap-2">
         <p className="text-[10px] font-bold uppercase tracking-widest">{title}</p>
         <MetricGraphic kind={graphic} progress={progress} />
       </div>
-      <p className="num font-extrabold text-2xl mt-2">{value}</p>
+      <p className="num font-extrabold text-2xl mt-2">
+        <CountUp value={numeric} format={fmt} />
+      </p>
       <p className="text-[10px] opacity-80 mt-1">{formula}</p>
       {typeof progress === 'number' && graphic === 'filled-bar' && (
         <div className="mt-3 h-1.5 bg-white/40 rounded-full overflow-hidden">
-          <div className="h-full bg-current opacity-80" style={{ width: `${progress}%` }} />
+          <motion.div
+            className="h-full bg-current opacity-80"
+            initial={{ width: 0 }}
+            animate={{ width: `${progress}%` }}
+            transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
+          />
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }
 

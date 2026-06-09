@@ -25,7 +25,7 @@ export default async function NOCPage({ params, searchParams }: {
           <p style={{ fontSize:'3rem', margin:'0 0 1rem' }}>🚫</p>
           <h1 style={{ color:'white', fontFamily:'Georgia,serif', marginBottom:'0.5rem' }}>Access Denied</h1>
           <p style={{ color:'#94a3b8', fontSize:'0.875rem' }}>Only Admin can generate NOC/Bill documents.</p>
-          <a href="/admin" style={{ marginTop:'1.5rem', display:'inline-block', color:'#e8b800', fontSize:'0.875rem' }}>← Back to Dashboard</a>
+          <a href="/admin" style={{ marginTop:'1.5rem', display:'inline-block', color:'#4f46e5', fontSize:'0.875rem' }}>← Back to Dashboard</a>
         </div>
       </div>
     );
@@ -55,7 +55,7 @@ export default async function NOCPage({ params, searchParams }: {
             <p style={{ color:'#fca5a5', fontWeight:'600' }}>Fine Due: {fmt(fineDue)}</p>
             <p style={{ color:'rgba(252,165,165,0.6)', fontSize:'0.75rem', marginTop:'0.25rem' }}>Waive or collect the fine first, then generate NOC.</p>
           </div>
-          <a href="/admin" style={{ color:'#e8b800', fontSize:'0.875rem' }}>← Back to Dashboard</a>
+          <a href="/admin" style={{ color:'#4f46e5', fontSize:'0.875rem' }}>← Back to Dashboard</a>
         </div>
       </div>
     );
@@ -83,8 +83,8 @@ export default async function NOCPage({ params, searchParams }: {
         <div style={{ background:'white', border:'2px solid #1e293b', borderRadius:'0.5rem', boxShadow:'0 8px 32px rgba(0,0,0,0.12)' }}>
 
           {/* Letterhead */}
-          <div style={{ background:'#1e293b', padding:'2rem', textAlign:'center', borderBottom:'3px solid #e8b800' }}>
-            <h1 style={{ color:'#e8b800', fontSize:'2.2rem', fontWeight:'bold', margin:'0', letterSpacing:'0.12em' }}>TELEPOINT</h1>
+          <div style={{ background:'#1e293b', padding:'2rem', textAlign:'center', borderBottom:'3px solid #67e8f9' }}>
+            <h1 style={{ color:'#67e8f9', fontSize:'2.2rem', fontWeight:'bold', margin:'0', letterSpacing:'0.12em' }}>TELEPOINT</h1>
             <p style={{ color:'#94a3b8', fontSize:'0.75rem', marginTop:'0.25rem', letterSpacing:'0.1em' }}>EMI MANAGEMENT PORTAL · BISWAJIT POINT</p>
           </div>
 
