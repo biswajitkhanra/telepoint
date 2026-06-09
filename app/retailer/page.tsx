@@ -2,6 +2,7 @@
 export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import { Customer, Retailer, EMISchedule, DueBreakdown, PaymentRequest } from '@/lib/types';
 import NavBar from '@/components/NavBar';
@@ -18,6 +19,7 @@ import { format, differenceInDays } from 'date-fns';
 import Link from 'next/link';
 import { calculateTotalFineFromEmis } from '@/lib/fineCalc';
 import BottomNav from '@/components/BottomNav';
+import UpcomingEmiWidget from '@/components/UpcomingEmiWidget';
 
 function fmt(n: number) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(n);
@@ -25,7 +27,9 @@ function fmt(n: number) {
 
 interface UpcomingRow {
   customer_id: string; customer_name: string; mobile: string; imei: string;
+  customer_photo_url: string | null;
   due_date: string; emi_no: number; emi_amount: number; remaining_balance: number;
+  days_remaining: number;
 }
 interface DueRow {
   customer_id: string; customer_name: string; mobile: string; imei: string;
@@ -413,7 +417,7 @@ export default function RetailerDashboard() {
                 onClick={() => loadLists('upcoming')}
                 className={activeList === 'upcoming' ? 'btn-primary text-sm' : 'btn-secondary text-sm'}
               >
-                🔔 Upcoming EMI
+                🔔 Upcoming (Next 5 Days){upcoming && upcoming.length > 0 ? ` (${upcoming.length})` : ''}
               </button>
               <button
                 onClick={() => loadLists('due')}
@@ -427,54 +431,31 @@ export default function RetailerDashboard() {
             </div>
 
             {listsLoading && (
-              <div className="card px-5 py-6 mb-6 text-ink-muted text-sm text-center animate-fade-in">Loading…</div>
+              <div className="card overflow-hidden mb-6 animate-fade-in">
+                <div className="px-5 py-3 border-b border-surface-4">
+                  <div className="skeleton h-4 w-48" />
+                </div>
+                <div className="divide-y divide-surface-3">
+                  {[0, 1, 2].map(i => (
+                    <div key={i} className="flex items-center gap-3 px-5 py-3.5">
+                      <div className="skeleton h-12 w-12 rounded-2xl" />
+                      <div className="flex-1 space-y-2">
+                        <div className="skeleton h-3.5 w-1/3" />
+                        <div className="skeleton h-3 w-1/2" />
+                      </div>
+                      <div className="skeleton h-6 w-20 rounded-full" />
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
 
-            {/* ── UPCOMING EMI ─────────────────────────────────────────────── */}
+            {/* ── UPCOMING EMI (Next 5 Days) — premium animated widget ─────── */}
             {!listsLoading && activeList === 'upcoming' && upcoming !== null && (
-              <div className="card overflow-hidden mb-6 animate-fade-in">
-                <div className="px-5 py-3 border-b border-white/[0.05] flex items-center justify-between">
-                  <span className="text-sm font-semibold text-ink">🔔 Upcoming EMI — sorted by nearest due date</span>
-                  <span className="text-xs text-ink-muted">{upcoming.length} customer{upcoming.length === 1 ? '' : 's'}</span>
-                </div>
-                {upcoming.length === 0 ? (
-                  <div className="px-5 py-6 text-ink-muted text-sm text-center">No upcoming EMIs 🎉</div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="data-table text-xs sm:text-sm">
-                      <thead>
-                        <tr>
-                          <th>Customer</th><th>Customer ID</th><th>Mobile</th>
-                          <th>Due Date</th><th>EMI Amount</th><th>Remaining Balance</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {upcoming.map(u => {
-                          const daysLeft = Math.ceil((new Date(u.due_date).getTime() - Date.now()) / 86400000);
-                          return (
-                            <tr
-                              key={u.customer_id}
-                              onClick={() => openCustomerById(u.customer_id, 'upcoming')}
-                              className="cursor-pointer hover:bg-brand-50 transition-colors"
-                              title="Open EMI details"
-                            >
-                              <td><p className="text-ink font-medium">{u.customer_name}</p></td>
-                              <td><span className="font-num text-xs text-ink-muted" title={u.customer_id}>{shortId(u.customer_id)}</span></td>
-                              <td><span className="font-num text-ink-muted">{u.mobile || '—'}</span></td>
-                              <td>
-                                <p className="text-xs font-num font-semibold text-warning">{format(new Date(u.due_date), 'd MMM yyyy')}</p>
-                                <p className="text-xs text-ink-muted">{daysLeft <= 0 ? 'Today' : `${daysLeft}d left`}</p>
-                              </td>
-                              <td><span className="font-num text-brand-600">{fmt(u.emi_amount)}</span></td>
-                              <td><span className="font-num text-ink">{fmt(u.remaining_balance)}</span></td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
+              <UpcomingEmiWidget
+                rows={upcoming}
+                onOpen={id => openCustomerById(id, 'upcoming')}
+              />
             )}
 
             {/* ── SHOW DUE (overdue customers, combined per customer) ───────── */}
@@ -596,7 +577,12 @@ export default function RetailerDashboard() {
             <div className="px-5 py-3 border-b border-white/[0.05]">
               <span className="text-xs text-ink-muted uppercase tracking-widest">{searchResults.length} customers found — tap a card to view</span>
             </div>
-            <div className="divide-y divide-surface-3">
+            <motion.div
+              className="divide-y divide-surface-3"
+              initial="hidden"
+              animate="show"
+              variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.05, delayChildren: 0.03 } } }}
+            >
               {searchResults.map(c => {
                 const rowTint =
                   c.status === 'RUNNING'  ? 'hover:bg-emerald-50' :
@@ -617,8 +603,10 @@ export default function RetailerDashboard() {
                     ? <span className="badge bg-rose-100 text-rose-800 border border-rose-300">⚠ NPA</span>
                     : <span className="badge bg-sky-100 text-sky-800 border border-sky-300">✓ Complete</span>;
                 return (
-                  <button
+                  <motion.button
                     key={c.id}
+                    variants={{ hidden: { opacity: 0, y: 16, scale: 0.98 }, show: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 380, damping: 30, mass: 0.7 } } }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => selectCustomer(c)}
                     className={`w-full text-left px-4 py-3.5 border-l-4 ${stripe} ${rowTint} transition-colors flex flex-col gap-2`}
                   >
@@ -634,10 +622,10 @@ export default function RetailerDashboard() {
                       <span className="text-ink-muted">Mobile <span className="font-num text-ink">{c.mobile || '—'}</span></span>
                       <span className="text-ink-muted">EMI <span className="font-num font-bold text-brand-700">{fmt(c.emi_amount)}</span></span>
                     </div>
-                  </button>
+                  </motion.button>
                 );
               })}
-            </div>
+            </motion.div>
           </div>
         )}
 
