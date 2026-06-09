@@ -2,6 +2,9 @@
 
 import { DueBreakdown } from '@/lib/types';
 import { format, addDays, differenceInDays } from 'date-fns';
+import { motion } from 'framer-motion';
+import CountUp from '@/components/motion/CountUp';
+import { SPRING, fadeUp } from '@/lib/motion';
 
 function fmt(n: number) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(n);
@@ -17,8 +20,11 @@ export default function DueBreakdownPanel({ breakdown }: { breakdown: DueBreakdo
     : 0;
 
   return (
-    <div className="card overflow-hidden border-l-4 border-brand-500 bg-gradient-to-br from-brand-50 via-white to-white shadow-md">
-      <div className="px-5 py-3 bg-gradient-to-r from-brand-500 to-amber-500 text-white">
+    <motion.div
+      className="card overflow-hidden border-l-4 border-brand-500 bg-gradient-to-br from-brand-50 via-white to-white shadow-md"
+      variants={fadeUp} initial="hidden" animate="show"
+    >
+      <div className="px-5 py-3 bg-gradient-to-r from-brand-500 to-amber-500 text-white sheen-track">
         <p className="text-[11px] font-bold uppercase tracking-widest">Next Payment Due</p>
       </div>
       <div className="p-5 space-y-2.5">
@@ -45,10 +51,15 @@ export default function DueBreakdownPanel({ breakdown }: { breakdown: DueBreakdo
           <Row label="✓ Late Fine" value={fmt(0)} tint="emerald" />
         )}
         <div className="h-px bg-surface-4 my-1" />
-        <div className="flex justify-between items-center rounded-xl px-3 py-2 bg-gradient-to-r from-brand-100 to-amber-100 border border-brand-300">
+        <motion.div
+          className="flex justify-between items-center rounded-xl px-3 py-2 bg-gradient-to-r from-brand-100 to-amber-100 border border-brand-300"
+          initial={{ scale: 0.96, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ ...SPRING, delay: 0.15 }}
+        >
           <span className="font-bold text-ink text-base">Total Payable</span>
-          <span className="num font-bold text-2xl text-brand-700">{fmt(breakdown.total_payable)}</span>
-        </div>
+          <CountUp value={breakdown.total_payable} format={fmt} className="num font-bold text-2xl text-brand-700" />
+        </motion.div>
         {dueDate && (
           <div className="space-y-0.5">
             <p className={`text-xs font-semibold ${breakdown.is_overdue ? 'text-rose-700' : 'text-ink-muted'}`}>
@@ -63,7 +74,7 @@ export default function DueBreakdownPanel({ breakdown }: { breakdown: DueBreakdo
           </div>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }
 

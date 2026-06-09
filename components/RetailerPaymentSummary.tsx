@@ -14,6 +14,15 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { formatCurrency } from '@/lib/formatters';
+import { motion } from 'framer-motion';
+import CountUp from '@/components/motion/CountUp';
+import { SPRING, fadeUp, staggerContainer } from '@/lib/motion';
+
+// Per-tile entrance for the metric grids.
+const tileItem = {
+  hidden: { opacity: 0, y: 16, scale: 0.97 },
+  show: { opacity: 1, y: 0, scale: 1, transition: SPRING },
+};
 
 interface Props {
   retailerId: string;
@@ -92,49 +101,67 @@ export default function RetailerPaymentSummary({ retailerId, retailerName, baseF
     : 0;
 
   return (
-    <div className="card overflow-hidden border-l-4 border-brand-500 shadow-md">
-      <div className="bg-gradient-to-r from-brand-600 via-amber-500 to-rose-500 text-white px-5 py-3 flex items-center justify-between">
+    <motion.div
+      className="card overflow-hidden border-l-4 border-brand-500 shadow-md"
+      variants={fadeUp} initial="hidden" animate="show"
+    >
+      <div className="bg-gradient-to-r from-brand-600 via-amber-500 to-rose-500 text-white px-5 py-3 flex items-center justify-between sheen-track">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-widest text-white/80">Retailer Collection Summary</p>
           <p className="text-sm font-bold mt-0.5">{retailerName || 'My Portfolio'}</p>
         </div>
         <div className="text-right">
           <p className="text-[10px] text-white/80 uppercase">Active Loans</p>
-          <p className="num text-xl font-extrabold">{t.runningCount}/{t.customerCount}</p>
+          <p className="num text-xl font-extrabold">
+            <CountUp value={t.runningCount} duration={0.8} />/{t.customerCount}
+          </p>
         </div>
-        <button onClick={load} className="text-[10px] underline underline-offset-2 ml-3">
+        <motion.button
+          onClick={load} whileHover={{ rotate: 90 }} whileTap={{ scale: 0.85 }}
+          className="text-[10px] underline underline-offset-2 ml-3"
+        >
           {loading ? '…' : '↻'}
-        </button>
+        </motion.button>
       </div>
 
-      <div className={`grid grid-cols-2 ${hideLoanAmount ? 'md:grid-cols-3' : 'md:grid-cols-4'} gap-px bg-surface-4`}>
+      <motion.div
+        className={`grid grid-cols-2 ${hideLoanAmount ? 'md:grid-cols-3' : 'md:grid-cols-4'} gap-px bg-surface-4`}
+        variants={staggerContainer(0.07, 0.05)} initial="hidden" animate="show"
+      >
         {!hideLoanAmount && (
           <Tile tint="violet" emoji="💰" label="Loan Book" value={fmt(t.loanAmount)} sub="Total disbursed (active)" />
         )}
         <Tile tint="emerald" emoji="✓" label="Collected" value={fmt(totalRevenueCollected)} sub="EMI + Fines + 1st Charge" />
         <Tile tint={t.emiDue > 0 ? 'rose' : 'emerald'} emoji="⏳" label="EMI Due" value={fmt(t.emiDue)} sub={`${t.overdueCustomers} customer${t.overdueCustomers === 1 ? '' : 's'} overdue`} />
         <Tile tint={t.fineDue > 0 ? 'rose' : 'emerald'} emoji="⚠" label="Fine Due" value={fmt(t.fineDue)} sub={`Paid ${fmt(t.fineCollected)} so far`} />
-      </div>
+      </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-surface-4">
+      <motion.div
+        className="grid grid-cols-1 md:grid-cols-3 gap-px bg-surface-4"
+        variants={staggerContainer(0.07, 0.05)} initial="hidden" animate="show"
+      >
         <Tile tint="amber" emoji="⭐" label="1st Charge Due" value={fmt(t.firstChargeDue)} sub="Pending one-time charge" />
         <Tile tint="indigo" emoji="📅" label="Next 30 Days" value={fmt(t.upcoming30d)} sub="Upcoming collections" />
         <Tile tint="sky" emoji="📊" label="Collection %" value={`${collectionPct}%`} sub="Revenue captured" />
-      </div>
+      </motion.div>
 
       <div className="px-5 py-3 bg-white">
         <div className="flex justify-between items-end mb-2">
           <p className="text-[11px] uppercase tracking-widest text-ink-muted font-semibold">Portfolio Health</p>
-          <p className="num text-sm font-bold text-emerald-700">{collectionPct}%</p>
+          <p className="num text-sm font-bold text-emerald-700">
+            <CountUp value={collectionPct} format={(n) => `${Math.round(n)}%`} duration={0.9} />
+          </p>
         </div>
         <div className="h-2.5 bg-surface-4 rounded-full overflow-hidden">
-          <div
-            className="h-full rounded-full transition-all duration-700 bg-gradient-to-r from-emerald-500 via-amber-500 to-rose-500"
-            style={{ width: `${collectionPct}%` }}
+          <motion.div
+            className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-amber-500 to-rose-500"
+            initial={{ width: 0 }}
+            animate={{ width: `${collectionPct}%` }}
+            transition={{ duration: 1, ease: [0.16, 1, 0.3, 1], delay: 0.15 }}
           />
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -155,12 +182,12 @@ function Tile({ tint, emoji, label, value, sub }: {
     emerald: 'text-emerald-900', sky: 'text-sky-900', rose: 'text-rose-900',
   };
   return (
-    <div className={`${bg[tint]} px-4 py-3`}>
+    <motion.div variants={tileItem} className={`${bg[tint]} px-4 py-3`}>
       <p className={`text-[10px] ${label$[tint]} uppercase tracking-wide font-bold flex items-center gap-1`}>
         <span>{emoji}</span> {label}
       </p>
       <p className={`num font-bold text-lg ${value$[tint]} mt-1`}>{value}</p>
       {sub && <p className={`text-[10px] ${label$[tint]} opacity-80 mt-0.5`}>{sub}</p>}
-    </div>
+    </motion.div>
   );
 }

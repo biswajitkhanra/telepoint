@@ -2,6 +2,8 @@
 import { EMISchedule } from '@/lib/types';
 import { getPerEmiFineBreakdown } from '@/lib/fineCalc';
 import { format } from 'date-fns';
+import { motion } from 'framer-motion';
+import { SPRING, backdrop, modalPanel } from '@/lib/motion';
 
 function fmt(n: number) { return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(n); }
 
@@ -12,8 +14,14 @@ export default function FineSummaryPanel({
   const totalRemaining = rows.reduce((s, r) => s + r.remaining, 0);
   const totalPaid = rows.reduce((s, r) => s + r.paid, 0);
   return (
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal-panel">
+    <motion.div
+      className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}
+      variants={backdrop} initial="hidden" animate="show" exit="exit"
+    >
+      <motion.div
+        className="modal-panel" style={{ animation: 'none' }}
+        variants={modalPanel} initial="hidden" animate="show" exit="exit"
+      >
         <div className="sticky top-0 z-10 bg-white border-b border-surface-4 px-5 py-4 flex items-center justify-between">
           <h2 className="font-bold text-ink text-lg">⚠️ Fine Summary</h2>
           <button onClick={onClose} className="btn-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
@@ -29,10 +37,14 @@ export default function FineSummaryPanel({
               </div>
               {totalPaid > 0 && <div className="flex justify-between text-sm"><span className="text-success">Total Paid</span><span className="num text-success font-medium">{fmt(totalPaid)}</span></div>}
             </div>
-            {rows.map(r => {
+            {rows.map((r, i) => {
               const emi = emis.find(e => e.emi_no === r.emi_no);
               return (
-              <div key={r.emi_no} className="card bg-surface-2 p-4 space-y-2">
+              <motion.div
+                key={r.emi_no} className="card bg-surface-2 p-4 space-y-2"
+                initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ ...SPRING, delay: 0.08 + i * 0.05 }}
+              >
                 <div className="flex justify-between">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-semibold text-ink">EMI #{r.emi_no}</span>
@@ -60,7 +72,7 @@ export default function FineSummaryPanel({
                   )}
                 </>)}
                 <div className="flex justify-between text-sm font-bold"><span className="text-danger">Remaining</span><span className="num text-danger">{fmt(r.remaining)}</span></div>
-              </div>
+              </motion.div>
             );})}
             <div className="card bg-surface-2 p-4 text-xs text-ink-muted space-y-1">
               <p className="font-bold uppercase tracking-widest mb-1">How Fine Works</p>
@@ -74,7 +86,7 @@ export default function FineSummaryPanel({
           </>)}
           <button onClick={onClose} className="btn-secondary w-full py-3">Close</button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

@@ -2,6 +2,7 @@
 export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { Customer, EMISchedule, DueBreakdown } from '@/lib/types';
 import { format, differenceInDays } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -10,6 +11,7 @@ import { toISTDateString } from '@/lib/ist';
 import BroadcastAnimator from '@/components/BroadcastAnimator';
 import SmartAlertPopup from '@/components/SmartAlertPopup';
 import { formatCurrency, formatDateOnly, readJsonSafe } from '@/lib/formatters';
+import { SPRING, fadeUp, popIn, staggerContainer, rowItem } from '@/lib/motion';
 
 const SESSION_KEY = 'emi_customer_session';
 const TOKEN_KEY = 'emi_app_token';
@@ -490,7 +492,12 @@ export default function CustomerPortal() {
   return (
     <div className="min-h-screen page-bg">
       {/* Navbar */}
-      <nav className="sticky top-0 z-40 border-b border-surface-4 bg-white/90 backdrop-blur-md">
+      <motion.nav
+        className="sticky top-0 z-40 border-b border-surface-4 bg-white/90 backdrop-blur-md"
+        initial={{ y: -24, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={SPRING}
+      >
         <div className="max-w-md mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-lg bg-sapphire-500/15 border border-sapphire-500/20 flex items-center justify-center">
@@ -528,19 +535,24 @@ export default function CustomerPortal() {
             </button>
           </div>
         </div>
-      </nav>
+      </motion.nav>
 
-      <div className="max-w-2xl mx-auto px-4 py-8 space-y-5 pb-32">
+      <motion.div
+        className="max-w-2xl mx-auto px-4 py-8 space-y-5 pb-32"
+        variants={staggerContainer(0.1, 0.05)}
+        initial="hidden"
+        animate="show"
+      >
 
         {/* Install App Prompt — shows on mobile when token-based and not installed as PWA */}
         {typeof window !== 'undefined' && localStorage.getItem(TOKEN_KEY) && !window.matchMedia('(display-mode: standalone)').matches && (
-          <div className="card p-4 flex items-center gap-3 animate-fade-in" style={{ background: 'linear-gradient(135deg, #dbeafe, #eff6ff)', border: '2px solid #93c5fd' }}>
+          <motion.div variants={fadeUp} className="card p-4 flex items-center gap-3" style={{ background: 'linear-gradient(135deg, #dbeafe, #eff6ff)', border: '2px solid #93c5fd' }}>
             <span className="text-3xl">📱</span>
             <div className="flex-1">
               <p className="font-bold text-sm text-blue-900">Install TelePoint App</p>
               <p className="text-xs text-blue-700 mt-0.5">Tap the menu button (⋮ or □↑) in your browser and select <strong>&quot;Add to Home Screen&quot;</strong> for quick access.</p>
             </div>
-          </div>
+          </motion.div>
         )}
 
                 {/* Phase 6: Animated Broadcasts */}
@@ -557,9 +569,9 @@ export default function CustomerPortal() {
 
         {/* 1st EMI Charge alert */}
         {breakdown?.popup_first_emi_charge && (
-          <div className="alert-gold animate-fade-in">
+          <motion.div variants={popIn} className="alert-gold">
             <div className="flex items-center gap-3">
-              <span className="text-2xl">⚠️</span>
+              <motion.span className="text-2xl" animate={{ rotate: [0, -12, 12, 0] }} transition={{ duration: 1.4, repeat: Infinity, repeatDelay: 2 }}>⚠️</motion.span>
               <div>
                 <p className="text-gold-300 font-semibold">1st EMI Charge Pending</p>
                 <p className="text-gold-400/70 text-sm mt-0.5">
@@ -567,14 +579,14 @@ export default function CustomerPortal() {
                 </p>
               </div>
             </div>
-          </div>
+          </motion.div>
         )}
 
         {/* Fine alert */}
         {breakdown?.popup_fine_due && (
-          <div className="alert-red animate-fade-in">
+          <motion.div variants={popIn} className="alert-red">
             <div className="flex items-center gap-3">
-              <span className="text-2xl">🔴</span>
+              <motion.span className="text-2xl" animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 1.2, repeat: Infinity }}>🔴</motion.span>
               <div>
                 <p className="text-crimson-300 font-semibold">Late Fine Due</p>
                 <p className="text-crimson-400/70 text-sm mt-0.5">
@@ -582,27 +594,36 @@ export default function CustomerPortal() {
                 </p>
               </div>
             </div>
-          </div>
+          </motion.div>
         )}
 
         {/* Profile card */}
-        <div className="card overflow-hidden">
+        <motion.div variants={fadeUp} className="card overflow-hidden">
           <div className="flex items-start gap-4 p-5">
-            <div className="w-20 h-20 rounded-2xl border border-surface-4 flex-shrink-0 relative overflow-hidden">
+            <motion.div
+              className="w-20 h-20 rounded-2xl border border-surface-4 flex-shrink-0 relative overflow-hidden"
+              initial={{ scale: 0.6, opacity: 0, rotate: -8 }}
+              animate={{ scale: 1, opacity: 1, rotate: 0 }}
+              transition={{ ...SPRING, delay: 0.15 }}
+              whileHover={{ scale: 1.06, rotate: 1 }}
+            >
               <div className="absolute inset-0 bg-amber-50 flex items-center justify-center">
                 <span className="text-3xl font-bold text-amber-400 font-display select-none leading-none">
                   {customer?.customer_name?.[0]?.toUpperCase() ?? '?'}
                 </span>
               </div>
               {customer?.customer_photo_url && (
-                <img
+                <motion.img
                   src={ibbDirect(customer.customer_photo_url)}
                   alt="Photo"
                   className="absolute inset-0 w-full h-full object-cover"
+                  initial={{ scale: 1.25, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                 />
               )}
-            </div>
+            </motion.div>
             <div className="flex-1 min-w-0">
               <h2 className="font-display text-2xl font-bold text-ink">{customer?.customer_name}</h2>
               {customer?.father_name && <p className="text-slate-500 text-sm">C/O {customer.father_name}</p>}
@@ -622,10 +643,10 @@ export default function CustomerPortal() {
             <Field label="Down Payment" value={fmt(customer?.down_payment || 0)} mono />
             {customer?.disburse_amount != null && <Field label="Financed" value={fmt(customer.disburse_amount)} mono />}
           </div>
-        </div>
+        </motion.div>
 
         {/* EMI Plan */}
-        <div className="card overflow-hidden">
+        <motion.div variants={fadeUp} className="card overflow-hidden">
           <div className="px-5 py-3 border-b border-surface-4 flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">My EMI Plan</span>
             <div className="flex items-center gap-2 text-xs">
@@ -641,20 +662,27 @@ export default function CustomerPortal() {
               <span className="font-num">{fmt(customer?.emi_amount || 0)} / month</span>
             </div>
             <div className="h-2 bg-surface-3 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-jade-500 to-jade-400 rounded-full transition-all duration-700"
-                style={{ width: `${sortedEmis.length > 0 ? (paidEmis.length / sortedEmis.length) * 100 : 0}%` }}
+              <motion.div
+                className="h-full bg-gradient-to-r from-jade-500 to-jade-400 rounded-full"
+                initial={{ width: 0 }}
+                animate={{ width: `${sortedEmis.length > 0 ? (paidEmis.length / sortedEmis.length) * 100 : 0}%` }}
+                transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
               />
             </div>
           </div>
 
-          <div className="p-3 space-y-2.5">
+          <motion.div
+            className="p-3 space-y-2.5"
+            variants={staggerContainer(0.05, 0.05)}
+            initial="hidden"
+            animate="show"
+          >
             {sortedEmis.map(emi => {
               const isOverdue = ['UNPAID', 'PARTIALLY_PAID'].includes(emi.status) && new Date(emi.due_date) < new Date();
               const daysLeft = differenceInDays(new Date(emi.due_date), new Date());
               const isUpcoming = ['UNPAID', 'PARTIALLY_PAID'].includes(emi.status) && daysLeft >= 0 && daysLeft <= 5;
               return (
-                <div key={emi.id} className={`flex items-center justify-between px-4 py-3.5 rounded-xl border ${
+                <motion.div key={emi.id} variants={rowItem} whileHover={{ scale: 1.01, x: 2 }} className={`flex items-center justify-between px-4 py-3.5 rounded-xl border ${
                   emi.status === 'APPROVED' ? 'bg-jade-500/5 border-jade-500/30' :
                   isOverdue ? 'bg-crimson-500/5 border-crimson-500/40' :
                   isUpcoming ? 'bg-yellow-50/40 border-yellow-400/50' :
@@ -690,18 +718,18 @@ export default function CustomerPortal() {
                       {emi.status === 'UNPAID' && <span className="text-[10px] text-slate-500 font-semibold">UNPAID</span>}
                     </div>
                   </div>
-                </div>
+                </motion.div>
               );
             })}
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
 
         {/* Due summary */}
                 {/* Due summary with auto-calculated fine */}
         {(() => {
           const totalDue = dueSummary.totalDue;
           return totalDue > 0 ? (
-            <div className="card p-5">
+            <motion.div variants={fadeUp} className="card p-5">
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-4">Next Payment Due</p>
               <div className="space-y-2.5">
                 {dueSummary.emiDue > 0 && <div className="flex justify-between text-sm"><span className="text-slate-400">{dueSummary.dueEmiNos.length > 1 ? `EMI #${dueSummary.dueEmiNos.join(', #')}` : `EMI #${dueSummary.nextEmiNo || breakdown?.next_emi_no}`}</span><span className="font-num text-ink">{fmt(dueSummary.emiDue)}</span></div>}
@@ -720,7 +748,7 @@ export default function CustomerPortal() {
               <p className="text-[11px] text-slate-600 mt-2 leading-relaxed">
                 Pay using any UPI app. Status updates after verification.
               </p>
-            </div>
+            </motion.div>
           ) : null;
         })()}
 
@@ -729,7 +757,7 @@ export default function CustomerPortal() {
           const fb = getPerEmiFineBreakdown(sortedEmis);
           if (!fb.length) return null;
           return (
-            <div className="card overflow-hidden">
+            <motion.div variants={fadeUp} className="card overflow-hidden">
               <div className="px-5 py-3 border-b border-surface-4"><span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">⚠️ Fine Details</span></div>
               <div className="divide-y divide-white/[0.03]">
                 {fb.sort((a, b) => a.emi_no - b.emi_no).map(r => (
@@ -743,7 +771,7 @@ export default function CustomerPortal() {
                 ))}
               </div>
               <div className="px-5 py-3 border-t border-surface-4"><p className="text-[11px] text-slate-600">₹450 base + ₹25/week until paid. Contact retailer.</p></div>
-            </div>
+            </motion.div>
           );
         })()}
 
@@ -766,7 +794,7 @@ export default function CustomerPortal() {
             });
           if (!fineRows.length) return null;
           return (
-            <div className="card overflow-hidden">
+            <motion.div variants={fadeUp} className="card overflow-hidden">
               <div className="px-5 py-3 border-b border-surface-4">
                 <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">🧾 Fine History</span>
               </div>
@@ -786,13 +814,13 @@ export default function CustomerPortal() {
                   </div>
                 ))}
               </div>
-            </div>
+            </motion.div>
           );
         })()}
 
         {/* 1st EMI Charge status */}
         {(customer?.first_emi_charge_amount || 0) > 0 && (
-          <div className={`glass-card p-4 flex items-center justify-between ${customer?.first_emi_charge_paid_at ? 'border-jade-500/20' : 'border-gold-500/20'}`}>
+          <motion.div variants={fadeUp} className={`glass-card p-4 flex items-center justify-between ${customer?.first_emi_charge_paid_at ? 'border-jade-500/20' : 'border-gold-500/20'}`}>
             <div>
               <p className="text-xs text-slate-500 mb-0.5">1st EMI Charge</p>
               <p className="font-num font-semibold text-ink">{fmt(customer?.first_emi_charge_amount || 0)}</p>
@@ -802,7 +830,7 @@ export default function CustomerPortal() {
             ) : (
               <span className="badge-pending">⚠ Pending</span>
             )}
-          </div>
+          </motion.div>
         )}
 
         {/* Payment Summary — Full Transparency */}
@@ -814,7 +842,7 @@ export default function CustomerPortal() {
           const totalFinePaid = sortedEmis.reduce((s, e) => s + Number(e.fine_paid_amount || 0), 0);
           const totalFineRemaining = Math.max(0, totalFineAccrued - totalFinePaid);
           return (
-            <div className="card overflow-hidden">
+            <motion.div variants={fadeUp} className="card overflow-hidden">
               <div className="px-5 py-3 border-b border-surface-4 bg-surface-2"><span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Payment Summary</span></div>
               <div className="grid gap-3 p-5 sm:grid-cols-2">
                 <div className="rounded-2xl border border-surface-4 bg-surface-2 p-4">
@@ -851,7 +879,7 @@ export default function CustomerPortal() {
                   </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
           );
         })()}
 
@@ -860,7 +888,7 @@ export default function CustomerPortal() {
           const paidEmis = sortedEmis.filter(e => e.status === 'APPROVED' && e.paid_at);
           if (!paidEmis.length) return null;
           return (
-            <div className="card overflow-hidden">
+            <motion.div variants={fadeUp} className="card overflow-hidden">
               <div className="px-5 py-3 border-b border-surface-4"><span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">📅 Payment History</span></div>
               <div className="divide-y divide-white/[0.03]">
                 {paidEmis.map(e => (
@@ -887,11 +915,11 @@ export default function CustomerPortal() {
                   </div>
                 ))}
               </div>
-            </div>
+            </motion.div>
           );
         })()}
 
-        <div className="card overflow-hidden">
+        <motion.div variants={fadeUp} className="card overflow-hidden">
           <div className="px-5 py-3 border-b border-surface-4" style={{ background: 'linear-gradient(135deg, #fef3c7, #fff7ed)' }}>
             <span className="text-xs font-bold text-amber-700 uppercase tracking-widest">IMPORTANT NOTE ( নিয়মাবলী )</span>
           </div>
@@ -909,9 +937,9 @@ export default function CustomerPortal() {
               <li>ফোন ভেঙে যাওয়া, জলে পড়ে যাওয়া, - এগুলো হলে কোন Guarantee / Warranty পাওয়া যায় না।</li>
             </ol>
           </div>
-        </div>
-        <p className="text-center text-xs text-slate-700 pb-4">Read-only view · TelePoint EMI Portal</p>
-      </div>
+        </motion.div>
+        <motion.p variants={fadeUp} className="text-center text-xs text-slate-700 pb-4">Read-only view · TelePoint EMI Portal</motion.p>
+      </motion.div>
 
       {/* Fixed pay bar — always present at the bottom so the customer can pay from anywhere on the page */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-surface-4 bg-white/95 backdrop-blur-md" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>

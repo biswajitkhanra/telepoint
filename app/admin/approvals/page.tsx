@@ -2,6 +2,7 @@
 export const dynamic = 'force-dynamic';
 
 import { useState, useCallback, useRef, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import { PaymentRequest } from '@/lib/types';
 import NavBar from '@/components/NavBar';
@@ -10,6 +11,7 @@ import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import Link from 'next/link';
 import { formatCurrency, readJsonSafe, toDateTimeLocalInput, fromDateTimeLocalInput } from '@/lib/formatters';
+import { SPRING, backdrop, modalPanel } from '@/lib/motion';
 
 const fmt = formatCurrency;
 
@@ -327,7 +329,8 @@ export default function ApprovalsPage() {
         {/* Request list */}
         {requests !== null && requests.length > 0 && (
           <div className="space-y-4">
-            {requests.map(req => {
+            <AnimatePresence>
+            {requests.map((req, i) => {
               const customer = req.customer as {
                 customer_name?: string; imei?: string; mobile?: string;
                 first_emi_charge_amount?: number; first_emi_charge_paid_at?: string;
@@ -337,9 +340,13 @@ export default function ApprovalsPage() {
               const isActioning = actionLoading === req.id;
 
               return (
-                <div
+                <motion.div
                   key={req.id}
-                  className={`card p-5 animate-fade-in transition-opacity ${isActioning ? 'opacity-60 pointer-events-none' : ''}`}
+                  initial={{ opacity: 0, y: 24, scale: 0.98 }}
+                  animate={{ opacity: isActioning ? 0.6 : 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, x: -60, scale: 0.95, transition: { duration: 0.3 } }}
+                  transition={{ ...SPRING, delay: Math.min(i * 0.05, 0.4) }}
+                  className={`card p-5 ${isActioning ? 'pointer-events-none' : ''}`}
                 >
                   {/* Card header */}
                   <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
@@ -481,17 +488,25 @@ export default function ApprovalsPage() {
                       </div>
                     )}
                   </div>
-                </div>
+                </motion.div>
               );
             })}
+            </AnimatePresence>
           </div>
         )}
       </div>
 
       {/* Reject modal */}
+      <AnimatePresence>
       {rejectModal && (
-        <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && setRejectModal(null)}>
-          <div className="card w-full max-w-md p-6 animate-slide-up shadow-modal">
+        <motion.div
+          className="modal-backdrop" onClick={e => e.target === e.currentTarget && setRejectModal(null)}
+          variants={backdrop} initial="hidden" animate="show" exit="exit"
+        >
+          <motion.div
+            className="card w-full max-w-md p-6 shadow-modal"
+            variants={modalPanel} initial="hidden" animate="show" exit="exit"
+          >
             <h3 className="font-display text-xl font-bold text-danger mb-1">Reject Payment Request</h3>
             <p className="text-sm text-ink-muted mb-4">
               The EMIs will revert to UNPAID. Retailer can resubmit after correction.
@@ -532,14 +547,22 @@ export default function ApprovalsPage() {
                 ) : 'Confirm Reject'}
               </button>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       {/* Edit Payment Modal */}
+      <AnimatePresence>
       {editModal && (
-        <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && setEditModal(null)}>
-          <div className="card w-full max-w-lg p-4 sm:p-6 animate-slide-up shadow-modal max-h-[92vh] overflow-y-auto pb-28">
+        <motion.div
+          className="modal-backdrop" onClick={e => e.target === e.currentTarget && setEditModal(null)}
+          variants={backdrop} initial="hidden" animate="show" exit="exit"
+        >
+          <motion.div
+            className="card w-full max-w-lg p-4 sm:p-6 shadow-modal max-h-[92vh] overflow-y-auto pb-28"
+            variants={modalPanel} initial="hidden" animate="show" exit="exit"
+          >
             <h3 className="font-display text-xl font-bold text-ink mb-1">Edit Payment Record</h3>
             <p className="text-sm text-ink-muted mb-5">
               #{editModal.id.slice(0, 8).toUpperCase()} — {(editModal.customer as Record<string, unknown>)?.customer_name as string || 'Customer'}
@@ -625,9 +648,10 @@ export default function ApprovalsPage() {
                 {editSaving ? 'Saving…' : 'Save Changes'}
               </button>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
     </div>
   );
 }

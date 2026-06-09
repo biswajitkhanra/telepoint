@@ -4,6 +4,15 @@ import { Customer, EMISchedule, DueBreakdown } from '@/lib/types';
 import { calculateTotalFineFromEmis, getPerEmiFineBreakdown } from '@/lib/fineCalc';
 import { formatCurrency, formatDateOnly } from '@/lib/formatters';
 import { differenceInDays } from 'date-fns';
+import { motion } from 'framer-motion';
+import CountUp from '@/components/motion/CountUp';
+import { SPRING, fadeUp, staggerContainer } from '@/lib/motion';
+
+// Per-tile entrance for the metric grids.
+const tileItem = {
+  hidden: { opacity: 0, y: 16, scale: 0.97 },
+  show: { opacity: 1, y: 0, scale: 1, transition: SPRING },
+};
 
 interface Props {
   customer: Customer;
@@ -76,21 +85,29 @@ export default function CustomerPaymentSummary({
     : 0;
 
   return (
-    <div className="card overflow-hidden border-l-4 border-brand-500 shadow-md">
+    <motion.div
+      className="card overflow-hidden border-l-4 border-brand-500 shadow-md"
+      variants={fadeUp} initial="hidden" animate="show"
+    >
       {/* Header */}
-      <div className="bg-gradient-to-r from-brand-600 via-amber-500 to-rose-500 text-white px-5 py-3 flex items-center justify-between">
+      <div className="bg-gradient-to-r from-brand-600 via-amber-500 to-rose-500 text-white px-5 py-3 flex items-center justify-between sheen-track">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-widest text-white/80">Payment Summary</p>
           <p className="text-sm font-bold mt-0.5">{customer.customer_name}</p>
         </div>
         <div className="text-right">
           <p className="text-[10px] text-white/80 uppercase">EMIs</p>
-          <p className="num text-xl font-extrabold">{paidEmiCount}/{totalEmiCount}</p>
+          <p className="num text-xl font-extrabold">
+            <CountUp value={paidEmiCount} duration={0.8} />/{totalEmiCount}
+          </p>
         </div>
       </div>
 
       {/* Loan & Aggregates row */}
-      <div className={`grid grid-cols-2 ${hideLoanAmount ? 'md:grid-cols-3' : 'md:grid-cols-4'} gap-px bg-surface-4`}>
+      <motion.div
+        className={`grid grid-cols-2 ${hideLoanAmount ? 'md:grid-cols-3' : 'md:grid-cols-4'} gap-px bg-surface-4`}
+        variants={staggerContainer(0.07, 0.05)} initial="hidden" animate="show"
+      >
         {!hideLoanAmount && (
           <Tile
             tint="violet" emoji="💰" label="Loan Amount"
@@ -115,10 +132,13 @@ export default function CustomerPaymentSummary({
           value={fmt(purchaseValue)}
           sub="Mobile price"
         />
-      </div>
+      </motion.div>
 
       {/* EMI / Fine trackers */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-surface-4">
+      <motion.div
+        className="grid grid-cols-1 md:grid-cols-2 gap-px bg-surface-4"
+        variants={staggerContainer(0.07, 0.05)} initial="hidden" animate="show"
+      >
         <Tracker
           title="💳 EMI Tracker"
           paidLabel="Total EMI Paid"
@@ -143,18 +163,22 @@ export default function CustomerPaymentSummary({
           tint="emerald"
           dueTint={totalFineDue > 0 ? 'rose' : 'emerald'}
         />
-      </div>
+      </motion.div>
 
       {/* Progress bar */}
       <div className="px-5 py-3 bg-white">
         <div className="flex justify-between items-end mb-2">
           <p className="text-[11px] uppercase tracking-widest text-ink-muted font-semibold">Repayment Progress</p>
-          <p className="num text-sm font-bold text-emerald-700">{overallProgress}%</p>
+          <p className="num text-sm font-bold text-emerald-700">
+            <CountUp value={overallProgress} format={(n) => `${Math.round(n)}%`} duration={0.9} />
+          </p>
         </div>
         <div className="h-2.5 bg-surface-4 rounded-full overflow-hidden">
-          <div
-            className="h-full rounded-full transition-all duration-700 bg-gradient-to-r from-emerald-500 via-amber-500 to-rose-500"
-            style={{ width: `${overallProgress}%` }}
+          <motion.div
+            className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-amber-500 to-rose-500"
+            initial={{ width: 0 }}
+            animate={{ width: `${overallProgress}%` }}
+            transition={{ duration: 1, ease: [0.16, 1, 0.3, 1], delay: 0.15 }}
           />
         </div>
       </div>
@@ -171,14 +195,18 @@ export default function CustomerPaymentSummary({
         />
       ) : (
         <div className="px-5 py-4 bg-emerald-50 border-t border-emerald-200 flex items-center gap-3">
-          <span className="text-2xl">🎉</span>
+          <motion.span
+            className="text-2xl"
+            initial={{ scale: 0, rotate: -20 }} animate={{ scale: 1, rotate: 0 }}
+            transition={{ ...SPRING, delay: 0.1 }}
+          >🎉</motion.span>
           <div>
             <p className="text-sm font-bold text-emerald-800">All EMIs Cleared</p>
             <p className="text-xs text-emerald-700">No upcoming installments due.</p>
           </div>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }
 
@@ -199,13 +227,13 @@ function Tile({
     emerald: 'text-emerald-900', sky: 'text-sky-900', rose: 'text-rose-900',
   };
   return (
-    <div className={`${bg[tint]} px-4 py-3`}>
+    <motion.div variants={tileItem} className={`${bg[tint]} px-4 py-3`}>
       <p className={`text-[10px] ${label$[tint]} uppercase tracking-wide font-bold flex items-center gap-1`}>
         <span>{emoji}</span> {label}
       </p>
       <p className={`num font-bold text-lg ${value$[tint]} mt-1`}>{value}</p>
       {sub && <p className={`text-[10px] ${label$[tint]} opacity-80 mt-0.5`}>{sub}</p>}
-    </div>
+    </motion.div>
   );
 }
 
@@ -220,7 +248,7 @@ function Tracker({
   tint: 'emerald'; dueTint: 'emerald' | 'rose';
 }) {
   return (
-    <div className="bg-white p-4">
+    <motion.div variants={tileItem} className="bg-white p-4">
       <p className="text-[11px] uppercase tracking-widest text-ink-muted font-bold mb-2">{title}</p>
       <div className="grid grid-cols-2 gap-2">
         <div className="rounded-lg px-3 py-2 bg-emerald-50 border border-emerald-200">
@@ -233,7 +261,7 @@ function Tracker({
         </div>
       </div>
       <p className="text-[10px] text-ink-muted mt-2">{countLabel}</p>
-    </div>
+    </motion.div>
   );
 }
 

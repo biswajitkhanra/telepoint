@@ -20,6 +20,10 @@ import { calculateTotalFineFromEmis } from '@/lib/fineCalc';
 import BottomNav from '@/components/BottomNav';
 import { addDays, subMonths, format, differenceInDays } from 'date-fns';
 import { formatCurrency, formatDateOnly, readJsonSafe } from '@/lib/formatters';
+import { motion, AnimatePresence } from 'framer-motion';
+import CountUp from '@/components/motion/CountUp';
+import CustomerLoader from '@/components/motion/CustomerLoader';
+import { SPRING, cardRise, staggerContainer, rowItem } from '@/lib/motion';
 
 type Tab = 'search' | 'retailers' | 'reports' | 'analysis' | 'broadcast';
 
@@ -47,6 +51,7 @@ export default function AdminDashboard() {
   const [retailers, setRetailers] = useState<Retailer[]>([]);
   const [searchResults, setSearchResults] = useState<Customer[] | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [customerLoading, setCustomerLoading] = useState(false);
   const [customerEmis, setCustomerEmis] = useState<EMISchedule[]>([]);
   const [breakdown, setBreakdown] = useState<DueBreakdown | null>(null);
   const [showCustomerForm, setShowCustomerForm] = useState(false);
@@ -161,6 +166,10 @@ export default function AdminDashboard() {
   }, []);
 
   async function selectCustomerFn(customer: Customer) {
+    // Premium loading sequence — guarantees immediate feedback (no dead-click
+    // feeling) with a short minimum on-screen time even if data is instant.
+    setCustomerLoading(true);
+    const started = Date.now();
     setSelectedCustomer(customer);
     const sb = supabaseRef.current;
     const { data: emis } = await sb.from('emi_schedule').select('*').eq('customer_id', customer.id).order('emi_no');
@@ -173,6 +182,8 @@ export default function AdminDashboard() {
       const fc = customer.first_emi_charge_paid_at ? 0 : (customer.first_emi_charge_amount || 0);
       setBreakdown({ customer_id: customer.id, customer_status: customer.status, next_emi_no: next?.emi_no, next_emi_amount: next?.amount, next_emi_due_date: next?.due_date, next_emi_status: next?.status, fine_due: af, first_emi_charge_due: fc, total_payable: (next?.amount ?? 0) + af + fc, popup_first_emi_charge: fc > 0, popup_fine_due: af > 0, is_overdue: next ? new Date(next.due_date) < new Date() : false } as DueBreakdown);
     } else setBreakdown(bd as DueBreakdown);
+    const elapsed = Date.now() - started;
+    setTimeout(() => setCustomerLoading(false), Math.max(0, 680 - elapsed));
   }
 
   // Always keep ref in sync with latest function
@@ -428,15 +439,23 @@ export default function AdminDashboard() {
             { key: 'analysis', label: '📈 Analysis' },
             { key: 'broadcast', label: '📢 Alerts' },
           ] as const).map((t) => (
-            <button
+            <motion.button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 whitespace-nowrap flex-shrink-0 ${
-                tab === t.key ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/20' : 'text-ink-muted hover:text-ink'
+              whileTap={{ scale: 0.94 }}
+              className={`relative z-10 px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap flex-shrink-0 transition-colors duration-200 ${
+                tab === t.key ? 'text-white' : 'text-ink-muted hover:text-ink'
               }`}
             >
+              {tab === t.key && (
+                <motion.span
+                  layoutId="admin-tab-pill"
+                  className="absolute inset-0 rounded-xl bg-brand-500 shadow-lg shadow-brand-500/20 -z-10"
+                  transition={SPRING}
+                />
+              )}
               {t.label}
-            </button>
+            </motion.button>
           ))}
         </div>
 
@@ -478,7 +497,12 @@ export default function AdminDashboard() {
                 <div className="px-5 py-3 border-b border-surface-4">
                   <span className="text-xs text-ink-muted uppercase tracking-widest">{searchResults.length} customers found — tap a card to view</span>
                 </div>
-                <div className="divide-y divide-surface-3">
+                <motion.div
+                  className="divide-y divide-surface-3"
+                  variants={staggerContainer(0.05, 0.03)}
+                  initial="hidden"
+                  animate="show"
+                >
                   {searchResults.map((c) => {
                     const rowTint =
                       c.status === 'RUNNING'  ? 'hover:bg-emerald-50' :
@@ -499,8 +523,11 @@ export default function AdminDashboard() {
                         ? <span className="badge bg-rose-100 text-rose-800 border border-rose-300">⚠ NPA</span>
                         : <span className="badge bg-sky-100 text-sky-800 border border-sky-300">✓ Complete</span>;
                     return (
-                      <button
+                      <motion.button
                         key={c.id}
+                        variants={rowItem}
+                        whileHover={{ x: 4 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={() => selectCustomerFn(c)}
                         className={`w-full text-left px-4 py-3.5 border-l-4 ${stripe} ${rowTint} transition-colors flex flex-col gap-2`}
                       >
@@ -517,10 +544,10 @@ export default function AdminDashboard() {
                           <span className="text-ink-muted">Retailer <span className="text-ink">{(c.retailer as Retailer)?.name || '—'}</span></span>
                           <span className="text-ink-muted">EMI/mo <span className="font-num font-bold text-brand-700">{fmt(c.emi_amount)}</span></span>
                         </div>
-                      </button>
+                      </motion.button>
                     );
                   })}
-                </div>
+                </motion.div>
               </div>
             )}
 
@@ -1293,28 +1320,32 @@ export default function AdminDashboard() {
 
       {/* ===== MODALS ===== */}
 
-      {showCustomerForm && (
-        <CustomerFormModal
-          customer={editingCustomer}
-          retailers={retailers}
-          onClose={() => { setShowCustomerForm(false); setEditingCustomer(null); }}
-          onSaved={refreshSelectedCustomer}
-          isAdmin={true}
-        />
-      )}
+      <AnimatePresence>
+        {showCustomerForm && (
+          <CustomerFormModal
+            customer={editingCustomer}
+            retailers={retailers}
+            onClose={() => { setShowCustomerForm(false); setEditingCustomer(null); }}
+            onSaved={refreshSelectedCustomer}
+            isAdmin={true}
+          />
+        )}
+      </AnimatePresence>
 
-      {showPaymentModal && selectedCustomer && (
-        <PaymentModal
-          customer={selectedCustomer}
-          emis={customerEmis}
-          breakdown={breakdown}
-          onClose={() => setShowPaymentModal(false)}
-          onSubmitted={async () => { await refreshSelectedCustomer(); loadPendingCount(); }}
-          isAdmin={true}
-          baseFine={fineSettings.default_fine_amount}
-          weeklyIncrement={fineSettings.weekly_fine_increment}
-        />
-      )}
+      <AnimatePresence>
+        {showPaymentModal && selectedCustomer && (
+          <PaymentModal
+            customer={selectedCustomer}
+            emis={customerEmis}
+            breakdown={breakdown}
+            onClose={() => setShowPaymentModal(false)}
+            onSubmitted={async () => { await refreshSelectedCustomer(); loadPendingCount(); }}
+            isAdmin={true}
+            baseFine={fineSettings.default_fine_amount}
+            weeklyIncrement={fineSettings.weekly_fine_increment}
+          />
+        )}
+      </AnimatePresence>
 
       {showCompleteModal && (
         <div className="modal-backdrop">
@@ -1487,6 +1518,11 @@ export default function AdminDashboard() {
         </div>
       )}
       <BottomNav role="admin" pendingCount={pendingCount} />
+
+      {/* Premium customer-open loading sequence */}
+      <AnimatePresence>
+        {customerLoading && <CustomerLoader name={selectedCustomer?.customer_name} />}
+      </AnimatePresence>
     </div>
   );
 }
@@ -1598,18 +1634,23 @@ function MetricDashboard({
           </button>
         </div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+      <motion.div
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3"
+        variants={staggerContainer(0.08, 0.05)}
+        initial="hidden"
+        animate="show"
+      >
         <MetricCard
           title="LOAN AMOUNT"
           formula="Phone Value − Down Payment"
-          value={fmt(totalLoanValue)}
+          value={totalLoanValue}
           colorTheme="bg-emerald-500/10 border-emerald-500 text-emerald-700"
           graphic="trending-up"
         />
         <MetricCard
           title="MARKET DUE"
           formula="EMI Due + Fine Due + 1st EMI Charge"
-          value={fmt(marketDue)}
+          value={marketDue}
           colorTheme="bg-amber-500/10 border-amber-500 text-amber-700"
           graphic="progress-ring"
           progress={marketPct}
@@ -1617,14 +1658,14 @@ function MetricDashboard({
         <MetricCard
           title="BTD (Balance To Date)"
           formula="Total Loan Value − Total Collection"
-          value={fmt(btd)}
+          value={btd}
           colorTheme="bg-blue-600/10 border-blue-600 text-blue-700"
           graphic="sparkline"
         />
         <MetricCard
           title="COLLECTION"
           formula="EMI + Fine + 1st Charge Collected"
-          value={fmt(totalCollection)}
+          value={totalCollection}
           colorTheme="bg-teal-500/10 border-teal-500 text-teal-700"
           graphic="filled-bar"
           progress={collectionPct}
@@ -1632,11 +1673,11 @@ function MetricDashboard({
         <MetricCard
           title="INV / DUE"
           formula="Expected Revenue − Total Collection"
-          value={fmt(invDue)}
+          value={invDue}
           colorTheme="bg-rose-600/10 border-rose-600 text-rose-700"
           graphic="alert"
         />
-      </div>
+      </motion.div>
     </div>
   );
 }
@@ -1646,25 +1687,34 @@ function MetricCard({
 }: {
   title: string;
   formula: string;
-  value: string;
+  value: number;
   colorTheme: string;
   graphic: 'trending-up' | 'progress-ring' | 'sparkline' | 'filled-bar' | 'alert';
   progress?: number;
 }) {
   return (
-    <div className={`rounded-xl border-2 p-4 ${colorTheme}`}>
+    <motion.div
+      variants={cardRise}
+      whileHover={{ y: -4, transition: SPRING }}
+      className={`rounded-xl border-2 p-4 ${colorTheme}`}
+    >
       <div className="flex items-start justify-between gap-2">
         <p className="text-[10px] font-bold uppercase tracking-widest">{title}</p>
         <MetricGraphic kind={graphic} progress={progress} />
       </div>
-      <p className="num font-extrabold text-2xl mt-2">{value}</p>
+      <CountUp value={value} format={fmt} className="num font-extrabold text-2xl mt-2 block" />
       <p className="text-[10px] opacity-80 mt-1">{formula}</p>
       {typeof progress === 'number' && graphic === 'filled-bar' && (
         <div className="mt-3 h-1.5 bg-white/40 rounded-full overflow-hidden">
-          <div className="h-full bg-current opacity-80" style={{ width: `${progress}%` }} />
+          <motion.div
+            className="h-full bg-current opacity-80"
+            initial={{ width: 0 }}
+            animate={{ width: `${progress}%` }}
+            transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
+          />
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }
 

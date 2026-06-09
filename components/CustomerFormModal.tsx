@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect, useRef} from 'react';
+import { motion } from 'framer-motion';
 import { Customer, Retailer } from '@/lib/types';
 import { createClient } from '@/lib/supabase/client';
 import toast from 'react-hot-toast';
+import { SPRING, backdrop, modalPanel } from '@/lib/motion';
 
 interface CustomerFormModalProps {
   customer?: Customer | null;
@@ -289,8 +291,14 @@ export default function CustomerFormModal({
     .filter(f => errors[f as keyof FormData]).length;
 
   return (
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="card w-full max-w-3xl max-h-[92vh] flex flex-col animate-slide-up shadow-modal">
+    <motion.div
+      className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}
+      variants={backdrop} initial="hidden" animate="show" exit="exit"
+    >
+      <motion.div
+        className="card w-full max-w-3xl max-h-[92vh] flex flex-col shadow-modal"
+        variants={modalPanel} initial="hidden" animate="show" exit="exit"
+      >
 
         {/* Header */}
         <div className="sticky top-0 z-10 bg-white px-6 py-4 border-b border-surface-4 flex items-center justify-between">
@@ -314,21 +322,32 @@ export default function CustomerFormModal({
           {tabs.map(t => {
             const errCount = t.key === 'info' ? infoErrCount : t.key === 'finance' ? financeErrCount : 0;
             return (
-              <button
+              <motion.button
                 key={t.key}
                 type="button"
                 onClick={() => setTab(t.key)}
+                whileTap={{ scale: 0.96 }}
                 className={`flex-1 py-3 text-sm font-medium transition-colors relative ${
                   tab === t.key
-                    ? 'text-brand-700 border-b-2 border-brand-500 bg-white'
+                    ? 'text-brand-700 bg-white'
                     : 'text-ink-muted hover:text-ink'
                 }`}
               >
                 {t.label}
-                {errCount > 0 && (
-                  <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-danger" />
+                {tab === t.key && (
+                  <motion.span
+                    layoutId="custform-tab-underline"
+                    className="absolute bottom-0 inset-x-0 h-0.5 bg-brand-500"
+                    transition={SPRING}
+                  />
                 )}
-              </button>
+                {errCount > 0 && (
+                  <motion.span
+                    initial={{ scale: 0 }} animate={{ scale: 1 }}
+                    className="absolute top-2 right-2 w-2 h-2 rounded-full bg-danger"
+                  />
+                )}
+              </motion.button>
             );
           })}
         </div>
@@ -622,8 +641,8 @@ export default function CustomerFormModal({
             </div>
           </div>
         </form>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
