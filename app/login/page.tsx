@@ -7,7 +7,6 @@ import { createClient } from '@/lib/supabase/client';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import Logo from '@/components/Logo';
-import { motion, AnimatePresence } from 'framer-motion';
 
 type Tab = 'admin' | 'retailer';
 
@@ -39,66 +38,30 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen page-bg flex items-center justify-center p-4 relative overflow-hidden">
-      {/* ambient floating glows */}
-      <motion.div
-        aria-hidden
-        className="pointer-events-none absolute -top-24 -left-24 h-80 w-80 rounded-full bg-brand-400/20 blur-3xl"
-        animate={{ y: [0, 24, 0], x: [0, 16, 0] }}
-        transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
-      />
-      <motion.div
-        aria-hidden
-        className="pointer-events-none absolute -bottom-24 -right-24 h-80 w-80 rounded-full bg-accent-400/20 blur-3xl"
-        animate={{ y: [0, -20, 0], x: [0, -14, 0] }}
-        transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }}
-      />
+    <div className="min-h-screen page-bg flex items-center justify-center p-4">
+      <div className="w-full max-w-sm animate-fade-in">
 
-      <motion.div
-        className="w-full max-w-sm relative"
-        initial="hidden"
-        animate="show"
-        variants={{ hidden: {}, show: { transition: { staggerChildren: 0.09, delayChildren: 0.05 } } }}
-      >
         {/* Logo */}
-        <motion.div
-          className="text-center mb-8"
-          variants={{ hidden: { opacity: 0, y: 18 }, show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] } } }}
-        >
-          <motion.div
-            className="inline-flex items-center justify-center mb-4"
-            initial={{ scale: 0.6, rotate: -8, opacity: 0 }}
-            animate={{ scale: 1, rotate: 0, opacity: 1 }}
-            transition={{ type: 'spring', stiffness: 260, damping: 18, delay: 0.1 }}
-          >
-            <Logo size={68} className="rounded-2xl shadow-glow-indigo ring-1 ring-white/40" />
-          </motion.div>
-          <h1 className="text-display-2 text-gradient">Telepoint</h1>
-          <p className="text-ink-muted text-sm mt-1">Premium EMI management portal</p>
-        </motion.div>
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center mb-4">
+            <Logo size={64} className="rounded-2xl shadow-lg shadow-ink/20" />
+          </div>
+          <h1 className="text-3xl font-bold text-ink">EMI Management Portal</h1>
+          <p className="text-ink-muted text-sm mt-1">Secure access for authorized users</p>
+        </div>
 
-        <motion.div
-          className="card p-8 shadow-float"
-          variants={{ hidden: { opacity: 0, y: 22, scale: 0.98 }, show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.55, ease: [0.16, 1, 0.3, 1] } } }}
-        >
+        <div className="card p-8">
           {/* Tab */}
-          <div className="relative flex rounded-xl bg-surface-3 p-1 mb-6">
+          <div className="flex rounded-xl bg-surface-3 p-1 mb-6">
             {(['admin', 'retailer'] as Tab[]).map(t => (
               <button
                 key={t}
                 onClick={() => { setTab(t); setUsername(''); setPassword(''); }}
-                className={`relative flex-1 py-2 rounded-lg text-sm font-semibold capitalize transition-colors whitespace-nowrap z-10 ${
-                  tab === t ? 'text-brand-700' : 'text-ink-muted hover:text-ink'
+                className={`flex-1 py-2 rounded-lg text-sm font-semibold capitalize transition-all whitespace-nowrap ${
+                  tab === t ? 'bg-white text-brand-700 shadow-sm' : 'text-ink-muted hover:text-ink'
                 }`}
               >
-                {tab === t && (
-                  <motion.span
-                    layoutId="login-tab"
-                    className="absolute inset-0 rounded-lg bg-white shadow-sm"
-                    transition={{ type: 'spring', stiffness: 500, damping: 34 }}
-                  />
-                )}
-                <span className="relative">{t === 'admin' ? '🔐 Admin' : '🏪 Retailer'}</span>
+                {t === 'admin' ? '🔐 Admin' : '🏪 Retailer'}
               </button>
             ))}
           </div>
@@ -115,35 +78,18 @@ export default function LoginPage() {
               <input type="password" value={password} onChange={e => setPassword(e.target.value)}
                 className="input" placeholder="••••••••" autoComplete="current-password" />
             </div>
-            <motion.button
-              type="submit" disabled={loading || !username || !password}
-              className="btn-primary w-full py-3 mt-2"
-              whileTap={{ scale: 0.98 }}
-            >
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.span
-                  key={loading ? 'loading' : 'idle'}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  {loading ? 'Signing in…' : 'Sign In'}
-                </motion.span>
-              </AnimatePresence>
-            </motion.button>
+            <button type="submit" disabled={loading || !username || !password} className="btn-primary w-full py-3 mt-2">
+              {loading ? 'Signing in...' : 'Sign In'}
+            </button>
           </form>
-        </motion.div>
+        </div>
 
-        <motion.div
-          className="text-center mt-5"
-          variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { duration: 0.5 } } }}
-        >
+        <div className="text-center mt-5">
           <Link href="/customer" className="text-sm text-ink-muted hover:text-brand-600 transition-colors underline underline-offset-4">
             Customer? View your EMI account →
           </Link>
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
     </div>
   );
 }

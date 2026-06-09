@@ -4,8 +4,8 @@ import { Toaster } from 'react-hot-toast';
 import Footer from '@/components/Footer';
 
 export const metadata: Metadata = {
-  title: 'Telepoint — EMI Management',
-  description: 'Premium EMI collection, approvals and analytics portal',
+  title: 'EMI Management Portal',
+  description: 'Professional EMI collection and approval portal',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -14,9 +14,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=DM+Mono&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono&display=swap" rel="stylesheet" />
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#0f1730" />
+        <meta name="theme-color" content="#eab308" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -29,9 +29,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Toaster
           position="top-center"
           toastOptions={{
-            style: { borderRadius: '14px', background: '#0f1730', color: '#fff', fontSize: '14px', boxShadow: '0 12px 32px rgba(15,23,42,0.28)', border: '1px solid rgba(255,255,255,0.08)' },
-            success: { style: { background: '#059669', color: 'white' }, iconTheme: { primary: 'white', secondary: '#059669' } },
-            error: { style: { background: '#e11d48', color: 'white' }, iconTheme: { primary: 'white', secondary: '#e11d48' } },
+            style: { borderRadius: '12px', background: '#1e293b', color: '#fff', fontSize: '14px' },
+            success: { style: { background: '#16a34a', color: 'white' }, iconTheme: { primary: 'white', secondary: '#16a34a' } },
+            error: { style: { background: '#dc2626', color: 'white' }, iconTheme: { primary: 'white', secondary: '#dc2626' } },
           }}
         />
       </body>

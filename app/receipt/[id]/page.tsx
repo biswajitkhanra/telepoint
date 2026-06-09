@@ -88,7 +88,7 @@ export default async function ReceiptPage({ params }: { params: { id: string } }
         <div style={{ background: 'white', borderRadius: '1.5rem', overflow: 'hidden', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', border: '1px solid #e2e8f0' }}>
 
           {/* Brand header */}
-          <div style={{ background: 'linear-gradient(135deg, #1e2a52 0%, #4f46e5 60%, #06b6d4 130%)', padding: '1.75rem 2rem', textAlign: 'center' }}>
+          <div style={{ background: 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)', padding: '1.75rem 2rem', textAlign: 'center' }}>
             <div style={{ width: '3.5rem', height: '3.5rem', background: 'rgba(255,255,255,0.2)', borderRadius: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem' }}>
               <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
                 <path d="M16 2L2 9V23L16 30L30 23V9L16 2Z" stroke="white" strokeWidth="2.5" fill="rgba(255,255,255,0.2)" />

@@ -5,7 +5,6 @@ import { format } from 'date-fns';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
 import PhoneLockBadge from './PhoneLockBadge';
 import CustomerAppDownload from './CustomerAppDownload';
 
@@ -23,7 +22,6 @@ function fmt(n: number) {
 export default function CustomerDetailPanel({ customer, paidCount, totalEmis, isAdmin }: Props) {
   const [copiedNum, setCopiedNum] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
-  const [photoLoaded, setPhotoLoaded] = useState(false);
   const progress = totalEmis > 0 ? (paidCount / totalEmis) * 100 : 0;
   const retailer = customer.retailer as Retailer | null;
 
@@ -93,43 +91,25 @@ export default function CustomerDetailPanel({ customer, paidCount, totalEmis, is
   ).filter(d => d.url);
 
   return (
-    <motion.div
-      layout
-      className="card overflow-hidden"
-      initial={{ opacity: 0, y: 18, scale: 0.99 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-    >
+    <div className="card overflow-hidden animate-fade-in">
       {/* Header row */}
       <div className="flex items-start gap-4 p-5 border-b border-surface-4">
-        {/* Photo — hero with blur-up + spring zoom */}
-        <motion.div
-          layoutId={`customer-photo-${customer.id}`}
-          className="w-20 h-20 rounded-2xl flex-shrink-0 relative overflow-hidden ring-2 ring-brand-100 shadow-md"
-          initial={{ scale: 0.85, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 320, damping: 22, delay: 0.05 }}
-        >
-          <div className="absolute inset-0 bg-gradient-to-br from-brand-100 to-accent-100 flex items-center justify-center">
-            <span className="text-3xl font-bold text-brand-500 font-display select-none leading-none">
+        {/* Photo */}
+        <div className="w-20 h-20 rounded-2xl border border-surface-4 flex-shrink-0 relative overflow-hidden">
+          <div className="absolute inset-0 bg-amber-50 flex items-center justify-center">
+            <span className="text-3xl font-bold text-amber-400 font-display select-none leading-none">
               {customer.customer_name?.[0]?.toUpperCase() ?? '?'}
             </span>
           </div>
           {customer.customer_photo_url && (
-            <motion.img
+            <img
               src={ibbDirect(customer.customer_photo_url)}
               alt="Photo"
               className="absolute inset-0 w-full h-full object-cover"
-              loading="eager"
-              decoding="async"
-              initial={{ opacity: 0, scale: 1.08, filter: 'blur(8px)' }}
-              animate={photoLoaded ? { opacity: 1, scale: 1, filter: 'blur(0px)' } : {}}
-              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-              onLoad={() => setPhotoLoaded(true)}
               onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
             />
           )}
-        </motion.div>
+        </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 flex-wrap">
@@ -235,23 +215,15 @@ export default function CustomerDetailPanel({ customer, paidCount, totalEmis, is
           <span className="num font-medium">{paidCount}/{totalEmis} paid</span>
         </div>
         <div className="h-2 bg-surface-4 rounded-full overflow-hidden">
-          <motion.div
-            className="h-full rounded-full"
-            style={{ background: 'linear-gradient(90deg,#6366f1,#22d3ee)' }}
-            initial={{ width: 0 }}
-            animate={{ width: `${progress}%` }}
-            transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.15 }}
+          <div
+            className="h-full bg-gradient-to-r from-brand-400 to-brand-500 rounded-full transition-all duration-700"
+            style={{ width: `${progress}%` }}
           />
         </div>
       </div>
 
       {/* Detail grid */}
-      <motion.div
-        className="grid grid-cols-2 sm:grid-cols-3 gap-px bg-surface-4"
-        initial="hidden"
-        animate="show"
-        variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.035, delayChildren: 0.12 } } }}
-      >
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-px bg-surface-4">
         {[
           { l: 'IMEI', v: customer.imei, mono: true, small: true, tint: 'slate' },
           { l: 'Model', v: customer.model_no, tint: 'slate' },
@@ -282,20 +254,16 @@ export default function CustomerDetailPanel({ customer, paidCount, totalEmis, is
             emerald: 'text-emerald-900', sky: 'text-sky-900', slate: 'text-ink',
           };
           return (
-            <motion.div
-              key={l}
-              className={`${tintBg[tint] || 'bg-white'} px-4 py-3`}
-              variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] } } }}
-            >
+            <div key={l} className={`${tintBg[tint] || 'bg-white'} px-4 py-3`}>
               <p className={`text-[10px] ${tintLabel[tint] || 'text-ink-muted'} uppercase tracking-wide mb-0.5 font-semibold`}>{l}</p>
               <p className={`text-sm font-semibold ${small ? 'text-xs' : ''} ${mono ? 'num' : ''} ${accent ? 'text-emerald-700 font-bold text-base' : (tintValue[tint] || 'text-ink')} break-all leading-snug`}>
                 {v || '—'}
               </p>
               {sub && <p className={`text-[9px] mt-0.5 ${tintLabel[tint] || 'text-ink-muted'} opacity-80`}>{sub}</p>}
-            </motion.div>
+            </div>
           );
         })}
-      </motion.div>
+      </div>
 
       {/* Document images */}
       {docs.length > 0 && (
@@ -346,6 +314,6 @@ export default function CustomerDetailPanel({ customer, paidCount, totalEmis, is
           {customer.completion_date && <p className="text-xs text-ink-muted mt-0.5">{format(new Date(customer.completion_date), 'd MMM yyyy')}</p>}
         </div>
       )}
-    </motion.div>
+    </div>
   );
 }

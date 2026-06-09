@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { formatCurrency } from '@/lib/formatters';
-import { motion } from 'framer-motion';
-import { CountUp } from '@/components/motion';
 
 /**
  * Analysis — Year-over-Year EMI business intelligence dashboard.
@@ -231,17 +229,12 @@ export default function AnalysisDashboard({
       </div>
 
       {/* Aspect comparison cards */}
-      <motion.div
-        className="grid grid-cols-2 lg:grid-cols-4 gap-3"
-        initial="hidden"
-        animate="show"
-        variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08, delayChildren: 0.05 } } }}
-      >
-        <StatCard label="Loan Given" cur={thisY.loanGiven} prev={lastY.loanGiven} format={formatCurrency} theme="emerald" />
-        <StatCard label="Got (Collected)" cur={thisY.collected} prev={lastY.collected} format={formatCurrency} theme="teal" />
-        <StatCard label="New Customers" cur={thisY.customers} prev={lastY.customers} format={(v) => String(Math.round(v))} theme="blue" />
-        <StatCard label="Bounce Rate" cur={bounceRate(thisY)} prev={bounceRate(lastY)} format={(v) => `${v.toFixed(1)}%`} theme="rose" invert />
-      </motion.div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatCard label="Loan Given" value={formatCurrency(thisY.loanGiven)} prev={lastY.loanGiven} cur={thisY.loanGiven} theme="emerald" />
+        <StatCard label="Got (Collected)" value={formatCurrency(thisY.collected)} prev={lastY.collected} cur={thisY.collected} theme="teal" />
+        <StatCard label="New Customers" value={String(thisY.customers)} prev={lastY.customers} cur={thisY.customers} theme="blue" />
+        <StatCard label="Bounce Rate" value={`${bounceRate(thisY).toFixed(1)}%`} prev={bounceRate(lastY)} cur={bounceRate(thisY)} theme="rose" invert />
+      </div>
 
       {/* YoY charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -341,25 +334,19 @@ const STAT_THEMES: Record<string, string> = {
 };
 
 function StatCard({
-  label, prev, cur, theme, format, invert = false,
+  label, value, prev, cur, theme, invert = false,
 }: {
-  label: string; prev: number; cur: number; theme: string; format: (v: number) => string; invert?: boolean;
+  label: string; value: string; prev: number; cur: number; theme: string; invert?: boolean;
 }) {
   return (
-    <motion.div
-      className={`rounded-2xl border-2 p-4 ${STAT_THEMES[theme]}`}
-      variants={{ hidden: { opacity: 0, y: 16, scale: 0.97 }, show: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 360, damping: 26 } } }}
-      whileHover={{ y: -4 }}
-    >
+    <div className={`rounded-xl border-2 p-4 ${STAT_THEMES[theme]}`}>
       <div className="flex items-start justify-between gap-1">
         <p className="text-[10px] font-bold uppercase tracking-widest">{label}</p>
         <DeltaBadge prev={prev} cur={cur} invert={invert} />
       </div>
-      <p className="num font-extrabold text-2xl mt-2">
-        <CountUp value={cur} format={format} />
-      </p>
+      <p className="num font-extrabold text-2xl mt-2">{value}</p>
       <p className="text-[10px] opacity-70 mt-1">vs same month last year</p>
-    </motion.div>
+    </div>
   );
 }
 

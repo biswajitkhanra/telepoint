@@ -490,19 +490,18 @@ export default function CustomerPortal() {
   return (
     <div className="min-h-screen page-bg">
       {/* Navbar */}
-      <nav className="sticky top-0 z-40 navy-chrome border-b border-white/10 shadow-lg shadow-navy-900/20">
-        <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-accent-400/70 to-transparent" />
+      <nav className="sticky top-0 z-40 border-b border-surface-4 bg-white/90 backdrop-blur-md">
         <div className="max-w-md mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-white/10 border border-white/15 flex items-center justify-center">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#67e8f9" strokeWidth="2">
+            <div className="w-7 h-7 rounded-lg bg-sapphire-500/15 border border-sapphire-500/20 flex items-center justify-center">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2">
                 <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z" />
               </svg>
             </div>
-            <span className="font-display text-base font-bold text-white">My Account</span>
+            <span className="font-display text-base font-semibold text-ink">My Account</span>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-sm text-white/60 hidden sm:block">{customer?.customer_name}</span>
+            <span className="text-sm text-slate-400 hidden sm:block">{customer?.customer_name}</span>
             <button onClick={async () => {
               const t = localStorage.getItem(TOKEN_KEY);
               if (t) {
@@ -518,13 +517,13 @@ export default function CustomerPortal() {
                   }
                 } catch { toast.error('Refresh failed'); }
               }
-            }} className="text-xs text-accent-300 hover:text-accent-200 transition-colors border border-white/15 hover:bg-white/10 px-3 py-1.5 rounded-lg mr-2">
+            }} className="text-xs text-jade-400 hover:text-jade-500 transition-colors border border-white/[0.08] px-3 py-1.5 rounded-lg mr-2">
               🔄 Refresh
             </button>
-            <button onClick={() => { setSession(null); localStorage.removeItem(SESSION_KEY); localStorage.removeItem(TOKEN_KEY); }} className="text-xs text-white/70 hover:text-white hover:bg-white/10 transition-colors border border-white/15 px-3 py-1.5 rounded-lg">
+            <button onClick={() => { setSession(null); localStorage.removeItem(SESSION_KEY); localStorage.removeItem(TOKEN_KEY); }} className="text-xs text-slate-500 hover:text-brand-400 transition-colors border border-white/[0.08] px-3 py-1.5 rounded-lg">
               Switch
             </button>
-            <button onClick={handleLogout} className="text-xs text-white/70 hover:text-rose-300 hover:bg-white/10 transition-colors border border-white/15 px-3 py-1.5 rounded-lg">
+            <button onClick={handleLogout} className="text-xs text-slate-500 hover:text-crimson-400 transition-colors border border-white/[0.08] px-3 py-1.5 rounded-lg">
               Logout
             </button>
           </div>
@@ -589,9 +588,9 @@ export default function CustomerPortal() {
         {/* Profile card */}
         <div className="card overflow-hidden">
           <div className="flex items-start gap-4 p-5">
-            <div className="w-20 h-20 rounded-2xl flex-shrink-0 relative overflow-hidden ring-2 ring-brand-100 shadow-md">
-              <div className="absolute inset-0 bg-gradient-to-br from-brand-100 to-accent-100 flex items-center justify-center">
-                <span className="text-3xl font-bold text-brand-500 font-display select-none leading-none">
+            <div className="w-20 h-20 rounded-2xl border border-surface-4 flex-shrink-0 relative overflow-hidden">
+              <div className="absolute inset-0 bg-amber-50 flex items-center justify-center">
+                <span className="text-3xl font-bold text-amber-400 font-display select-none leading-none">
                   {customer?.customer_name?.[0]?.toUpperCase() ?? '?'}
                 </span>
               </div>
