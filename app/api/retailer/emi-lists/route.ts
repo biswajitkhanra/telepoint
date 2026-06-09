@@ -3,6 +3,12 @@ import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { calculateTotalFineFromEmis } from '@/lib/fineCalc';
 import { fetchAllByIds, fetchAllPaged } from '@/lib/dbFetch';
 import { EMISchedule } from '@/lib/types';
+import { todayIST, addDaysIST, midnightIST, diffDaysIST } from '@/lib/ist';
+
+// Upcoming EMI widget window: show only EMIs due within the next N days
+// (inclusive of today). Filtered server-side so the client never receives
+// rows it would only throw away.
+const UPCOMING_WINDOW_DAYS = 5;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Retailer EMI dashboard lists — computed server-side (service client, no RLS,
@@ -25,6 +31,7 @@ type CustomerRow = {
   mobile: string | null;
   imei: string | null;
   status: string;
+  customer_photo_url: string | null;
   first_emi_charge_amount: number | null;
   first_emi_charge_paid_at: string | null;
 };
@@ -34,10 +41,13 @@ export interface UpcomingRow {
   customer_name: string;
   mobile: string;
   imei: string;
+  customer_photo_url: string | null;
   due_date: string;
   emi_no: number;
   emi_amount: number;
   remaining_balance: number;
+  /** Whole-day countdown in IST: 0 = today, 1 = tomorrow, … up to the window. */
+  days_remaining: number;
 }
 
 export interface DueRow {
@@ -84,7 +94,7 @@ export async function GET(req: NextRequest) {
   const customers = await fetchAllPaged<CustomerRow>((from, to) =>
     svc
       .from('customers')
-      .select('id, customer_name, mobile, imei, status, first_emi_charge_amount, first_emi_charge_paid_at')
+      .select('id, customer_name, mobile, imei, status, customer_photo_url, first_emi_charge_amount, first_emi_charge_paid_at')
       .eq('retailer_id', retailerId as string)
       .eq('status', 'RUNNING')
       .order('id')
@@ -115,9 +125,12 @@ export async function GET(req: NextRequest) {
     byCustomer.set(e.customer_id, arr);
   }
 
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const todayMs = todayStart.getTime();
+  // All due-date comparisons run on the IST calendar so the midnight rollover
+  // matches Indian operations (Vercel/Node default to UTC).
+  const today = todayIST();
+  const todayMs = midnightIST(today);
+  // Inclusive upper bound for the "Upcoming (Next 5 Days)" window.
+  const windowEndMs = midnightIST(addDaysIST(today, UPCOMING_WINDOW_DAYS));
 
   // Remaining principal still owed on a single EMI row.
   const remaining = (e: EMISchedule) =>
@@ -135,10 +148,11 @@ export async function GET(req: NextRequest) {
       ? Number(c.first_emi_charge_amount || 0) : 0;
     const totalFine = calculateTotalFineFromEmis(cEmis, baseFine, weeklyIncrement);
 
-    const overdue = open.filter(e => new Date(e.due_date).getTime() < todayMs);
+    const overdue = open.filter(e => midnightIST(e.due_date) < todayMs);
+    // Upcoming = next EMI that is not yet overdue. Sorted nearest-first.
     const upcomingEmis = open
-      .filter(e => new Date(e.due_date).getTime() >= todayMs)
-      .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+      .filter(e => midnightIST(e.due_date) >= todayMs)
+      .sort((a, b) => midnightIST(a.due_date) - midnightIST(b.due_date));
 
     // ── DUE: one combined entry per overdue customer ─────────────────────────
     if (overdue.length > 0) {
@@ -159,24 +173,31 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // ── UPCOMING: nearest not-yet-overdue EMI ────────────────────────────────
+    // ── UPCOMING (Next 5 Days): nearest not-yet-overdue EMI, but ONLY if it
+    // falls inside the [today, today + 5 days] window. Customers whose next EMI
+    // is further out (or who are already overdue / fully paid) are excluded. ──
     if (upcomingEmis.length > 0) {
       const next = upcomingEmis[0];
-      upcoming.push({
-        customer_id: c.id,
-        customer_name: c.customer_name,
-        mobile: c.mobile || '',
-        imei: c.imei || '',
-        due_date: next.due_date,
-        emi_no: next.emi_no,
-        emi_amount: Number(next.amount || 0),
-        remaining_balance: allRemaining,
-      });
+      if (midnightIST(next.due_date) <= windowEndMs) {
+        upcoming.push({
+          customer_id: c.id,
+          customer_name: c.customer_name,
+          mobile: c.mobile || '',
+          imei: c.imei || '',
+          customer_photo_url: c.customer_photo_url || null,
+          due_date: next.due_date,
+          emi_no: next.emi_no,
+          emi_amount: Number(next.amount || 0),
+          remaining_balance: allRemaining,
+          days_remaining: Math.max(0, diffDaysIST(next.due_date, today)),
+        });
+      }
     }
   }
 
-  upcoming.sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
-  due.sort((a, b) => new Date(a.earliest_due_date).getTime() - new Date(b.earliest_due_date).getTime());
+  // Ascending by due date — nearest (Today) first.
+  upcoming.sort((a, b) => midnightIST(a.due_date) - midnightIST(b.due_date));
+  due.sort((a, b) => midnightIST(a.earliest_due_date) - midnightIST(b.earliest_due_date));
 
   void custMap; // (kept for potential future enrichment)
   return NextResponse.json({ upcoming, due }, { headers: { 'Cache-Control': 'no-store' } });
