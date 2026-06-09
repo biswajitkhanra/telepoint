@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { calculateTotalFineFromEmis } from '@/lib/fineCalc';
 import { fetchAllByIds, fetchAllPaged } from '@/lib/dbFetch';
+import { toISTDateString } from '@/lib/ist';
 import { EMISchedule } from '@/lib/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -44,6 +45,10 @@ export interface PortfolioMetrics {
   firstChargeCollected: number;
   upcoming30d: number;
   overdueCustomers: number;
+  // Fine actually collected, bucketed by the calendar year it was approved in.
+  // Transaction-level (one approved payment_request = one collection event), so
+  // a year's figure reflects money taken in that year, not lifetime balances.
+  fineCollectedByYear: Record<string, number>;
 }
 
 export async function GET(req: NextRequest) {
@@ -86,10 +91,39 @@ export async function GET(req: NextRequest) {
     return q as unknown as PromiseLike<{ data: CustomerRow[] | null; error: { message: string } | null }>;
   });
 
+  // ── Fine collected, bucketed by year of approval (transaction-level) ──────
+  // Read every APPROVED payment request (paged, scoped) and sum the fine
+  // portion into the calendar year it was approved (fallback: created) in.
+  type PayReqRow = { fine_amount: number | null; approved_at: string | null; created_at: string | null };
+  const payReqs = await fetchAllPaged<PayReqRow>((from, to) => {
+    let q = svc
+      .from('payment_requests')
+      .select('fine_amount, approved_at, created_at')
+      .eq('status', 'APPROVED')
+      .order('id')
+      .range(from, to);
+    if (retailerId) q = q.eq('retailer_id', retailerId);
+    return q as unknown as PromiseLike<{ data: PayReqRow[] | null; error: { message: string } | null }>;
+  });
+
+  const fineCollectedByYear: Record<string, number> = {};
+  for (const p of payReqs) {
+    const amt = Number(p.fine_amount || 0);
+    if (amt <= 0) continue;
+    const when = p.approved_at || p.created_at;
+    if (!when) continue;
+    // Bucket by IST calendar year (server runs UTC; the portal is IST) so a
+    // fine taken just after IST midnight on Jan 1 lands in the correct year.
+    const istDate = toISTDateString(when);
+    if (!istDate) continue;
+    const y = istDate.slice(0, 4);
+    fineCollectedByYear[y] = (fineCollectedByYear[y] || 0) + amt;
+  }
+
   const empty: PortfolioMetrics = {
     customerCount: 0, runningCount: 0, loanAmount: 0, emiDue: 0, fineDue: 0,
     firstChargeDue: 0, emiCollected: 0, fineCollected: 0, firstChargeCollected: 0,
-    upcoming30d: 0, overdueCustomers: 0,
+    upcoming30d: 0, overdueCustomers: 0, fineCollectedByYear,
   };
   if (!customers.length) return NextResponse.json(empty, { headers: { 'Cache-Control': 'no-store' } });
 

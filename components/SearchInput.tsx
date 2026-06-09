@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { SPRING, popIn } from '@/lib/motion';
+import { SPRING } from '@/lib/motion';
 
 interface SearchInputProps {
   value?: string;
@@ -112,26 +112,32 @@ export default function SearchInput({
         spellCheck={false}
       />
 
-      {/* Clear button */}
-      <AnimatePresence>
-        {displayValue && (
-          <motion.button
-            type="button"
-            variants={popIn}
-            initial="hidden" animate="show" exit="exit"
-            whileHover={{ rotate: 90 }}
-            whileTap={{ scale: 0.85 }}
-            onClick={handleClear}
-            className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full text-ink-muted hover:bg-surface-3 hover:text-ink"
-            aria-label="Clear search"
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24"
-                 fill="none" stroke="currentColor" strokeWidth="3">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
-          </motion.button>
-        )}
-      </AnimatePresence>
+      {/* Clear button — the centering (-translate-y-1/2) lives on a static
+          wrapper so Framer's transforms on the button (scale/rotate/opacity)
+          can't clobber the vertical-centre transform and push it out of view. */}
+      <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+        <AnimatePresence>
+          {displayValue && (
+            <motion.button
+              type="button"
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.5 }}
+              transition={SPRING}
+              whileHover={{ scale: 1.12, rotate: 90 }}
+              whileTap={{ scale: 0.85 }}
+              onClick={handleClear}
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-surface-3 text-ink-muted hover:bg-surface-4 hover:text-ink"
+              aria-label="Clear search"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24"
+                   fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            </motion.button>
+          )}
+        </AnimatePresence>
+      </div>
     </motion.div>
   );
 }

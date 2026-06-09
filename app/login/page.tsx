@@ -74,21 +74,51 @@ export default function LoginPage() {
                 type="button"
                 whileTap={{ scale: 0.96 }}
                 onClick={() => { setTab(t); setUsername(''); setPassword(''); }}
-                className={`relative flex-1 py-2 rounded-lg text-sm font-semibold capitalize whitespace-nowrap transition-colors ${
-                  tab === t ? 'text-brand-700' : 'text-ink-muted hover:text-ink'
+                aria-pressed={tab === t}
+                className={`relative flex-1 py-2 rounded-lg text-sm capitalize whitespace-nowrap transition-colors ${
+                  tab === t ? 'font-bold text-brand-700' : 'font-semibold text-ink-muted hover:text-ink'
                 }`}
               >
+                {/* Active highlight — no negative z-index (which would hide it
+                    behind the grey track); the label sits above via z-10. */}
                 {tab === t && (
                   <motion.span
                     layoutId="login-tab-pill"
-                    className="absolute inset-0 rounded-lg bg-white shadow-sm -z-10"
+                    className="absolute inset-0 rounded-lg bg-white shadow-sm ring-1 ring-brand-300"
                     transition={SPRING}
                   />
                 )}
-                {t === 'admin' ? '🔐 Admin' : '🏪 Retailer'}
+                <span className="relative z-10 flex items-center justify-center gap-1.5">
+                  {t === 'admin' ? '🔐 Admin' : '🏪 Retailer'}
+                  {tab === t && (
+                    <motion.svg
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={SPRING}
+                      width="14" height="14" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
+                    >
+                      <path d="M20 6L9 17l-5-5" />
+                    </motion.svg>
+                  )}
+                </span>
               </motion.button>
             ))}
           </div>
+
+          {/* Explicit confirmation of the selected role */}
+          <motion.p
+            key={tab}
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25 }}
+            className="-mt-3 mb-5 text-center text-xs text-ink-muted"
+          >
+            Signing in as{' '}
+            <span className="font-bold capitalize text-brand-700">
+              {tab === 'admin' ? '🔐 Admin' : '🏪 Retailer'}
+            </span>
+          </motion.p>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
