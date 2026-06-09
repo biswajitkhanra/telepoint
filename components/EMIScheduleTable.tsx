@@ -1,12 +1,20 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import { motion } from 'framer-motion';
 import { EMISchedule } from '@/lib/types';
 import { format, differenceInDays, addDays } from 'date-fns';
 import { createClient } from '@/lib/supabase/client';
 import toast from 'react-hot-toast';
 import { calculateSingleEmiFine } from '@/lib/fineCalc';
 import { formatCurrency, toDateTimeLocalInput, fromDateTimeLocalInput } from '@/lib/formatters';
+import { SPRING } from '@/lib/motion';
+
+// Per-installment card entrance — small rise + settle as the list reveals.
+const emiCardItem = {
+  hidden: { opacity: 0, y: 20, scale: 0.98 },
+  show: { opacity: 1, y: 0, scale: 1, transition: SPRING },
+};
 
 interface Props {
   emis: EMISchedule[];
@@ -322,8 +330,13 @@ export default function EMIScheduleTable({
             isOverdue                         ? '⚠ OVERDUE' : 'UNPAID';
 
           return (
-            <div
+            <motion.div
               key={emi.id}
+              variants={emiCardItem}
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true, margin: '-30px' }}
+              whileHover={{ y: -3 }}
               className="rounded-2xl overflow-hidden bg-white"
               style={{
                 border: `2.5px solid ${statusColor.border}`,
@@ -604,7 +617,7 @@ export default function EMIScheduleTable({
                   </div>
                 )}
               </div>
-            </div>
+            </motion.div>
           );
         })}
 

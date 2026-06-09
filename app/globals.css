@@ -41,15 +41,29 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 
   /* Cards */
   .card { @apply bg-white rounded-2xl shadow-card border border-surface-4; }
-  .card-hover { @apply card transition-shadow hover:shadow-md cursor-pointer; }
+  .card-hover {
+    @apply card cursor-pointer;
+    transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s ease;
+  }
+  .card-hover:hover { transform: translateY(-3px); @apply shadow-card-hover; }
+  .card-hover:active { transform: translateY(-1px) scale(.995); }
 
-  /* Buttons — all have minimum touch target */
+  /* Buttons — all have minimum touch target + tactile spring feedback.
+     Hover lifts, press compresses, release springs back. Transform is handled
+     in raw CSS (not Tailwind's active:scale) so the spring easing + hover lift
+     compose cleanly. */
   .btn {
     @apply inline-flex items-center justify-center gap-2 font-semibold rounded-xl
-           text-sm transition-all duration-150 active:scale-95
-           disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100;
+           text-sm
+           disabled:opacity-50 disabled:cursor-not-allowed;
     min-height: 44px; /* Touch target */
+    transition: transform .18s cubic-bezier(.34,1.56,.64,1),
+                box-shadow .2s ease, background-color .15s ease,
+                color .15s ease, border-color .15s ease, opacity .15s ease;
+    will-change: transform;
   }
+  .btn:hover:not(:disabled) { transform: translateY(-2px); }
+  .btn:active:not(:disabled) { transform: translateY(0) scale(.94); transition-duration: .08s; }
   .btn-primary { @apply btn px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white shadow-sm shadow-brand-500/20; }
   .btn-secondary { @apply btn px-5 py-2.5 bg-surface-3 hover:bg-surface-4 text-ink border border-surface-4; }
   .btn-danger { @apply btn px-5 py-2.5 bg-danger-light hover:bg-red-100 text-danger border border-danger-border; }
@@ -137,6 +151,34 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 .animate-scale-in { animation: scaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
 .animate-fade-in { animation: fadeIn 0.3s ease; }
 
+/* Ambient motion utilities — keep the UI feeling alive at rest */
+@keyframes floaty   { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+@keyframes breathe  { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.08); opacity: .85; } }
+@keyframes gradientPan { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
+@keyframes growBar  { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes sheen    { 0% { transform: translateX(-120%); } 60%,100% { transform: translateX(220%); } }
+.animate-float   { animation: floaty 3s ease-in-out infinite; }
+.animate-breathe { animation: breathe 2.2s ease-in-out infinite; }
+
+/* Animated gradient text/fills */
+.gradient-pan {
+  background-size: 200% 200%;
+  animation: gradientPan 4s ease infinite alternate;
+}
+
+/* Progress / meter bars that grow in from the left on first paint */
+.bar-grow { transform-origin: left center; animation: growBar .9s cubic-bezier(0.16,1,0.3,1) both; }
+
+/* Sweeping sheen overlay (e.g. across CTA buttons / headers) */
+.sheen-track { position: relative; overflow: hidden; }
+.sheen-track::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%);
+  transform: translateX(-120%);
+  animation: sheen 3.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
 /* ── Layout ──────────────────────────────────────────────── */
 .page-bg {
   background:
@@ -222,6 +264,18 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 
 /* Print */
 @media print { .no-print { display: none !important; } body { background: white; } }
+
+/* Accessibility — honour users who prefer reduced motion. Framer Motion is
+   also told (MotionConfig reducedMotion="user") to soften transform/opacity
+   animations, so these users get a calm, near-static experience. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
 
 /* ── Compatibility Aliases ───────────────────────────────── */
 .gradient-bg { @apply page-bg; }

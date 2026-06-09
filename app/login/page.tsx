@@ -3,10 +3,12 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import Logo from '@/components/Logo';
+import { SPRING, fadeUp, staggerContainer } from '@/lib/motion';
 
 type Tab = 'admin' | 'retailer';
 
@@ -39,30 +41,52 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen page-bg flex items-center justify-center p-4">
-      <div className="w-full max-w-sm animate-fade-in">
+      <motion.div
+        className="w-full max-w-sm"
+        variants={staggerContainer(0.12, 0.08)}
+        initial="hidden"
+        animate="show"
+      >
 
         {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center mb-4">
-            <Logo size={64} className="rounded-2xl shadow-lg shadow-ink/20" />
-          </div>
+        <motion.div className="text-center mb-8" variants={fadeUp}>
+          <motion.div
+            className="inline-flex items-center justify-center mb-4"
+            initial={{ scale: 0, rotate: -90 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ ...SPRING, delay: 0.1 }}
+            whileHover={{ scale: 1.08, rotate: 6 }}
+          >
+            <span className="animate-float inline-block">
+              <Logo size={64} className="rounded-2xl shadow-lg shadow-ink/20" />
+            </span>
+          </motion.div>
           <h1 className="text-3xl font-bold text-ink">EMI Management Portal</h1>
           <p className="text-ink-muted text-sm mt-1">Secure access for authorized users</p>
-        </div>
+        </motion.div>
 
-        <div className="card p-8">
+        <motion.div className="card p-8" variants={fadeUp}>
           {/* Tab */}
           <div className="flex rounded-xl bg-surface-3 p-1 mb-6">
             {(['admin', 'retailer'] as Tab[]).map(t => (
-              <button
+              <motion.button
                 key={t}
+                type="button"
+                whileTap={{ scale: 0.96 }}
                 onClick={() => { setTab(t); setUsername(''); setPassword(''); }}
-                className={`flex-1 py-2 rounded-lg text-sm font-semibold capitalize transition-all whitespace-nowrap ${
-                  tab === t ? 'bg-white text-brand-700 shadow-sm' : 'text-ink-muted hover:text-ink'
+                className={`relative flex-1 py-2 rounded-lg text-sm font-semibold capitalize whitespace-nowrap transition-colors ${
+                  tab === t ? 'text-brand-700' : 'text-ink-muted hover:text-ink'
                 }`}
               >
+                {tab === t && (
+                  <motion.span
+                    layoutId="login-tab-pill"
+                    className="absolute inset-0 rounded-lg bg-white shadow-sm -z-10"
+                    transition={SPRING}
+                  />
+                )}
                 {t === 'admin' ? '🔐 Admin' : '🏪 Retailer'}
-              </button>
+              </motion.button>
             ))}
           </div>
 
@@ -82,14 +106,14 @@ export default function LoginPage() {
               {loading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
-        </div>
+        </motion.div>
 
-        <div className="text-center mt-5">
+        <motion.div className="text-center mt-5" variants={fadeUp}>
           <Link href="/customer" className="text-sm text-ink-muted hover:text-brand-600 transition-colors underline underline-offset-4">
             Customer? View your EMI account →
           </Link>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </div>
   );
 }

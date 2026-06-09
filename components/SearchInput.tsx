@@ -1,6 +1,8 @@
 'use client';
 
 import { useRef, useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { SPRING, popIn } from '@/lib/motion';
 
 interface SearchInputProps {
   value?: string;
@@ -20,6 +22,7 @@ export default function SearchInput({
   autoFocus,
 }: SearchInputProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [focused, setFocused] = useState(false);
 
   // Uncontrolled mode: parent only gives onSearch callback, no value prop
   const isControlled = externalValue !== undefined && onChange !== undefined;
@@ -55,22 +58,42 @@ export default function SearchInput({
   }, [autoFocus]);
 
   return (
-    <div className="relative">
+    <motion.div
+      className="relative"
+      animate={{ scale: focused ? 1.01 : 1 }}
+      transition={SPRING}
+    >
+      {/* Animated focus glow ring */}
+      <motion.div
+        className="pointer-events-none absolute inset-0 rounded-xl ring-2 ring-brand-400/40"
+        initial={false}
+        animate={{ opacity: focused ? 1 : 0, scale: focused ? 1 : 0.98 }}
+        transition={{ duration: 0.2 }}
+      />
+
       {/* Search / spinner icon */}
       <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-muted pointer-events-none">
-        {loading ? (
-          <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24"
-               fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
-            <path d="M12 2a10 10 0 010 20" />
-          </svg>
-        ) : (
-          <svg width="16" height="16" viewBox="0 0 24 24"
-               fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="11" cy="11" r="8" />
-            <path d="M21 21l-4.35-4.35" />
-          </svg>
-        )}
+        <AnimatePresence mode="wait" initial={false}>
+          {loading ? (
+            <motion.svg
+              key="spin"
+              initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.6 }}
+              className="animate-spin" width="16" height="16" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+              <path d="M12 2a10 10 0 010 20" />
+            </motion.svg>
+          ) : (
+            <motion.svg
+              key="search"
+              initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.6 }}
+              width="16" height="16" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8" />
+              <path d="M21 21l-4.35-4.35" />
+            </motion.svg>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Never use type="search" — it adds browser-native clear buttons that conflict */}
@@ -79,8 +102,10 @@ export default function SearchInput({
         type="text"
         value={displayValue}
         onChange={e => handleChange(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         placeholder={placeholder}
-        className="input pl-10 pr-10 py-3 text-base shadow-sm"
+        className="input pl-10 pr-10 py-3 text-base shadow-sm relative"
         autoCorrect="off"
         autoCapitalize="off"
         autoComplete="off"
@@ -88,19 +113,25 @@ export default function SearchInput({
       />
 
       {/* Clear button */}
-      {displayValue && (
-        <button
-          type="button"
-          onClick={handleClear}
-          className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full text-ink-muted hover:bg-surface-3 hover:text-ink transition-colors"
-          aria-label="Clear search"
-        >
-          <svg width="12" height="12" viewBox="0 0 24 24"
-               fill="none" stroke="currentColor" strokeWidth="3">
-            <path d="M18 6L6 18M6 6l12 12" />
-          </svg>
-        </button>
-      )}
-    </div>
+      <AnimatePresence>
+        {displayValue && (
+          <motion.button
+            type="button"
+            variants={popIn}
+            initial="hidden" animate="show" exit="exit"
+            whileHover={{ rotate: 90 }}
+            whileTap={{ scale: 0.85 }}
+            onClick={handleClear}
+            className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full text-ink-muted hover:bg-surface-3 hover:text-ink"
+            aria-label="Clear search"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" strokeWidth="3">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </motion.button>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }

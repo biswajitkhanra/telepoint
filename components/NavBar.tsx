@@ -1,10 +1,12 @@
 'use client';
 import { useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import Logo from '@/components/Logo';
+import { SPRING, pressable, popIn } from '@/lib/motion';
 
 interface NavBarProps { role: 'admin' | 'retailer'; userName?: string; pendingCount?: number; }
 
@@ -28,40 +30,76 @@ export default function NavBar({ role, pendingCount = 0 }: NavBarProps) {
 
   const isActive = (href: string, exact = false) => exact ? pathname === href : pathname.startsWith(href);
 
+  // Shared-layout active pill that glides between links.
+  const NavItem = ({ href, exact, children }: { href: string; exact?: boolean; children: React.ReactNode }) => {
+    const active = isActive(href, exact);
+    return (
+      <Link href={href} className={`${active ? 'nav-link-active' : 'nav-link'} relative`}>
+        {active && (
+          <motion.span
+            layoutId="nav-active-pill"
+            className="absolute inset-0 rounded-xl bg-brand-50 -z-10"
+            transition={SPRING}
+          />
+        )}
+        {children}
+      </Link>
+    );
+  };
+
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-surface-4 shadow-sm no-print">
+    <motion.header
+      initial={{ y: -24, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={SPRING}
+      className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-surface-4 shadow-sm no-print"
+    >
       <div className="max-w-6xl mx-auto px-3 sm:px-4 h-14 flex items-center justify-between gap-2">
         {/* Logo */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <Logo size={32} className="rounded-lg shadow-sm" />
+        <motion.div
+          className="flex items-center gap-2 flex-shrink-0"
+          initial={{ opacity: 0, x: -12 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ ...SPRING, delay: 0.08 }}
+        >
+          <motion.div whileHover={{ rotate: -8, scale: 1.08 }} whileTap={{ scale: 0.92 }} transition={SPRING}>
+            <Logo size={32} className="rounded-lg shadow-sm" />
+          </motion.div>
           <span className="font-display font-bold text-ink text-base inline tracking-tight">Telepoint</span>
-        </div>
+        </motion.div>
 
         {/* Desktop nav links — hidden on mobile (BottomNav handles mobile) */}
         <nav className="hidden sm:flex items-center gap-1">
           {role === 'admin' && (
             <>
-              <Link href="/admin" className={isActive('/admin', true) ? 'nav-link-active' : 'nav-link'}>Dashboard</Link>
-              <Link href="/admin/approvals" className={`${isActive('/admin/approvals') ? 'nav-link-active' : 'nav-link'} relative`}>
-                Approvals
+              <NavItem href="/admin" exact>Dashboard</NavItem>
+              <div className="relative">
+                <NavItem href="/admin/approvals">Approvals</NavItem>
                 {pendingCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-brand-500 text-white text-[10px] font-bold px-1">
+                  <motion.span
+                    variants={popIn} initial="hidden" animate="show"
+                    className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-brand-500 text-white text-[10px] font-bold px-1 num"
+                  >
                     {pendingCount > 99 ? '99+' : pendingCount}
-                  </span>
+                  </motion.span>
                 )}
-              </Link>
+              </div>
             </>
           )}
           {role === 'retailer' && (
-            <Link href="/retailer" className={isActive('/retailer') ? 'nav-link-active' : 'nav-link'}>Dashboard</Link>
+            <NavItem href="/retailer">Dashboard</NavItem>
           )}
         </nav>
 
         {/* Logout — always visible */}
-        <button onClick={logout} className="btn-ghost text-xs px-3 py-2 text-danger hover:bg-danger-light hover:text-danger flex-shrink-0">
+        <motion.button
+          {...pressable}
+          onClick={logout}
+          className="btn-ghost text-xs px-3 py-2 text-danger hover:bg-danger-light hover:text-danger flex-shrink-0"
+        >
           Logout
-        </button>
+        </motion.button>
       </div>
-    </header>
+    </motion.header>
   );
 }

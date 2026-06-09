@@ -3,10 +3,19 @@
 import { Customer, Retailer } from '@/lib/types';
 import { format } from 'date-fns';
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import PhoneLockBadge from './PhoneLockBadge';
 import CustomerAppDownload from './CustomerAppDownload';
+import { SPRING, fadeUp, staggerContainer } from '@/lib/motion';
+
+// Per-cell entrance for the detail grid — small upward drift, no scale (keeps
+// the hairline `gap-px` dividers crisp during the animation).
+const cellItem = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0, transition: SPRING },
+};
 
 interface Props {
   customer: Customer;
@@ -91,25 +100,40 @@ export default function CustomerDetailPanel({ customer, paidCount, totalEmis, is
   ).filter(d => d.url);
 
   return (
-    <div className="card overflow-hidden animate-fade-in">
+    <motion.div className="card overflow-hidden" variants={fadeUp} initial="hidden" animate="show">
       {/* Header row */}
       <div className="flex items-start gap-4 p-5 border-b border-surface-4">
-        {/* Photo */}
-        <div className="w-20 h-20 rounded-2xl border border-surface-4 flex-shrink-0 relative overflow-hidden">
+        {/* Photo — springs in with a playful settle, zooms on hover */}
+        <motion.div
+          className="w-20 h-20 rounded-2xl border border-surface-4 flex-shrink-0 relative overflow-hidden cursor-pointer"
+          initial={{ scale: 0.6, opacity: 0, rotate: -8 }}
+          animate={{ scale: 1, opacity: 1, rotate: 0 }}
+          transition={{ ...SPRING, delay: 0.05 }}
+          whileHover={{ scale: 1.06, rotate: 1 }}
+          whileTap={{ scale: 0.95 }}
+        >
           <div className="absolute inset-0 bg-amber-50 flex items-center justify-center">
-            <span className="text-3xl font-bold text-amber-400 font-display select-none leading-none">
+            <motion.span
+              className="text-3xl font-bold text-amber-400 font-display select-none leading-none"
+              initial={{ scale: 0.4, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ ...SPRING, delay: 0.18 }}
+            >
               {customer.customer_name?.[0]?.toUpperCase() ?? '?'}
-            </span>
+            </motion.span>
           </div>
           {customer.customer_photo_url && (
-            <img
+            <motion.img
               src={ibbDirect(customer.customer_photo_url)}
               alt="Photo"
               className="absolute inset-0 w-full h-full object-cover"
+              initial={{ scale: 1.25, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
               onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
             />
           )}
-        </div>
+        </motion.div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 flex-wrap">
@@ -215,15 +239,22 @@ export default function CustomerDetailPanel({ customer, paidCount, totalEmis, is
           <span className="num font-medium">{paidCount}/{totalEmis} paid</span>
         </div>
         <div className="h-2 bg-surface-4 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-brand-400 to-brand-500 rounded-full transition-all duration-700"
-            style={{ width: `${progress}%` }}
+          <motion.div
+            className="h-full bg-gradient-to-r from-brand-400 to-brand-500 rounded-full"
+            initial={{ width: 0 }}
+            animate={{ width: `${progress}%` }}
+            transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
           />
         </div>
       </div>
 
       {/* Detail grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-px bg-surface-4">
+      <motion.div
+        className="grid grid-cols-2 sm:grid-cols-3 gap-px bg-surface-4"
+        variants={staggerContainer(0.04, 0.1)}
+        initial="hidden"
+        animate="show"
+      >
         {[
           { l: 'IMEI', v: customer.imei, mono: true, small: true, tint: 'slate' },
           { l: 'Model', v: customer.model_no, tint: 'slate' },
@@ -254,16 +285,16 @@ export default function CustomerDetailPanel({ customer, paidCount, totalEmis, is
             emerald: 'text-emerald-900', sky: 'text-sky-900', slate: 'text-ink',
           };
           return (
-            <div key={l} className={`${tintBg[tint] || 'bg-white'} px-4 py-3`}>
+            <motion.div key={l} variants={cellItem} className={`${tintBg[tint] || 'bg-white'} px-4 py-3`}>
               <p className={`text-[10px] ${tintLabel[tint] || 'text-ink-muted'} uppercase tracking-wide mb-0.5 font-semibold`}>{l}</p>
               <p className={`text-sm font-semibold ${small ? 'text-xs' : ''} ${mono ? 'num' : ''} ${accent ? 'text-emerald-700 font-bold text-base' : (tintValue[tint] || 'text-ink')} break-all leading-snug`}>
                 {v || '—'}
               </p>
               {sub && <p className={`text-[9px] mt-0.5 ${tintLabel[tint] || 'text-ink-muted'} opacity-80`}>{sub}</p>}
-            </div>
+            </motion.div>
           );
         })}
-      </div>
+      </motion.div>
 
       {/* Document images */}
       {docs.length > 0 && (
@@ -271,7 +302,10 @@ export default function CustomerDetailPanel({ customer, paidCount, totalEmis, is
           <p className="text-xs font-semibold text-ink-muted uppercase tracking-widest mb-3">Documents</p>
           <div className="flex flex-wrap gap-3">
             {docs.map(d => (
-              <a key={d.label} href={d.url!} target="_blank" rel="noopener noreferrer" className="group">
+              <motion.a
+                key={d.label} href={d.url!} target="_blank" rel="noopener noreferrer" className="group"
+                whileHover={{ y: -4, scale: 1.04 }} whileTap={{ scale: 0.97 }} transition={SPRING}
+              >
                 <img
                   src={ibbDirect(d.url)}
                   alt={d.label}
@@ -287,7 +321,7 @@ export default function CustomerDetailPanel({ customer, paidCount, totalEmis, is
                   <p className="text-[10px] text-ink-muted text-center px-2">Preview unavailable</p>
                 </div>
                 <p className="text-[10px] text-ink-muted mt-1 text-center">{d.label}</p>
-              </a>
+              </motion.a>
             ))}
           </div>
         </div>
@@ -314,6 +348,6 @@ export default function CustomerDetailPanel({ customer, paidCount, totalEmis, is
           {customer.completion_date && <p className="text-xs text-ink-muted mt-0.5">{format(new Date(customer.completion_date), 'd MMM yyyy')}</p>}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }

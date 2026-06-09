@@ -2,8 +2,10 @@
 export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
+import CustomerLoader from '@/components/motion/CustomerLoader';
+import { SPRING, popIn, staggerContainer, rowItem } from '@/lib/motion';
 import { Customer, Retailer, EMISchedule, DueBreakdown, PaymentRequest } from '@/lib/types';
 import NavBar from '@/components/NavBar';
 import SearchInput from '@/components/SearchInput';
@@ -49,6 +51,7 @@ export default function RetailerDashboard() {
   const [retailer, setRetailer] = useState<Retailer | null>(null);
   const [searchResults, setSearchResults] = useState<Customer[] | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [customerLoading, setCustomerLoading] = useState(false);
   const [customerEmis, setCustomerEmis] = useState<EMISchedule[]>([]);
   const [breakdown, setBreakdown] = useState<DueBreakdown | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -190,6 +193,10 @@ export default function RetailerDashboard() {
   }, []);
 
   async function selectCustomer(customer: Customer) {
+    // Premium loading sequence — immediate feedback with a short minimum
+    // on-screen time so opening a customer never feels like a dead click.
+    setCustomerLoading(true);
+    const started = Date.now();
     setDetailSource(null); // default: not from a list (openCustomerById re-sets it)
     setSelectedCustomer(customer);
     const sb = supabaseRef.current;
@@ -207,6 +214,8 @@ export default function RetailerDashboard() {
       const fc = customer.first_emi_charge_paid_at ? 0 : (customer.first_emi_charge_amount || 0);
       setBreakdown({ customer_id: customer.id, customer_status: customer.status, next_emi_no: nx?.emi_no, next_emi_amount: nx?.amount, next_emi_due_date: nx?.due_date, next_emi_status: nx?.status, fine_due: af, first_emi_charge_due: fc, total_payable: (nx?.amount ?? 0) + af + fc, popup_first_emi_charge: fc > 0, popup_fine_due: af > 0, is_overdue: nx ? new Date(nx.due_date) < new Date() : false } as DueBreakdown);
     } else setBreakdown(bd as DueBreakdown);
+    const elapsed = Date.now() - started;
+    setTimeout(() => setCustomerLoading(false), Math.max(0, 680 - elapsed));
   }
 
   // Always keep ref in sync
@@ -305,10 +314,28 @@ export default function RetailerDashboard() {
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24">
         {/* Welcome Banner */}
-        <div className="card p-5 mb-8 flex items-center justify-between">
+        <motion.div
+          className="card p-5 mb-8 flex items-center justify-between sheen-track"
+          initial={{ opacity: 0, y: -16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={SPRING}
+        >
           <div>
             <h1 className="font-display text-2xl font-bold text-ink">
-              Welcome, {retailer?.name || 'Retailer'}
+              Welcome,{' '}
+              <motion.span
+                className="inline-block"
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ ...SPRING, delay: 0.15 }}
+              >
+                {retailer?.name || 'Retailer'}
+              </motion.span>
+              <motion.span
+                className="inline-block ml-1 origin-bottom"
+                animate={{ rotate: [0, 18, -8, 18, 0] }}
+                transition={{ duration: 1.4, delay: 0.4, repeat: Infinity, repeatDelay: 3 }}
+              >👋</motion.span>
             </h1>
             <p className="text-ink-muted text-sm mt-0.5">Search your customers to collect EMI payments</p>
           </div>
@@ -316,7 +343,7 @@ export default function RetailerDashboard() {
             <p className="text-xs text-ink-muted">Today</p>
             <p className="font-num text-sm text-ink">{format(new Date(), 'd MMM yyyy')}</p>
           </div>
-        </div>
+        </motion.div>
 
         {/* Consolidated retailer payment summary — top of the page */}
         {retailer && (
@@ -476,10 +503,12 @@ export default function RetailerDashboard() {
                           <th>Overdue EMIs</th><th>Total Due</th><th>Total Fine</th><th>Total Outstanding</th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <motion.tbody variants={staggerContainer(0.05, 0.04)} initial="hidden" animate="show">
                         {due.map(d => (
-                          <tr
+                          <motion.tr
                             key={d.customer_id}
+                            variants={rowItem}
+                            whileHover={{ scale: 1.005 }}
                             onClick={() => openCustomerById(d.customer_id, 'due')}
                             className="cursor-pointer hover:bg-rose-50 transition-colors"
                             title="Open detailed breakdown"
@@ -494,9 +523,9 @@ export default function RetailerDashboard() {
                             <td><span className="font-num font-semibold text-crimson-500">{fmt(d.total_due)}</span></td>
                             <td><span className="font-num text-rose-700">{fmt(d.total_fine)}</span></td>
                             <td><span className="font-num font-bold text-ink">{fmt(d.total_outstanding)}</span></td>
-                          </tr>
+                          </motion.tr>
                         ))}
-                      </tbody>
+                      </motion.tbody>
                     </table>
                   </div>
                 )}
@@ -721,28 +750,28 @@ export default function RetailerDashboard() {
             {breakdown && (() => {
               const daysLeft = breakdown.next_emi_due_date ? differenceInDays(new Date(breakdown.next_emi_due_date), new Date()) : null;
               return (
-                <div className="space-y-2">
+                <motion.div className="space-y-2" variants={staggerContainer(0.1, 0.05)} initial="hidden" animate="show">
                   {breakdown.fine_due > 0 && (
-                    <div className="alert-red border-2">
+                    <motion.div variants={popIn} className="alert-red border-2">
                       <p className="font-bold text-base text-crimson-400">⚠️ Fine Pending</p>
                       <p className="text-sm font-semibold text-ink-muted mt-0.5">Pending fine: {fmt(breakdown.fine_due)}</p>
-                    </div>
+                    </motion.div>
                   )}
                   {(breakdown.first_emi_charge_due ?? 0) > 0 && (
-                    <div className="alert-gold border-2">
+                    <motion.div variants={popIn} className="alert-gold border-2">
                       <p className="font-bold text-base text-gold-400">⚠️ 1ST EMI CHARGE Pending</p>
                       <p className="text-sm font-semibold text-ink-muted mt-0.5">Pending amount: {fmt(breakdown.first_emi_charge_due || 0)}</p>
-                    </div>
+                    </motion.div>
                   )}
                   {daysLeft !== null && daysLeft >= 0 && daysLeft <= 5 && (
-                    <div className="alert-blue border-2">
+                    <motion.div variants={popIn} className="alert-blue border-2">
                       <p className="font-bold text-base text-sapphire-400">🔔 EMI Upcoming in {daysLeft} day{daysLeft === 1 ? '' : 's'}</p>
                       <p className="text-sm font-semibold text-ink-muted mt-0.5">
                         EMI #{breakdown.next_emi_no ?? '—'} due on {breakdown.next_emi_due_date ? format(new Date(breakdown.next_emi_due_date), 'd MMM yyyy') : '—'}
                       </p>
-                    </div>
+                    </motion.div>
                   )}
-                </div>
+                </motion.div>
               );
             })()}
 
@@ -808,22 +837,29 @@ export default function RetailerDashboard() {
       </div>
 
       {/* Payment Modal */}
-      {showPaymentModal && selectedCustomer && (
-        <PaymentModal
-          customer={selectedCustomer}
-          emis={customerEmis}
-          breakdown={breakdown}
-          onClose={() => setShowPaymentModal(false)}
-          onSubmitted={() => {
-            selectCustomer(selectedCustomer);
-            if (retailer) loadMyRequests(retailer.id);
-          }}
-          isAdmin={false}
-          baseFine={fineSettings.default_fine_amount}
-          weeklyIncrement={fineSettings.weekly_fine_increment}
-        />
-      )}
+      <AnimatePresence>
+        {showPaymentModal && selectedCustomer && (
+          <PaymentModal
+            customer={selectedCustomer}
+            emis={customerEmis}
+            breakdown={breakdown}
+            onClose={() => setShowPaymentModal(false)}
+            onSubmitted={() => {
+              selectCustomer(selectedCustomer);
+              if (retailer) loadMyRequests(retailer.id);
+            }}
+            isAdmin={false}
+            baseFine={fineSettings.default_fine_amount}
+            weeklyIncrement={fineSettings.weekly_fine_increment}
+          />
+        )}
+      </AnimatePresence>
       <BottomNav role="retailer" />
+
+      {/* Premium customer-open loading sequence */}
+      <AnimatePresence>
+        {customerLoading && <CustomerLoader name={selectedCustomer?.customer_name} />}
+      </AnimatePresence>
     </div>
   );
 }

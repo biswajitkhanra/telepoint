@@ -1,8 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { motion } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import { formatCurrency } from '@/lib/formatters';
+import CountUp from '@/components/motion/CountUp';
+import { SPRING, cardRise, staggerContainer, fadeUp } from '@/lib/motion';
 
 /**
  * Analysis — Year-over-Year EMI business intelligence dashboard.
@@ -199,7 +202,7 @@ export default function AnalysisDashboard({
   const thisLabel = `${MONTHS[month - 1].slice(0, 3)} ${year}`;
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <motion.div className="space-y-6" variants={fadeUp} initial="hidden" animate="show">
       {/* Header + period controls */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -229,17 +232,22 @@ export default function AnalysisDashboard({
       </div>
 
       {/* Aspect comparison cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard label="Loan Given" value={formatCurrency(thisY.loanGiven)} prev={lastY.loanGiven} cur={thisY.loanGiven} theme="emerald" />
-        <StatCard label="Got (Collected)" value={formatCurrency(thisY.collected)} prev={lastY.collected} cur={thisY.collected} theme="teal" />
-        <StatCard label="New Customers" value={String(thisY.customers)} prev={lastY.customers} cur={thisY.customers} theme="blue" />
-        <StatCard label="Bounce Rate" value={`${bounceRate(thisY).toFixed(1)}%`} prev={bounceRate(lastY)} cur={bounceRate(thisY)} theme="rose" invert />
-      </div>
+      <motion.div
+        className="grid grid-cols-2 lg:grid-cols-4 gap-3"
+        variants={staggerContainer(0.08, 0.05)}
+        initial="hidden"
+        animate="show"
+      >
+        <StatCard label="Loan Given" prev={lastY.loanGiven} cur={thisY.loanGiven} format={formatCurrency} theme="emerald" />
+        <StatCard label="Got (Collected)" prev={lastY.collected} cur={thisY.collected} format={formatCurrency} theme="teal" />
+        <StatCard label="New Customers" prev={lastY.customers} cur={thisY.customers} format={(v) => String(Math.round(v))} theme="blue" />
+        <StatCard label="Bounce Rate" prev={bounceRate(lastY)} cur={bounceRate(thisY)} format={(v) => `${v.toFixed(1)}%`} theme="rose" invert />
+      </motion.div>
 
       {/* YoY charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Financial: Loan Given vs Got */}
-        <div className="card p-6">
+        <motion.div className="card p-6" variants={cardRise} initial="hidden" whileInView="show" viewport={{ once: true, margin: '-40px' }}>
           <p className="section-header">💰 Loan Given vs Got (Collected)</p>
           <GroupedBars
             groups={[
@@ -250,10 +258,10 @@ export default function AnalysisDashboard({
             lastLabel={lastLabel}
             thisLabel={thisLabel}
           />
-        </div>
+        </motion.div>
 
         {/* Volume / toggleable metric */}
-        <div className="card p-6">
+        <motion.div className="card p-6" variants={cardRise} initial="hidden" whileInView="show" viewport={{ once: true, margin: '-40px' }}>
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <p className="section-header mb-0">📊 {volumeChart.label}</p>
             <div className="flex flex-wrap gap-1">
@@ -263,15 +271,17 @@ export default function AnalysisDashboard({
                 ['collected', 'Collected'],
                 ['bounceRate', 'Bounce %'],
               ] as [VolumeMetric, string][]).map(([key, label]) => (
-                <button
+                <motion.button
                   key={key}
                   onClick={() => setVolumeMetric(key)}
+                  whileHover={{ y: -1 }}
+                  whileTap={{ scale: 0.9 }}
                   className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors ${
-                    volumeMetric === key ? 'bg-brand-500 text-white' : 'bg-surface-3 text-ink-muted hover:text-ink'
+                    volumeMetric === key ? 'bg-brand-500 text-white shadow-sm shadow-brand-500/30' : 'bg-surface-3 text-ink-muted hover:text-ink'
                   }`}
                 >
                   {label}
-                </button>
+                </motion.button>
               ))}
             </div>
           </div>
@@ -284,7 +294,7 @@ export default function AnalysisDashboard({
               single
             />
           </div>
-        </div>
+        </motion.div>
       </div>
 
       {/* Retailer leaderboards */}
@@ -307,7 +317,7 @@ export default function AnalysisDashboard({
       <p className="text-center text-[11px] text-ink-muted/70 italic pt-2">
         Mastermind Behind The Code: Biswodip Goj
       </p>
-    </div>
+    </motion.div>
   );
 }
 
@@ -334,19 +344,23 @@ const STAT_THEMES: Record<string, string> = {
 };
 
 function StatCard({
-  label, value, prev, cur, theme, invert = false,
+  label, prev, cur, format, theme, invert = false,
 }: {
-  label: string; value: string; prev: number; cur: number; theme: string; invert?: boolean;
+  label: string; prev: number; cur: number; format: (n: number) => string; theme: string; invert?: boolean;
 }) {
   return (
-    <div className={`rounded-xl border-2 p-4 ${STAT_THEMES[theme]}`}>
+    <motion.div
+      variants={cardRise}
+      whileHover={{ y: -4, transition: SPRING }}
+      className={`rounded-xl border-2 p-4 ${STAT_THEMES[theme]}`}
+    >
       <div className="flex items-start justify-between gap-1">
         <p className="text-[10px] font-bold uppercase tracking-widest">{label}</p>
         <DeltaBadge prev={prev} cur={cur} invert={invert} />
       </div>
-      <p className="num font-extrabold text-2xl mt-2">{value}</p>
+      <CountUp value={cur} format={format} className="num font-extrabold text-2xl mt-2 block" />
       <p className="text-[10px] opacity-70 mt-1">vs same month last year</p>
-    </div>
+    </motion.div>
   );
 }
 
@@ -386,8 +400,15 @@ function Bar({ value, max, fmt, className }: { value: number; max: number; fmt: 
   const pct = value <= 0 ? 0 : Math.max(2, (value / max) * 100);
   return (
     <div className="flex flex-col items-center justify-end h-full w-9 sm:w-11">
-      <span className="text-[10px] font-bold text-ink mb-1 num whitespace-nowrap">{fmt(value)}</span>
-      <div className={`w-full rounded-t-lg ${className} transition-all duration-500`} style={{ height: `${pct}%` }} />
+      <span className="text-[10px] font-bold text-ink mb-1 num whitespace-nowrap">
+        <CountUp value={value} format={fmt} duration={0.9} />
+      </span>
+      <motion.div
+        className={`w-full rounded-t-lg ${className}`}
+        initial={{ height: 0 }}
+        animate={{ height: `${pct}%` }}
+        transition={{ ...SPRING, damping: 26 }}
+      />
     </div>
   );
 }
@@ -400,32 +421,48 @@ function Leaderboard({
   const medals = ['🥇', '🥈', '🥉'];
   const top = rows[0]?.value ?? 0;
   return (
-    <div className="card p-6">
+    <motion.div
+      className="card p-6"
+      variants={cardRise}
+      initial="hidden"
+      whileInView="show"
+      viewport={{ once: true, margin: '-40px' }}
+    >
       <p className="section-header mb-0">{title}</p>
       <p className="text-[11px] text-ink-muted mb-4">{subtitle}</p>
       {rows.length === 0 ? (
         <p className="text-sm text-ink-muted py-6 text-center">No activity for this month yet.</p>
       ) : (
-        <div className="space-y-2.5">
+        <motion.div className="space-y-2.5" variants={staggerContainer(0.08, 0.05)} initial="hidden" animate="show">
           {rows.map((r, i) => (
-            <div key={r.retailerId} className="flex items-center gap-3">
-              <span className="w-6 text-center text-sm font-bold text-ink-muted">{medals[i] ?? i + 1}</span>
+            <motion.div key={r.retailerId} variants={fadeUp} className="flex items-center gap-3">
+              <motion.span
+                className="w-6 text-center text-sm font-bold text-ink-muted"
+                initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                transition={{ ...SPRING, delay: 0.1 + i * 0.06 }}
+              >
+                {medals[i] ?? i + 1}
+              </motion.span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-semibold text-ink truncate">{r.name}</p>
-                  <p className="text-sm font-bold num text-ink whitespace-nowrap">{format(r.value)}</p>
+                  <p className="text-sm font-bold num text-ink whitespace-nowrap">
+                    <CountUp value={r.value} format={format} duration={0.9} />
+                  </p>
                 </div>
                 <div className="mt-1 h-1.5 rounded-full bg-surface-3 overflow-hidden">
-                  <div
+                  <motion.div
                     className={`h-full rounded-full ${i === 0 ? 'bg-brand-500' : 'bg-brand-500/50'}`}
-                    style={{ width: `${top > 0 ? Math.max(4, (r.value / top) * 100) : 0}%` }}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${top > 0 ? Math.max(4, (r.value / top) * 100) : 0}%` }}
+                    transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.15 + i * 0.06 }}
                   />
                 </div>
               </div>
-            </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
-    </div>
+    </motion.div>
   );
 }

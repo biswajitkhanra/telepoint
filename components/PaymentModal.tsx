@@ -1,11 +1,13 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { Customer, EMISchedule, DueBreakdown } from '@/lib/types';
 import toast from 'react-hot-toast';
 import { format, differenceInDays } from 'date-fns';
 import { calculateSingleEmiFine, calculateTotalFineFromEmis } from '@/lib/fineCalc';
 import FineSummaryPanel from './FineSummaryPanel';
 import { formatCurrency, readJsonSafe } from '@/lib/formatters';
+import { backdrop, modalPanel, sheetPanel } from '@/lib/motion';
 
 interface Props {
   customer: Customer;
@@ -250,10 +252,20 @@ export default function PaymentModal({
   if (showReceipt && receiptId) {
     const now = new Date();
     return (
-      <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) { onSubmitted(); onClose(); } }}>
-        <div className="modal-panel max-w-sm mx-auto animate-scale-in">
-          <div className="bg-brand-500 px-6 py-5 text-center">
-            <div className="text-4xl mb-2">{isAdmin ? '✅' : '📋'}</div>
+      <motion.div
+        className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) { onSubmitted(); onClose(); } }}
+        variants={backdrop} initial="hidden" animate="show" exit="exit"
+      >
+        <motion.div
+          className="modal-panel max-w-sm mx-auto" style={{ animation: 'none' }}
+          variants={modalPanel} initial="hidden" animate="show" exit="exit"
+        >
+          <div className="bg-brand-500 px-6 py-5 text-center sheen-track">
+            <motion.div
+              className="text-4xl mb-2"
+              initial={{ scale: 0, rotate: -25 }} animate={{ scale: 1, rotate: 0 }}
+              transition={{ type: 'spring', stiffness: 440, damping: 16, delay: 0.1 }}
+            >{isAdmin ? '✅' : '📋'}</motion.div>
             <h2 className="text-white font-bold text-xl">{isAdmin ? 'Payment Approved' : 'Request Submitted'}</h2>
           </div>
           <div className="p-5 space-y-3">
@@ -294,8 +306,8 @@ export default function PaymentModal({
               Close
             </button>
           </div>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     );
   }
 
@@ -303,10 +315,15 @@ export default function PaymentModal({
 
   // ── Main modal ───────────────────────────────────────────────────────────────
   return (
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div
+    <motion.div
+      className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}
+      variants={backdrop} initial="hidden" animate="show" exit="exit"
+    >
+      <motion.div
         className="modal-panel flex flex-col max-h-[100dvh] h-[100dvh] sm:h-auto sm:max-h-[95dvh] relative"
-        style={{ overflow: 'hidden' }}
+        style={{ overflow: 'hidden', animation: 'none' }}
+        variants={sheetPanel}
+        initial="hidden" animate="show" exit="exit"
       >
 
         {/* ── Sticky header ───────────────────────────────────────────────────── */}
@@ -645,8 +662,8 @@ export default function PaymentModal({
           </button>
         </div>
 
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
