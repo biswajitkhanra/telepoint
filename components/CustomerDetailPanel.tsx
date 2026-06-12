@@ -1,13 +1,14 @@
 'use client';
 
-import { Customer, Retailer } from '@/lib/types';
+import { Customer, EMISchedule, Retailer } from '@/lib/types';
 import { format } from 'date-fns';
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import PhoneLockBadge from './PhoneLockBadge';
 import CustomerAppDownload from './CustomerAppDownload';
+import LoanStatementModal from './LoanStatementModal';
 import { SPRING, fadeUp, staggerContainer } from '@/lib/motion';
 
 // Per-cell entrance for the detail grid — small upward drift, no scale (keeps
@@ -22,15 +23,20 @@ interface Props {
   paidCount: number;
   totalEmis: number;
   isAdmin?: boolean;
+  /** Full EMI schedule — enables the per-customer Loan Statement (PDF). */
+  emis?: EMISchedule[];
+  baseFine?: number;
+  weeklyIncrement?: number;
 }
 
 function fmt(n: number) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(n);
 }
 
-export default function CustomerDetailPanel({ customer, paidCount, totalEmis, isAdmin }: Props) {
+export default function CustomerDetailPanel({ customer, paidCount, totalEmis, isAdmin, emis, baseFine, weeklyIncrement }: Props) {
   const [copiedNum, setCopiedNum] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
+  const [showStatement, setShowStatement] = useState(false);
   const progress = totalEmis > 0 ? (paidCount / totalEmis) * 100 : 0;
   const retailer = customer.retailer as Retailer | null;
 
@@ -209,6 +215,16 @@ export default function CustomerDetailPanel({ customer, paidCount, totalEmis, is
               )}
             </div>
 
+            {/* Per-customer loan statement (bank-style, printable to PDF) */}
+            {emis && emis.length > 0 && (
+              <button
+                onClick={() => setShowStatement(true)}
+                className="flex items-center gap-1 rounded-lg border border-indigo-300 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 transition-all hover:bg-indigo-100"
+              >
+                📄 Loan Statement
+              </button>
+            )}
+
             {/* Admin NOC/Bill — ONLY for COMPLETE customers */}
             {isAdmin && customer.status === 'COMPLETE' && (
               <>
@@ -348,6 +364,19 @@ export default function CustomerDetailPanel({ customer, paidCount, totalEmis, is
           {customer.completion_date && <p className="text-xs text-ink-muted mt-0.5">{format(new Date(customer.completion_date), 'd MMM yyyy')}</p>}
         </div>
       )}
+
+      {/* Loan Statement modal */}
+      <AnimatePresence>
+        {showStatement && emis && (
+          <LoanStatementModal
+            customer={customer}
+            emis={emis}
+            baseFine={baseFine}
+            weeklyIncrement={weeklyIncrement}
+            onClose={() => setShowStatement(false)}
+          />
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

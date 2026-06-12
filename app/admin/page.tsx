@@ -23,6 +23,7 @@ import { formatCurrency, formatDateOnly, readJsonSafe } from '@/lib/formatters';
 import { motion, AnimatePresence } from 'framer-motion';
 import CountUp from '@/components/motion/CountUp';
 import CustomerLoader from '@/components/motion/CustomerLoader';
+import SkeletonDance from '@/components/motion/SkeletonDance';
 import { SPRING, cardRise, staggerContainer, rowItem } from '@/lib/motion';
 
 type Tab = 'search' | 'retailers' | 'reports' | 'analysis' | 'broadcast';
@@ -147,6 +148,7 @@ export default function AdminDashboard() {
       return;
     }
     setSearchLoading(true);
+    const started = Date.now();
     try {
       const sb = supabaseRef.current;
       let qb = sb.from('customers').select('*, retailer:retailers(*)');
@@ -161,7 +163,10 @@ export default function AdminDashboard() {
       if (results.length === 1) await selectCustomerRef.current(results[0]);
       else setSelectedCustomer(null);
     } finally {
-      setSearchLoading(false);
+      // Keep the dancing-skeleton loader up for a short minimum so the search
+      // never flashes — then the results take the stage.
+      const elapsed = Date.now() - started;
+      setTimeout(() => setSearchLoading(false), Math.max(0, 1100 - elapsed));
     }
   }, []);
 
@@ -607,7 +612,15 @@ export default function AdminDashboard() {
                   </button>
                 </div>
 
-                <CustomerDetailPanel customer={selectedCustomer} paidCount={paidCount} totalEmis={selectedCustomer.emi_tenure} isAdmin={true} />
+                <CustomerDetailPanel
+                  customer={selectedCustomer}
+                  paidCount={paidCount}
+                  totalEmis={selectedCustomer.emi_tenure}
+                  isAdmin={true}
+                  emis={customerEmis}
+                  baseFine={fineSettings.default_fine_amount}
+                  weeklyIncrement={fineSettings.weekly_fine_increment}
+                />
 
                 {/* Payment Summary mounted directly beneath Customer Details */}
                 <CustomerPaymentSummary
@@ -796,8 +809,8 @@ export default function AdminDashboard() {
             <h1 className="font-display text-3xl font-bold text-ink">Reports & Settings</h1>
 
             {/* UTR / Payment Search */}
-            <div className="card p-6">
-              <p className="section-header">Search Payment by UTR / Reference</p>
+            <div className="card p-6 border-l-4 border-sky-500 bg-gradient-to-br from-sky-50 to-white">
+              <p className="section-header text-sky-700">Search Payment by UTR / Reference</p>
               <div className="flex gap-3 items-end">
                 <div className="flex-1">
                   <input
@@ -897,10 +910,10 @@ export default function AdminDashboard() {
             <MetricDashboard supabase={supabase} baseFine={fineSettings.default_fine_amount} weeklyIncrement={fineSettings.weekly_fine_increment} />
 
             {/* Excel Exports */}
-            <div className="card p-6">
+            <div className="card p-6 border-l-4 border-violet-500 bg-gradient-to-br from-violet-50 to-white">
               {/* Monthly Collection Sheet — retailer-wise CSV */}
-              <div className="card p-5 mb-6">
-                <p className="section-header">📋 Monthly EMI Collection Sheet</p>
+              <div className="card p-5 mb-6 border-l-4 border-indigo-500 bg-gradient-to-br from-indigo-50 to-white">
+                <p className="section-header text-indigo-700">📋 Monthly EMI Collection Sheet</p>
                 <p className="text-xs text-ink-muted mb-4">
                   Per-retailer EMI collection sheet with Fine Due. Leave retailer as "All" to download all retailers in one file.
                 </p>
@@ -945,7 +958,7 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <p className="section-header">Download Customers</p>
+              <p className="section-header text-violet-700">Download Customers</p>
               <p className="text-xs text-ink-muted mb-4">
                 The <strong>All Customers</strong> Excel export is a single .xlsx workbook with one tab per status — Running, Complete, Settled and NPA — so every customer is included. CSV downloads remain available for legacy use.
               </p>
@@ -984,9 +997,9 @@ export default function AdminDashboard() {
             </div>
 
             {/* EMI Filters */}
-            <div className="card p-6">
+            <div className="card p-6 border-l-4 border-amber-500 bg-gradient-to-br from-amber-50 to-white">
               <div className="flex items-center justify-between mb-4">
-                <p className="section-header mb-0">EMI Due Filters</p>
+                <p className="section-header mb-0 text-amber-700">EMI Due Filters</p>
                 {activeFilter && (
                   <button onClick={clearFilter} className="text-xs text-ink-muted hover:text-ink underline underline-offset-4 transition-colors">
                     Clear filter
@@ -1170,8 +1183,8 @@ export default function AdminDashboard() {
               <p className="text-ink-muted text-sm mt-1">Send popup messages to all customers under a retailer.</p>
             </div>
 
-            <div className="card p-6">
-              <p className="section-header">Send New Broadcast</p>
+            <div className="card p-6 border-l-4 border-emerald-500 bg-gradient-to-br from-emerald-50 to-white">
+              <p className="section-header text-emerald-700">Send New Broadcast</p>
               <div className="space-y-4">
                 <div>
                   <label className="form-label">Select Retailer <span className="text-brand-600">*</span></label>
@@ -1262,9 +1275,9 @@ export default function AdminDashboard() {
             </div>
 
             {/* Broadcast History */}
-            <div className="card p-6">
+            <div className="card p-6 border-l-4 border-fuchsia-500 bg-gradient-to-br from-fuchsia-50 to-white">
               <div className="flex items-center justify-between mb-4">
-                <p className="section-header mb-0">Broadcast History</p>
+                <p className="section-header mb-0 text-fuchsia-700">Broadcast History</p>
                 <button onClick={loadBroadcasts} className="text-xs text-brand-600 underline underline-offset-4">
                   Refresh
                 </button>
@@ -1519,9 +1532,14 @@ export default function AdminDashboard() {
       )}
       <BottomNav role="admin" pendingCount={pendingCount} />
 
+      {/* Full-screen dancing-skeleton search loader */}
+      <AnimatePresence>
+        {searchLoading && <SkeletonDance />}
+      </AnimatePresence>
+
       {/* Premium customer-open loading sequence */}
       <AnimatePresence>
-        {customerLoading && <CustomerLoader name={selectedCustomer?.customer_name} />}
+        {customerLoading && !searchLoading && <CustomerLoader name={selectedCustomer?.customer_name} />}
       </AnimatePresence>
     </div>
   );
@@ -1534,13 +1552,20 @@ export default function AdminDashboard() {
 // ─────────────────────────────────────────────────────────────────────────────
 type MetricNumbers = {
   loanAmount: number;
+  disburse: number;
   emiDue: number;
   fineDue: number;
   firstEmiChargeDue: number;
   emiCollected: number;
   fineCollected: number;
   firstEmiChargeCollected: number;
-  fineCollectedByYear: Record<string, number>;
+  fineCollectedByMonth: Record<string, number>;
+};
+
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const currentYM = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 };
 
 function MetricDashboard({
@@ -1552,6 +1577,7 @@ function MetricDashboard({
 }) {
   const [metrics, setMetrics] = useState<MetricNumbers | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fineMonth, setFineMonth] = useState<string>(currentYM()); // "YYYY-MM"
   const [fineYear, setFineYear] = useState<number>(new Date().getFullYear());
 
   const load = useCallback(async () => {
@@ -1569,13 +1595,14 @@ function MetricDashboard({
       const d = await res.json();
       setMetrics({
         loanAmount: d.loanAmount,
+        disburse: d.disburse ?? d.loanAmount,
         emiDue: d.emiDue,
         fineDue: d.fineDue,
         firstEmiChargeDue: d.firstChargeDue,
         emiCollected: d.emiCollected,
         fineCollected: d.fineCollected,
         firstEmiChargeCollected: d.firstChargeCollected,
-        fineCollectedByYear: d.fineCollectedByYear ?? {},
+        fineCollectedByMonth: d.fineCollectedByMonth ?? {},
       });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not load metrics');
@@ -1586,7 +1613,7 @@ function MetricDashboard({
 
   useEffect(() => { load(); }, [load]);
 
-  const m = metrics || { loanAmount: 0, emiDue: 0, fineDue: 0, firstEmiChargeDue: 0, emiCollected: 0, fineCollected: 0, firstEmiChargeCollected: 0, fineCollectedByYear: {} };
+  const m = metrics || { loanAmount: 0, disburse: 0, emiDue: 0, fineDue: 0, firstEmiChargeDue: 0, emiCollected: 0, fineCollected: 0, firstEmiChargeCollected: 0, fineCollectedByMonth: {} };
   const totalLoanValue = m.loanAmount;
   // Collection = everything actually received: EMI + fines + 1st EMI charges.
   const totalCollection = m.emiCollected + m.fineCollected + m.firstEmiChargeCollected;
@@ -1606,6 +1633,11 @@ function MetricDashboard({
   // because collections passed the principal.
   const expectedRevenue = marketDue;
   const invDue = expectedRevenue - totalCollection;
+  // Profit baseline = money actually put into the market (disburse_amount,
+  // falling back to the financed principal) — same convention as the
+  // /api/report/profit export.
+  const profitExpected = expectedRevenue - m.disburse;
+  const profitCollected = totalCollection - m.disburse;
   const collectionPct = expectedRevenue > 0
     ? Math.min(100, Math.round((totalCollection / expectedRevenue) * 100))
     : 0;
@@ -1615,7 +1647,7 @@ function MetricDashboard({
     : 0;
 
   return (
-    <div className="card p-6 border-l-4 border-brand-500">
+    <div className="card p-6 border-l-4 border-brand-500 bg-gradient-to-br from-amber-50 via-white to-fuchsia-50">
       <div className="flex items-center justify-between mb-4">
         <div>
           <p className="section-header mb-0">
@@ -1649,7 +1681,7 @@ function MetricDashboard({
         </div>
       </div>
       <motion.div
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
         variants={staggerContainer(0.08, 0.05)}
         initial="hidden"
         animate="show"
@@ -1663,13 +1695,13 @@ function MetricDashboard({
           graphic="trending-up"
         />
         <MetricCard
-          title="MARKET DUE"
-          formula="All EMI + All Fine + All 1st EMI Charge (paid + unpaid)"
-          value={marketDue}
-          gradient="from-amber-500 via-orange-600 to-red-600"
-          glow="shadow-orange-500/40"
-          graphic="progress-ring"
-          progress={marketPct}
+          title="COLLECTION"
+          formula="EMI + Fine + 1st Charge Collected"
+          value={totalCollection}
+          gradient="from-violet-600 via-purple-600 to-fuchsia-600"
+          glow="shadow-purple-500/40"
+          graphic="filled-bar"
+          progress={collectionPct}
         />
         <MetricCard
           title="BTD (Balance To Date)"
@@ -1680,13 +1712,13 @@ function MetricDashboard({
           graphic="sparkline"
         />
         <MetricCard
-          title="COLLECTION"
-          formula="EMI + Fine + 1st Charge Collected"
-          value={totalCollection}
-          gradient="from-violet-600 via-purple-600 to-fuchsia-600"
-          glow="shadow-purple-500/40"
-          graphic="filled-bar"
-          progress={collectionPct}
+          title="MARKET DUE"
+          formula="All EMI + All Fine + All 1st EMI Charge (paid + unpaid)"
+          value={marketDue}
+          gradient="from-amber-500 via-orange-600 to-red-600"
+          glow="shadow-orange-500/40"
+          graphic="progress-ring"
+          progress={marketPct}
         />
         <MetricCard
           title="INV / DUE"
@@ -1696,37 +1728,59 @@ function MetricDashboard({
           glow="shadow-rose-500/40"
           graphic="alert"
         />
+        <MetricCard
+          title="PROFIT"
+          formula="Revenue − Disburse (money put in market)"
+          value={profitCollected}
+          valueLabel="Collected"
+          secondary={{ label: 'Expected', value: profitExpected }}
+          gradient="from-lime-500 via-green-600 to-emerald-700"
+          glow="shadow-green-500/40"
+          graphic="trending-up"
+        />
       </motion.div>
 
-      {/* Fine collected — year-wise (transaction-level, bucketed by approval year) */}
+      {/* Fine collected — MONTH-wise (transaction-level, bucketed by approval month) */}
       {(() => {
-        const byYear = m.fineCollectedByYear || {};
+        const byMonth = m.fineCollectedByMonth || {};
         const nowY = new Date().getFullYear();
         const years = Array.from(
-          new Set<number>([nowY, ...Object.keys(byYear).map(Number).filter(Number.isFinite)]),
+          new Set<number>([nowY, ...Object.keys(byMonth).map(k => Number(k.slice(0, 4))).filter(Number.isFinite)]),
         ).sort((a, b) => b - a);
-        const selected = byYear[fineYear] || 0;
-        const allTime = years.reduce((s, y) => s + (byYear[y] || 0), 0);
-        const maxY = Math.max(1, ...years.map(y => byYear[y] || 0));
-        const noneYet = years.every(y => (byYear[y] || 0) === 0);
+        const monthsOfYear = MONTH_NAMES.map((name, i) => {
+          const key = `${fineYear}-${String(i + 1).padStart(2, '0')}`;
+          return { key, name, value: byMonth[key] || 0 };
+        });
+        const selected = byMonth[fineMonth] || 0;
+        const selectedLabel = (() => {
+          const [y, mm] = fineMonth.split('-');
+          return `${MONTH_NAMES[Number(mm) - 1]} ${y}`;
+        })();
+        const allTime = Object.values(byMonth).reduce((s, v) => s + v, 0);
+        const maxM = Math.max(1, ...monthsOfYear.map(x => x.value));
+        const noneYet = monthsOfYear.every(x => x.value === 0);
         return (
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-40px' }}
             transition={SPRING}
-            className="mt-4 rounded-xl border-2 border-rose-500/30 bg-rose-500/5 p-4"
+            className="mt-4 rounded-xl border-2 border-rose-500/30 bg-gradient-to-br from-rose-500/10 via-pink-500/5 to-orange-500/10 p-4"
           >
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-widest text-rose-700">💸 Fine Collected — Year-wise</p>
-                <p className="mt-0.5 text-[11px] text-ink-muted">Late-fine money actually collected, by the year it was approved</p>
+                <p className="text-[11px] font-bold uppercase tracking-widest text-rose-700">💸 Fine Collected — Month-wise</p>
+                <p className="mt-0.5 text-[11px] text-ink-muted">Late-fine money actually collected, by the month it was approved</p>
               </div>
               <div className="flex items-center gap-2">
                 <label className="text-[11px] text-ink-muted">Year</label>
                 <select
                   value={fineYear}
-                  onChange={e => setFineYear(Number(e.target.value))}
+                  onChange={e => {
+                    const y = Number(e.target.value);
+                    setFineYear(y);
+                    setFineMonth(`${y}-${fineMonth.slice(5, 7)}`);
+                  }}
                   className="form-input !w-auto !py-1.5 text-sm"
                   aria-label="Fine collection year"
                 >
@@ -1737,35 +1791,34 @@ function MetricDashboard({
 
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
-                <p className="text-[10px] uppercase tracking-wide text-ink-muted">Collected in {fineYear}</p>
+                <p className="text-[10px] uppercase tracking-wide text-ink-muted">Collected in {selectedLabel}</p>
                 <CountUp value={selected} format={fmt} className="num block text-3xl font-extrabold text-rose-700" />
               </div>
               <div className="text-right">
-                <p className="text-[10px] uppercase tracking-wide text-ink-muted">All years</p>
+                <p className="text-[10px] uppercase tracking-wide text-ink-muted">All time</p>
                 <CountUp value={allTime} format={fmt} className="num block text-lg font-bold text-ink" />
               </div>
             </div>
 
-            {/* Clickable per-year breakdown bars */}
-            <div className="mt-4 space-y-2">
+            {/* Clickable per-month breakdown bars for the selected year */}
+            <div className="mt-4 space-y-1.5">
               {noneYet ? (
-                <p className="py-2 text-center text-xs text-ink-muted">No fine collected yet.</p>
-              ) : years.map((y, i) => {
-                const v = byYear[y] || 0;
-                const pct = maxY > 0 ? Math.max(v > 0 ? 3 : 0, (v / maxY) * 100) : 0;
-                const active = y === fineYear;
+                <p className="py-2 text-center text-xs text-ink-muted">No fine collected in {fineYear} yet.</p>
+              ) : monthsOfYear.map(({ key, name, value }, i) => {
+                const pct = maxM > 0 ? Math.max(value > 0 ? 3 : 0, (value / maxM) * 100) : 0;
+                const active = key === fineMonth;
                 return (
-                  <button key={y} onClick={() => setFineYear(y)} className="flex w-full items-center gap-3 text-left">
-                    <span className={`num w-12 text-xs font-bold ${active ? 'text-rose-700' : 'text-ink-muted'}`}>{y}</span>
+                  <button key={key} onClick={() => setFineMonth(key)} className="flex w-full items-center gap-3 text-left">
+                    <span className={`num w-12 text-xs font-bold ${active ? 'text-rose-700' : 'text-ink-muted'}`}>{name}</span>
                     <span className="h-2.5 flex-1 overflow-hidden rounded-full bg-surface-3">
                       <motion.span
-                        className={`block h-full rounded-full ${active ? 'bg-rose-500' : 'bg-rose-400/50'}`}
+                        className={`block h-full rounded-full ${active ? 'bg-gradient-to-r from-rose-500 to-orange-400' : 'bg-rose-400/50'}`}
                         initial={{ width: 0 }}
                         animate={{ width: `${pct}%` }}
-                        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.05 * i }}
+                        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.04 * i }}
                       />
                     </span>
-                    <span className={`num w-24 text-right text-xs font-semibold ${active ? 'text-rose-700' : 'text-ink'}`}>{fmt(v)}</span>
+                    <span className={`num w-24 text-right text-xs font-semibold ${active ? 'text-rose-700' : 'text-ink'}`}>{fmt(value)}</span>
                   </button>
                 );
               })}
@@ -1778,11 +1831,15 @@ function MetricDashboard({
 }
 
 function MetricCard({
-  title, formula, value, gradient, glow, graphic, progress,
+  title, formula, value, valueLabel, secondary, gradient, glow, graphic, progress,
 }: {
   title: string;
   formula: string;
   value: number;
+  /** Optional caption above the main value (e.g. "Collected"). */
+  valueLabel?: string;
+  /** Optional second labelled figure (e.g. Expected profit). */
+  secondary?: { label: string; value: number };
   /** Tailwind gradient stops, e.g. "from-emerald-500 via-teal-600 to-cyan-700". */
   gradient: string;
   /** Matching coloured glow, e.g. "shadow-emerald-500/40". */
@@ -1808,7 +1865,16 @@ function MetricCard({
           <MetricGraphic kind={graphic} progress={progress} />
         </span>
       </div>
-      <CountUp value={value} format={fmt} className="num relative mt-2 block text-2xl font-extrabold drop-shadow-md" />
+      {valueLabel && (
+        <p className="relative mt-1.5 text-[9px] font-bold uppercase tracking-widest text-white/80">{valueLabel}</p>
+      )}
+      <CountUp value={value} format={fmt} className={`num relative block text-2xl font-extrabold drop-shadow-md ${valueLabel ? '' : 'mt-2'}`} />
+      {secondary && (
+        <div className="relative mt-1 flex items-baseline gap-1.5">
+          <span className="text-[9px] font-bold uppercase tracking-widest text-white/80">{secondary.label}</span>
+          <CountUp value={secondary.value} format={fmt} className="num text-sm font-bold drop-shadow-sm" />
+        </div>
+      )}
       <p className="relative mt-1 text-[10px] font-medium leading-snug text-white/90 drop-shadow-sm">{formula}</p>
       {typeof progress === 'number' && graphic === 'filled-bar' && (
         <div className="relative mt-3 h-1.5 overflow-hidden rounded-full bg-black/25">

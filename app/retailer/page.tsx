@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import CustomerLoader from '@/components/motion/CustomerLoader';
+import SkeletonDance from '@/components/motion/SkeletonDance';
 import { SPRING, popIn, staggerContainer, rowItem } from '@/lib/motion';
 import { Customer, Retailer, EMISchedule, DueBreakdown, PaymentRequest } from '@/lib/types';
 import NavBar from '@/components/NavBar';
@@ -165,6 +166,7 @@ export default function RetailerDashboard() {
     if (!retailerId) return; // retailer not loaded yet
 
     setSearchLoading(true);
+    const started = Date.now();
     try {
       const sb = supabaseRef.current;
       let qb = sb.from('customers').select('*, retailer:retailers(*)').eq('retailer_id', retailerId);
@@ -188,7 +190,10 @@ export default function RetailerDashboard() {
         setSelectedCustomer(null);
       }
     } finally {
-      setSearchLoading(false);
+      // Keep the dancing-skeleton loader up for a short minimum so the search
+      // never flashes — then the results take the stage.
+      const elapsed = Date.now() - started;
+      setTimeout(() => setSearchLoading(false), Math.max(0, 1100 - elapsed));
     }
   }, []);
 
@@ -315,7 +320,7 @@ export default function RetailerDashboard() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24">
         {/* Welcome Banner */}
         <motion.div
-          className="card p-5 mb-8 flex items-center justify-between sheen-track"
+          className="card p-5 mb-8 flex items-center justify-between sheen-track border-l-4 border-brand-500 bg-gradient-to-r from-amber-50 via-white to-sky-50"
           initial={{ opacity: 0, y: -16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={SPRING}
@@ -681,7 +686,14 @@ export default function RetailerDashboard() {
             )}
 
             {/* Customer details first, then the payment summary directly beneath. */}
-            <CustomerDetailPanel customer={selectedCustomer} paidCount={paidCount} totalEmis={selectedCustomer.emi_tenure} />
+            <CustomerDetailPanel
+              customer={selectedCustomer}
+              paidCount={paidCount}
+              totalEmis={selectedCustomer.emi_tenure}
+              emis={customerEmis}
+              baseFine={fineSettings.default_fine_amount}
+              weeklyIncrement={fineSettings.weekly_fine_increment}
+            />
 
             {/* Direct message to this customer — pops up on their screen */}
             <div className="card overflow-hidden">
@@ -856,9 +868,14 @@ export default function RetailerDashboard() {
       </AnimatePresence>
       <BottomNav role="retailer" />
 
+      {/* Full-screen dancing-skeleton search loader */}
+      <AnimatePresence>
+        {searchLoading && <SkeletonDance />}
+      </AnimatePresence>
+
       {/* Premium customer-open loading sequence */}
       <AnimatePresence>
-        {customerLoading && <CustomerLoader name={selectedCustomer?.customer_name} />}
+        {customerLoading && !searchLoading && <CustomerLoader name={selectedCustomer?.customer_name} />}
       </AnimatePresence>
     </div>
   );

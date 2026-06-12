@@ -29,6 +29,7 @@ type CustomerRow = {
   status: string;
   purchase_value: number | null;
   down_payment: number | null;
+  disburse_amount: number | null;
   first_emi_charge_amount: number | null;
   first_emi_charge_paid_at: string | null;
 };
@@ -37,6 +38,10 @@ export interface PortfolioMetrics {
   customerCount: number;
   runningCount: number;
   loanAmount: number;
+  // Money actually put into the market for the running book: disburse_amount
+  // when recorded, otherwise purchase_value − down_payment. Profit baseline —
+  // matches the convention used by /api/report/profit.
+  disburse: number;
   emiDue: number;
   fineDue: number;
   firstChargeDue: number;
@@ -45,10 +50,11 @@ export interface PortfolioMetrics {
   firstChargeCollected: number;
   upcoming30d: number;
   overdueCustomers: number;
-  // Fine actually collected, bucketed by the calendar year it was approved in.
-  // Transaction-level (one approved payment_request = one collection event), so
-  // a year's figure reflects money taken in that year, not lifetime balances.
-  fineCollectedByYear: Record<string, number>;
+  // Fine actually collected, bucketed by the IST calendar month ("YYYY-MM") it
+  // was approved in. Transaction-level (one approved payment_request = one
+  // collection event), so a month's figure reflects money taken in that month,
+  // not lifetime balances.
+  fineCollectedByMonth: Record<string, number>;
 }
 
 export async function GET(req: NextRequest) {
@@ -84,7 +90,7 @@ export async function GET(req: NextRequest) {
   const customers = await fetchAllPaged<CustomerRow>((from, to) => {
     let q = svc
       .from('customers')
-      .select('id, status, purchase_value, down_payment, first_emi_charge_amount, first_emi_charge_paid_at')
+      .select('id, status, purchase_value, down_payment, disburse_amount, first_emi_charge_amount, first_emi_charge_paid_at')
       .order('id')
       .range(from, to);
     if (retailerId) q = q.eq('retailer_id', retailerId);
@@ -106,24 +112,24 @@ export async function GET(req: NextRequest) {
     return q as unknown as PromiseLike<{ data: PayReqRow[] | null; error: { message: string } | null }>;
   });
 
-  const fineCollectedByYear: Record<string, number> = {};
+  const fineCollectedByMonth: Record<string, number> = {};
   for (const p of payReqs) {
     const amt = Number(p.fine_amount || 0);
     if (amt <= 0) continue;
     const when = p.approved_at || p.created_at;
     if (!when) continue;
-    // Bucket by IST calendar year (server runs UTC; the portal is IST) so a
-    // fine taken just after IST midnight on Jan 1 lands in the correct year.
+    // Bucket by IST calendar month (server runs UTC; the portal is IST) so a
+    // fine taken just after IST midnight on the 1st lands in the right month.
     const istDate = toISTDateString(when);
     if (!istDate) continue;
-    const y = istDate.slice(0, 4);
-    fineCollectedByYear[y] = (fineCollectedByYear[y] || 0) + amt;
+    const ym = istDate.slice(0, 7); // "YYYY-MM"
+    fineCollectedByMonth[ym] = (fineCollectedByMonth[ym] || 0) + amt;
   }
 
   const empty: PortfolioMetrics = {
-    customerCount: 0, runningCount: 0, loanAmount: 0, emiDue: 0, fineDue: 0,
+    customerCount: 0, runningCount: 0, loanAmount: 0, disburse: 0, emiDue: 0, fineDue: 0,
     firstChargeDue: 0, emiCollected: 0, fineCollected: 0, firstChargeCollected: 0,
-    upcoming30d: 0, overdueCustomers: 0, fineCollectedByYear,
+    upcoming30d: 0, overdueCustomers: 0, fineCollectedByMonth,
   };
   if (!customers.length) return NextResponse.json(empty, { headers: { 'Cache-Control': 'no-store' } });
 
@@ -184,7 +190,9 @@ export async function GET(req: NextRequest) {
 
     m.runningCount += 1;
 
-    m.loanAmount += Math.max(0, Number(c.purchase_value || 0) - Number(c.down_payment || 0));
+    const principal = Math.max(0, Number(c.purchase_value || 0) - Number(c.down_payment || 0));
+    m.loanAmount += principal;
+    m.disburse += Number(c.disburse_amount || 0) || principal;
     m.emiDue += cEmiDue;
     m.fineDue += cFineDue;
     m.firstChargeDue += cFirstChargeDue;

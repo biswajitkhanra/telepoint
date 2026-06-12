@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
+import CountUp from '@/components/motion/CountUp';
 import { Customer, EMISchedule, DueBreakdown } from '@/lib/types';
 import toast from 'react-hot-toast';
 import { format, differenceInDays } from 'date-fns';
@@ -89,6 +90,9 @@ export default function PaymentModal({
   const [showReceipt,     setShowReceipt    ] = useState(false);
   const [receiptId,       setReceiptId      ] = useState('');
   const [showFineSummary, setShowFineSummary] = useState(false);
+  // Gullak celebration — coins pour from the gullak into the record button
+  // right after a successful submit, then the receipt takes over.
+  const [celebrateAmt,    setCelebrateAmt   ] = useState<number | null>(null);
 
   // ── Derive values from selected EMI ─────────────────────────────────────────
   const selectedEmi = unpaidEmis.find(e => e.emi_no === selectedEmiNo)
@@ -238,14 +242,26 @@ export default function PaymentModal({
         toast.error(data.error || 'Submission failed');
       } else {
         toast.success(isAdmin ? '✅ Payment approved!' : '📋 Request submitted for approval');
-        if (data.request_id) { setReceiptId(data.request_id); setShowReceipt(true); }
-        else { onSubmitted(); onClose(); }
+        // Play the gullak → button money animation, THEN show the receipt.
+        const collected = total;
+        if (data.request_id) setReceiptId(data.request_id);
+        setCelebrateAmt(collected);
+        setTimeout(() => {
+          setCelebrateAmt(null);
+          if (data.request_id) setShowReceipt(true);
+          else { onSubmitted(); onClose(); }
+        }, 2500);
       }
     } catch (e) {
       toast.error('Failed: ' + (e instanceof Error ? e.message : 'Network error'));
     } finally {
       setLoading(false);
     }
+  }
+
+  // ── Gullak money celebration ──────────────────────────────────────────────────
+  if (celebrateAmt !== null) {
+    return <GullakCelebration amount={celebrateAmt} isAdmin={!!isAdmin} />;
   }
 
   // ── Receipt screen ────────────────────────────────────────────────────────────
@@ -662,6 +678,111 @@ export default function PaymentModal({
           </button>
         </div>
 
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ── Gullak celebration ────────────────────────────────────────────────────────
+// Full-screen moment right after a successful submit: a wobbling gullak up top
+// tips over and coins arc down into a glowing "Record Payment" pill at the
+// bottom, which counts up to the amount actually collected.
+function GullakCelebration({ amount, isAdmin }: { amount: number; isAdmin: boolean }) {
+  const coins = useMemo(
+    () =>
+      Array.from({ length: 12 }, (_, i) => ({
+        id: i,
+        // Coins fan out sideways mid-flight, then converge on the button.
+        drift: (Math.random() - 0.5) * 180,
+        delay: 0.25 + i * 0.12,
+        spin: Math.random() > 0.5 ? 360 : -360,
+      })),
+    [],
+  );
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-[120] flex flex-col items-center justify-between overflow-hidden py-16"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      style={{
+        background:
+          'radial-gradient(600px 400px at 50% 0%, rgba(250,204,21,0.25), transparent 60%),' +
+          'radial-gradient(500px 360px at 50% 100%, rgba(16,185,129,0.25), transparent 60%),' +
+          'linear-gradient(160deg, #0f172a, #1e293b)',
+      }}
+      aria-live="polite"
+    >
+      {/* The gullak — wobbles, then tips to pour */}
+      <motion.div
+        className="relative mt-2 flex flex-col items-center"
+        initial={{ scale: 0.6, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1, rotate: [0, -8, 8, -14, 14, 0] }}
+        transition={{ duration: 1.1, ease: 'easeInOut' }}
+      >
+        <span className="text-7xl drop-shadow-[0_0_24px_rgba(250,204,21,0.55)]">🐷</span>
+        <p className="mt-1 text-[11px] font-bold uppercase tracking-widest text-amber-300">Gullak</p>
+      </motion.div>
+
+      {/* Coins raining from gullak to the button */}
+      {coins.map((c) => (
+        <motion.span
+          key={c.id}
+          className="pointer-events-none absolute left-1/2 top-[22%] text-3xl"
+          initial={{ x: 0, y: '0vh', opacity: 0, rotate: 0, scale: 0.7 }}
+          animate={{
+            x: [0, c.drift, 0],
+            y: ['0vh', '28vh', '52vh'],
+            opacity: [0, 1, 1, 0],
+            rotate: c.spin,
+            scale: [0.7, 1.15, 0.8],
+          }}
+          transition={{ duration: 1.25, delay: c.delay, ease: 'easeIn' }}
+        >
+          🪙
+        </motion.span>
+      ))}
+
+      {/* Money counting into the "Record Payment" button */}
+      <motion.div
+        className="relative flex flex-col items-center gap-3"
+        initial={{ y: 30, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.4, type: 'spring', stiffness: 320, damping: 24 }}
+      >
+        {/* Glow pulse behind the button as coins land */}
+        <motion.div
+          className="absolute -inset-6 rounded-full bg-emerald-400/30 blur-2xl"
+          animate={{ scale: [1, 1.35, 1], opacity: [0.4, 0.9, 0.4] }}
+          transition={{ duration: 0.8, repeat: Infinity, delay: 0.8 }}
+        />
+        <motion.div
+          className="relative flex items-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 px-8 py-4 shadow-2xl shadow-emerald-500/50"
+          animate={{ scale: [1, 1.06, 1] }}
+          transition={{ duration: 0.45, repeat: 4, delay: 0.9 }}
+        >
+          <span className="text-2xl">✓</span>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-white/85">
+              {isAdmin ? 'Record Payment' : 'Submit Payment'}
+            </p>
+            <CountUp
+              value={amount}
+              format={fmt}
+              duration={1.4}
+              className="num block text-3xl font-extrabold text-white drop-shadow"
+            />
+          </div>
+        </motion.div>
+        <motion.p
+          className="relative text-sm font-semibold text-emerald-300"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.6 }}
+        >
+          Amount collected into the gullak! 🎉
+        </motion.p>
       </motion.div>
     </motion.div>
   );
