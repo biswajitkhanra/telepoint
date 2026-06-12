@@ -10,6 +10,8 @@ import { calculateTotalFineFromEmis, getPerEmiFineBreakdown } from '@/lib/fineCa
 import { toISTDateString } from '@/lib/ist';
 import BroadcastAnimator from '@/components/BroadcastAnimator';
 import SmartAlertPopup from '@/components/SmartAlertPopup';
+import LoanStatementModal from '@/components/LoanStatementModal';
+import { AnimatePresence } from 'framer-motion';
 import { formatCurrency, formatDateOnly, readJsonSafe } from '@/lib/formatters';
 import { SPRING, fadeUp, popIn, staggerContainer, rowItem } from '@/lib/motion';
 
@@ -62,6 +64,7 @@ export default function CustomerPortal() {
   const [dismissedBroadcasts, setDismissedBroadcasts] = useState<Set<string>>(new Set());
   const [isLaunchingUpi, setIsLaunchingUpi] = useState(false);
   const [pendingWhatsappShare, setPendingWhatsappShare] = useState(false);
+  const [showStatement, setShowStatement] = useState(false);
 
   // Restore session from localStorage OR auto-login via token
   useEffect(() => {
@@ -645,10 +648,33 @@ export default function CustomerPortal() {
           </div>
         </motion.div>
 
+        {/* Loan Statement button */}
+        <motion.button
+          variants={fadeUp}
+          onClick={() => setShowStatement(true)}
+          whileHover={{ scale: 1.01, y: -2 }}
+          whileTap={{ scale: 0.97 }}
+          className="card w-full overflow-hidden p-0 text-left"
+        >
+          <div
+            className="sheen-track flex items-center justify-between gap-3 px-5 py-4"
+            style={{ background: 'linear-gradient(120deg, #0c4a6e, #1e40af 55%, #4c1d95)' }}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">📄</span>
+              <div>
+                <p className="font-display text-base font-bold text-white">View Loan Statement</p>
+                <p className="text-xs text-white/70">Bank-style statement · full schedule, fines &amp; balance · PDF</p>
+              </div>
+            </div>
+            <span className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur">Open →</span>
+          </div>
+        </motion.button>
+
         {/* EMI Plan */}
-        <motion.div variants={fadeUp} className="card overflow-hidden">
-          <div className="px-5 py-3 border-b border-surface-4 flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">My EMI Plan</span>
+        <motion.div variants={fadeUp} className="card overflow-hidden border-l-4 border-emerald-500">
+          <div className="px-5 py-3 border-b border-surface-4 flex items-center justify-between bg-gradient-to-r from-emerald-50 to-white">
+            <span className="text-xs font-semibold text-emerald-700 uppercase tracking-widest">My EMI Plan</span>
             <div className="flex items-center gap-2 text-xs">
               <span className={`font-semibold ${paidEmis.length > 0 ? 'text-jade-400' : 'text-slate-400'}`}>{paidEmis.length} paid</span>
               <span className="text-slate-600">/</span>
@@ -957,6 +983,17 @@ export default function CustomerPortal() {
           </button>
         </div>
       </div>
+
+      {/* Loan Statement modal */}
+      <AnimatePresence>
+        {showStatement && customer && (
+          <LoanStatementModal
+            customer={customer}
+            emis={sortedEmis}
+            onClose={() => setShowStatement(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

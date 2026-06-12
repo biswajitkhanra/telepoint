@@ -5,19 +5,19 @@ import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 
 /**
- * Global footer — mounted in app/layout.tsx so it sits below every page and is
- * the single source of the developer attribution.
+ * Global footer — mounted in app/layout.tsx so it sits below EVERY page
+ * (admin, retailer AND customer) and is the single source of the developer
+ * attribution.
  *
- * Resting state shows the full credit — "Made By Biswodip Goj" — with the name
- * carrying a constant, smooth moving gradient (deep reds → violet → electric
- * blue), tuned to stay crystal-clear. Tapping it replays a contained celebration
+ * The band itself is transparent and blends with the page — ONLY the credit
+ * text is coloured: "Made By" stays neutral ink while "Biswodip Goj" carries
+ * a constant, smooth moving gradient (deep reds → violet → electric blue),
+ * tuned to stay crystal-clear. Tapping it replays a contained celebration
  * chain that lives ENTIRELY inside the footer band (never the full page):
  *
  *   1. 3D PARTICLE BOMB — a compact burst of colourful light particles.
- *   2. 777 SLOT MACHINE — three glass reels spin and stop left → right on the
+ *   2. 777 SLOT MACHINE — three reels spin and stop left → right on the
  *      name, then it settles back to the resting credit.
- *
- * Attribution is intentionally hidden on retailer-facing routes.
  */
 
 type Phase = 'idle' | 'blast' | 'slots';
@@ -73,30 +73,17 @@ export default function Footer() {
     window.setTimeout(() => setPhase('idle'), 650 + 1750);
   }, [phase, reduceMotion]);
 
-  if (pathname?.startsWith('/retailer')) return null;
+  // Hide on print sheets only — receipts/NOCs must stay clean.
+  if (pathname?.startsWith('/receipt') || pathname?.startsWith('/noc')) return null;
 
   return (
     <footer
-      className="no-print relative mt-10 overflow-hidden px-4 py-7 text-center"
+      className="no-print relative mt-10 overflow-hidden bg-transparent px-4 py-6 text-center"
       style={{
-        paddingBottom: 'max(28px, env(safe-area-inset-bottom))',
-        background:
-          'linear-gradient(120deg, #2e1065 0%, #1e3a8a 30%, #0a0d1a 52%, #4c1d95 74%, #831843 100%)',
+        paddingBottom: 'max(24px, env(safe-area-inset-bottom))',
         perspective: '900px',
       }}
     >
-      {/* Eye-catching ambient colour orbs behind the glass */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            'radial-gradient(440px 220px at 12% 130%, rgba(236,72,153,0.45), transparent 60%),' +
-            'radial-gradient(440px 220px at 88% -30%, rgba(34,211,238,0.40), transparent 60%),' +
-            'radial-gradient(360px 200px at 50% 50%, rgba(168,85,247,0.30), transparent 65%)',
-        }}
-      />
-
       <div
         className="relative mx-auto flex min-h-[60px] max-w-2xl items-center justify-center"
         style={{ transformStyle: 'preserve-3d' }}
@@ -114,13 +101,13 @@ export default function Footer() {
               transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
               whileHover={{ scale: 1.05, y: -2 }}
               whileTap={{ scale: 0.93 }}
-              className="glass-luxe rounded-full px-7 py-3"
+              className="rounded-full px-7 py-3"
               style={{ WebkitTapHighlightColor: 'transparent' }}
               aria-label="Made By Biswodip Goj — tap to celebrate"
               title="Tap me ✨"
             >
               <span className="flex items-center justify-center gap-x-[0.45ch] text-sm font-extrabold sm:text-base">
-                <span className="text-white/90">Made&nbsp;By</span>
+                <span className="text-ink-muted">Made&nbsp;By</span>
                 {NAME_WORDS.map((word, i) => (
                   <span
                     key={word}
@@ -198,7 +185,7 @@ function Reel({ label, index }: { label: string; index: number }) {
 
   return (
     <div
-      className="glass-luxe relative h-11 overflow-hidden rounded-xl px-3 sm:h-12"
+      className="relative h-11 overflow-hidden rounded-xl border border-white/10 bg-slate-900/95 px-3 shadow-lg sm:h-12"
       style={{ minWidth: label === '·' ? 24 : 92 }}
     >
       <motion.div

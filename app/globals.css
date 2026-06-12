@@ -306,8 +306,46 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
   background-size: 200% 100%; animation: shimmer 1.5s ease-in-out infinite; border-radius: 8px;
 }
 
+/* ── Gooey jelly feel ────────────────────────────────────────
+   Every actionable control squashes & stretches like jelly on press.
+   Pure CSS so it applies app-wide without per-component wiring. */
+@keyframes jellyPop {
+  0%   { transform: scale3d(1, 1, 1); }
+  30%  { transform: scale3d(1.08, 0.82, 1); }
+  45%  { transform: scale3d(0.9, 1.1, 1); }
+  60%  { transform: scale3d(1.04, 0.94, 1); }
+  75%  { transform: scale3d(0.98, 1.02, 1); }
+  100% { transform: scale3d(1, 1, 1); }
+}
+.btn-primary:not(:disabled):active,
+.btn-secondary:not(:disabled):active,
+.btn-danger:not(:disabled):active,
+.btn-success:not(:disabled):active,
+.btn-ghost:not(:disabled):active,
+.btn-icon:not(:disabled):active,
+.tab:active,
+select:active,
+input[type='checkbox']:active {
+  animation: jellyPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+/* Jelly wobble for hoverable cards/tiles */
+.jelly-hover { transition: transform 0.45s cubic-bezier(0.34, 1.8, 0.5, 1); }
+.jelly-hover:hover { transform: scale(1.03); }
+.jelly-hover:active { animation: jellyPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+
 /* Print */
-@media print { .no-print { display: none !important; } body { background: white; } }
+@media print {
+  .no-print { display: none !important; }
+  body { background: white; }
+  /* When a loan statement is open, print only that sheet. */
+  body:has(.statement-sheet) * { visibility: hidden; }
+  .statement-sheet, .statement-sheet * { visibility: visible; }
+  .statement-sheet {
+    position: absolute !important; inset: 0 !important; margin: 0 !important;
+    max-height: none !important; overflow: visible !important;
+    box-shadow: none !important; border-radius: 0 !important;
+  }
+}
 
 /* Accessibility — honour users who prefer reduced motion. Framer Motion is
    also told (MotionConfig reducedMotion="user") to soften transform/opacity
