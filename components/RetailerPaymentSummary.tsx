@@ -7,9 +7,9 @@
  *   • Retailer page (own data) for the logged-in retailer.
  *   • Admin Retailers tab (any retailer drill-down) via the same component.
  *
- * Aggregates active loans + finished loans still carrying unpaid fines —
- * matching the same scope rule used by the Live DB Metric Dashboard so
- * the numbers are reconcilable across surfaces.
+ * Aggregates RUNNING loans only (terminal COMPLETE/SETTLED/NPA accounts are
+ * excluded by /api/metrics) — the same scope rule used by the Live DB Metric
+ * Dashboard so the numbers are reconcilable across surfaces.
  */
 
 import { useEffect, useState, useCallback } from 'react';
@@ -93,8 +93,11 @@ export default function RetailerPaymentSummary({ retailerId, retailerName, baseF
     emiDue: 0, fineDue: 0, fineCollected: 0, firstChargeDue: 0, firstChargeCollected: 0,
     upcoming30d: 0, overdueCustomers: 0,
   };
+  // Whole billed book: every EMI instalment (paid + due — EMIs can carry
+  // markup over the financed principal, so NOT loanAmount) + every fine +
+  // every 1st EMI charge. Mirrors the Live DB dashboard's Expected Revenue.
   const totalRevenueExpected =
-    t.loanAmount + t.fineDue + t.fineCollected + t.firstChargeDue + t.firstChargeCollected;
+    t.collected + t.emiDue + t.fineDue + t.fineCollected + t.firstChargeDue + t.firstChargeCollected;
   const totalRevenueCollected = t.collected + t.fineCollected + t.firstChargeCollected;
   const collectionPct = totalRevenueExpected > 0
     ? Math.min(100, Math.round((totalRevenueCollected / totalRevenueExpected) * 100))

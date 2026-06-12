@@ -1529,9 +1529,8 @@ export default function AdminDashboard() {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Live DB Metric Dashboard
-// Scope: customers whose loan is still active (RUNNING) OR finished
-// (COMPLETE/SETTLED/NPA) but with outstanding/unpaid fines. Customers with
-// loan finished AND all fines cleared are excluded entirely.
+// Scope: customers whose loan is currently RUNNING. Terminal states
+// (COMPLETE / SETTLED / NPA) are excluded entirely — see /api/metrics.
 // ─────────────────────────────────────────────────────────────────────────────
 type MetricNumbers = {
   loanAmount: number;
@@ -1599,12 +1598,13 @@ function MetricDashboard({
     (m.fineDue + m.fineCollected) +
     (m.firstEmiChargeDue + m.firstEmiChargeCollected);
   const btd = totalLoanValue - totalCollection;
-  // Expected revenue = financed principal + every fine + every 1st EMI charge
-  // (each counted whether already collected or still due).
-  const expectedRevenue =
-    totalLoanValue +
-    m.fineDue + m.fineCollected +
-    m.firstEmiChargeDue + m.firstEmiChargeCollected;
+  // Expected revenue = the whole billed book: every EMI instalment (which can
+  // carry markup over the financed principal, so NOT loanAmount) + every fine
+  // + every 1st EMI charge — each counted whether already collected or still
+  // due. That is exactly MARKET DUE, so INV/DUE = what is still outstanding
+  // (EMI due + fine due + 1st charge due) and can never dip negative just
+  // because collections passed the principal.
+  const expectedRevenue = marketDue;
   const invDue = expectedRevenue - totalCollection;
   const collectionPct = expectedRevenue > 0
     ? Math.min(100, Math.round((totalCollection / expectedRevenue) * 100))
@@ -1618,9 +1618,14 @@ function MetricDashboard({
     <div className="card p-6 border-l-4 border-brand-500">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <p className="section-header mb-0">📈 Live DB Metric Dashboard</p>
+          <p className="section-header mb-0">
+            📈{' '}
+            <span className="gradient-pan bg-gradient-to-r from-brand-600 via-fuchsia-600 to-amber-500 bg-clip-text text-transparent">
+              Live DB Metric Dashboard
+            </span>
+          </p>
           <p className="text-[11px] text-ink-muted mt-0.5">
-            Active loans + any finished loans still carrying unpaid fines
+            Running (active) loans only — completed, settled &amp; NPA accounts excluded
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -1653,14 +1658,16 @@ function MetricDashboard({
           title="LOAN AMOUNT"
           formula="Phone Value − Down Payment"
           value={totalLoanValue}
-          colorTheme="bg-emerald-500/10 border-emerald-500 text-emerald-700"
+          gradient="from-emerald-500 via-teal-600 to-cyan-700"
+          glow="shadow-emerald-500/40"
           graphic="trending-up"
         />
         <MetricCard
           title="MARKET DUE"
           formula="All EMI + All Fine + All 1st EMI Charge (paid + unpaid)"
           value={marketDue}
-          colorTheme="bg-amber-500/10 border-amber-500 text-amber-700"
+          gradient="from-amber-500 via-orange-600 to-red-600"
+          glow="shadow-orange-500/40"
           graphic="progress-ring"
           progress={marketPct}
         />
@@ -1668,14 +1675,16 @@ function MetricDashboard({
           title="BTD (Balance To Date)"
           formula="Total Loan Value − Total Collection"
           value={btd}
-          colorTheme="bg-blue-600/10 border-blue-600 text-blue-700"
+          gradient="from-blue-600 via-indigo-600 to-violet-700"
+          glow="shadow-indigo-500/40"
           graphic="sparkline"
         />
         <MetricCard
           title="COLLECTION"
           formula="EMI + Fine + 1st Charge Collected"
           value={totalCollection}
-          colorTheme="bg-teal-500/10 border-teal-500 text-teal-700"
+          gradient="from-violet-600 via-purple-600 to-fuchsia-600"
+          glow="shadow-purple-500/40"
           graphic="filled-bar"
           progress={collectionPct}
         />
@@ -1683,7 +1692,8 @@ function MetricDashboard({
           title="INV / DUE"
           formula="Expected Revenue − Total Collection"
           value={invDue}
-          colorTheme="bg-rose-600/10 border-rose-600 text-rose-700"
+          gradient="from-rose-500 via-red-600 to-rose-700"
+          glow="shadow-rose-500/40"
           graphic="alert"
         />
       </motion.div>
@@ -1768,31 +1778,42 @@ function MetricDashboard({
 }
 
 function MetricCard({
-  title, formula, value, colorTheme, graphic, progress,
+  title, formula, value, gradient, glow, graphic, progress,
 }: {
   title: string;
   formula: string;
   value: number;
-  colorTheme: string;
+  /** Tailwind gradient stops, e.g. "from-emerald-500 via-teal-600 to-cyan-700". */
+  gradient: string;
+  /** Matching coloured glow, e.g. "shadow-emerald-500/40". */
+  glow: string;
   graphic: 'trending-up' | 'progress-ring' | 'sparkline' | 'filled-bar' | 'alert';
   progress?: number;
 }) {
   return (
     <motion.div
       variants={cardRise}
-      whileHover={{ y: -4, transition: SPRING }}
-      className={`rounded-xl border-2 p-4 ${colorTheme}`}
+      whileHover={{ y: -6, scale: 1.03, transition: SPRING }}
+      whileTap={{ scale: 0.98 }}
+      className={`sheen-track gradient-pan relative overflow-hidden rounded-2xl bg-gradient-to-br ${gradient} p-4 text-white shadow-lg ${glow}`}
     >
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-[10px] font-bold uppercase tracking-widest">{title}</p>
-        <MetricGraphic kind={graphic} progress={progress} />
+      {/* Light blooms add depth; the dark one anchors the value area so white
+          text stays readable even over the lightest gradient stop. */}
+      <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-white/25 blur-2xl" />
+      <div className="pointer-events-none absolute -bottom-10 -left-6 h-28 w-28 rounded-full bg-black/20 blur-2xl" />
+
+      <div className="relative flex items-start justify-between gap-2">
+        <p className="text-[10px] font-extrabold uppercase tracking-widest drop-shadow-sm">{title}</p>
+        <span className="text-white/90 drop-shadow-sm">
+          <MetricGraphic kind={graphic} progress={progress} />
+        </span>
       </div>
-      <CountUp value={value} format={fmt} className="num font-extrabold text-2xl mt-2 block" />
-      <p className="text-[10px] opacity-80 mt-1">{formula}</p>
+      <CountUp value={value} format={fmt} className="num relative mt-2 block text-2xl font-extrabold drop-shadow-md" />
+      <p className="relative mt-1 text-[10px] font-medium leading-snug text-white/90 drop-shadow-sm">{formula}</p>
       {typeof progress === 'number' && graphic === 'filled-bar' && (
-        <div className="mt-3 h-1.5 bg-white/40 rounded-full overflow-hidden">
+        <div className="relative mt-3 h-1.5 overflow-hidden rounded-full bg-black/25">
           <motion.div
-            className="h-full bg-current opacity-80"
+            className="h-full rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]"
             initial={{ width: 0 }}
             animate={{ width: `${progress}%` }}
             transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
