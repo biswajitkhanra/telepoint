@@ -1554,8 +1554,6 @@ export default function AdminDashboard() {
 // Scope: customers whose loan is currently RUNNING. Terminal states
 // (COMPLETE / SETTLED / NPA) are excluded entirely — see /api/metrics.
 // ─────────────────────────────────────────────────────────────────────────────
-type YearBucket = { amount: number; count: number };
-
 type MetricNumbers = {
   loanAmount: number;
   emiDue: number;
@@ -1564,10 +1562,11 @@ type MetricNumbers = {
   emiCollected: number;
   fineCollected: number;
   firstEmiChargeCollected: number;
-  profitByYear: Record<string, YearBucket>;
-  lossBookedByYear: Record<string, YearBucket>;
-  expectedLossCount: number;
-  expectedLossEmiDue: number;
+  profitYtd: number;
+  profitAllTime: number;
+  profitYtdCount: number;
+  npaCount: number;
+  npaEmiDue: number;
   fineCollectedByMonth: Record<string, number>;
 };
 
@@ -1588,7 +1587,6 @@ function MetricDashboard({
   const [loading, setLoading] = useState(true);
   const [fineMonth, setFineMonth] = useState<string>(currentYM()); // "YYYY-MM"
   const [fineYear, setFineYear] = useState<number>(new Date().getFullYear());
-  const [plYear, setPlYear] = useState<string>(String(new Date().getFullYear()));
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1611,10 +1609,11 @@ function MetricDashboard({
         emiCollected: d.emiCollected,
         fineCollected: d.fineCollected,
         firstEmiChargeCollected: d.firstChargeCollected,
-        profitByYear: d.profitByYear ?? {},
-        lossBookedByYear: d.lossBookedByYear ?? {},
-        expectedLossCount: d.expectedLossCount ?? 0,
-        expectedLossEmiDue: d.expectedLossEmiDue ?? 0,
+        profitYtd: d.profitYtd ?? 0,
+        profitAllTime: d.profitAllTime ?? 0,
+        profitYtdCount: d.profitYtdCount ?? 0,
+        npaCount: d.npaCount ?? 0,
+        npaEmiDue: d.npaEmiDue ?? 0,
         fineCollectedByMonth: d.fineCollectedByMonth ?? {},
       });
     } catch (err) {
@@ -1626,7 +1625,7 @@ function MetricDashboard({
 
   useEffect(() => { load(); }, [load]);
 
-  const m: MetricNumbers = metrics || { loanAmount: 0, emiDue: 0, fineDue: 0, firstEmiChargeDue: 0, emiCollected: 0, fineCollected: 0, firstEmiChargeCollected: 0, profitByYear: {}, lossBookedByYear: {}, expectedLossCount: 0, expectedLossEmiDue: 0, fineCollectedByMonth: {} };
+  const m = metrics || { loanAmount: 0, emiDue: 0, fineDue: 0, firstEmiChargeDue: 0, emiCollected: 0, fineCollected: 0, firstEmiChargeCollected: 0, profitYtd: 0, profitAllTime: 0, profitYtdCount: 0, npaCount: 0, npaEmiDue: 0, fineCollectedByMonth: {} };
   const totalLoanValue = m.loanAmount;
   // Collection = everything actually received: EMI + fines + 1st EMI charges.
   const totalCollection = m.emiCollected + m.fineCollected + m.firstEmiChargeCollected;
@@ -1736,145 +1735,46 @@ function MetricDashboard({
           glow="shadow-rose-500/40"
           graphic="alert"
         />
+        <MetricCard
+          title={`PROFIT YTD ${new Date().getFullYear()}`}
+          formula={`Completed customers ONLY (${m.profitYtdCount} closed this year) · Collected − Disburse · running loans excluded`}
+          value={m.profitYtd}
+          valueLabel="Realized YTD"
+          secondary={{ label: 'All time', value: m.profitAllTime }}
+          gradient="from-lime-500 via-green-600 to-emerald-700"
+          glow="shadow-green-500/40"
+          graphic="trending-up"
+        />
       </motion.div>
 
-      {/* ── Profit & Loss — year-wise, terminal accounts only ── */}
-      {(() => {
-        const profitBy = m.profitByYear || {};
-        const lossBy = m.lossBookedByYear || {};
-        const nowY = String(new Date().getFullYear());
-        const years = Array.from(new Set([nowY, ...Object.keys(profitBy), ...Object.keys(lossBy)]))
-          .filter(y => y !== 'unknown')
-          .sort((a, b) => Number(b) - Number(a));
-        const yP = profitBy[plYear] || { amount: 0, count: 0 };
-        const yL = lossBy[plYear] || { amount: 0, count: 0 };
-        const net = yP.amount - yL.amount;
-        const unkP = profitBy['unknown'];
-        const unkL = lossBy['unknown'];
-        const maxBar = Math.max(1, ...years.map(y =>
-          Math.max(Math.abs(profitBy[y]?.amount || 0), Math.abs(lossBy[y]?.amount || 0)),
-        ));
-        return (
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-40px' }}
-            transition={SPRING}
-            className="mt-4 rounded-xl border-2 border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 via-white to-red-500/10 p-4"
-          >
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-700">📊 Profit &amp; Loss — Year-wise</p>
-                <p className="mt-0.5 text-[11px] text-ink-muted">
-                  Profit = Collected − Loan Value, completed customers only · Loss Booked = NPA + Settled · running loans excluded
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <label className="text-[11px] text-ink-muted">Year</label>
-                <select
-                  value={plYear}
-                  onChange={e => setPlYear(e.target.value)}
-                  className="form-input !w-auto !py-1.5 text-sm"
-                  aria-label="Profit and loss year"
-                >
-                  {years.map(y => <option key={y} value={y}>{y}</option>)}
-                </select>
-              </div>
-            </div>
-
-            {/* Selected-year stats */}
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">Profit {plYear}</p>
-                <CountUp value={yP.amount} format={fmt} className="num mt-1 block text-2xl font-extrabold text-emerald-700" />
-                <p className="mt-0.5 text-[11px] text-ink-muted">{yP.count} customer{yP.count === 1 ? '' : 's'} completed · Collected − Loan Value</p>
-              </div>
-              <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-3">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-red-700">Loss Booked {plYear}</p>
-                <CountUp value={yL.amount} format={fmt} className="num mt-1 block text-2xl font-extrabold text-red-700" />
-                <p className="mt-0.5 text-[11px] text-ink-muted">{yL.count} account{yL.count === 1 ? '' : 's'} (NPA + Settled) · Loan Value − Collected</p>
-              </div>
-              <div className={`rounded-xl border p-3 ${net >= 0 ? 'border-teal-500/40 bg-teal-500/10' : 'border-rose-500/40 bg-rose-500/10'}`}>
-                <p className={`text-[10px] font-bold uppercase tracking-widest ${net >= 0 ? 'text-teal-700' : 'text-rose-700'}`}>Net {plYear}</p>
-                <CountUp value={net} format={fmt} className={`num mt-1 block text-2xl font-extrabold ${net >= 0 ? 'text-teal-700' : 'text-rose-700'}`} />
-                <p className="mt-0.5 text-[11px] text-ink-muted">Profit − Loss Booked</p>
-              </div>
-            </div>
-
-            {/* Expected loss — live risk, not year-bucketed */}
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3">
-              <div className="flex items-center gap-2.5">
-                <span className="text-xl">⚠️</span>
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700">Expected Loss (live)</p>
-                  <p className="text-[11px] text-ink-muted">Running customers with EMI due for more than 3 months · EMI due only, fines &amp; charges excluded</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-6">
-                <div className="text-right">
-                  <p className="text-[10px] uppercase tracking-wide text-ink-muted">Accounts</p>
-                  <CountUp value={m.expectedLossCount} className="num block text-lg font-extrabold text-amber-700" />
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] uppercase tracking-wide text-ink-muted">EMI Due</p>
-                  <CountUp value={m.expectedLossEmiDue} format={fmt} className="num block text-lg font-extrabold text-amber-700" />
-                </div>
-              </div>
-            </div>
-
-            {/* All years — clickable profit vs loss bars */}
-            <div className="mt-4 space-y-2">
-              {years.map(y => {
-                const p = profitBy[y] || { amount: 0, count: 0 };
-                const l = lossBy[y] || { amount: 0, count: 0 };
-                const pPct = Math.max(p.amount > 0 ? 3 : 0, (Math.abs(p.amount) / maxBar) * 100);
-                const lPct = Math.max(l.amount > 0 ? 3 : 0, (Math.abs(l.amount) / maxBar) * 100);
-                const active = y === plYear;
-                return (
-                  <button key={y} onClick={() => setPlYear(y)} className="block w-full text-left">
-                    <div className="flex items-center gap-3">
-                      <span className={`num w-12 text-xs font-bold ${active ? 'text-ink' : 'text-ink-muted'}`}>{y}</span>
-                      <div className="flex-1 space-y-1">
-                        <span className="flex h-2.5 overflow-hidden rounded-full bg-surface-3">
-                          <motion.span
-                            className={`block h-full rounded-full ${active ? 'bg-gradient-to-r from-emerald-500 to-teal-400' : 'bg-emerald-400/50'}`}
-                            initial={{ width: 0 }}
-                            animate={{ width: `${pPct}%` }}
-                            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-                          />
-                        </span>
-                        <span className="flex h-2.5 overflow-hidden rounded-full bg-surface-3">
-                          <motion.span
-                            className={`block h-full rounded-full ${active ? 'bg-gradient-to-r from-red-500 to-rose-400' : 'bg-red-400/50'}`}
-                            initial={{ width: 0 }}
-                            animate={{ width: `${lPct}%` }}
-                            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.08 }}
-                          />
-                        </span>
-                      </div>
-                      <span className="w-28 text-right">
-                        <span className="num block text-xs font-semibold text-emerald-700">+{fmt(p.amount)} <span className="text-ink-muted">({p.count})</span></span>
-                        <span className="num block text-xs font-semibold text-red-700">−{fmt(l.amount)} <span className="text-ink-muted">({l.count})</span></span>
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Accounts with no completion date recorded — never silently dropped */}
-            {(unkP || unkL) && (
-              <p className="mt-3 rounded-lg bg-surface-2 px-3 py-2 text-[11px] text-ink-muted">
-                ⓘ No completion date recorded:&nbsp;
-                {unkP ? <>profit {fmt(unkP.amount)} across {unkP.count} completed customer{unkP.count === 1 ? '' : 's'}</> : null}
-                {unkP && unkL ? ' · ' : null}
-                {unkL ? <>loss {fmt(unkL.amount)} across {unkL.count} NPA/settled account{unkL.count === 1 ? '' : 's'}</> : null}
-                . Set the completion date on these profiles to place them in the right year.
-              </p>
-            )}
-          </motion.div>
-        );
-      })()}
+      {/* ── NPA / Loss customers — EMI unpaid for more than 3 months ── */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: '-40px' }}
+        transition={SPRING}
+        className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-xl border-2 border-red-500/40 bg-gradient-to-r from-red-500/10 via-rose-500/5 to-slate-500/10 p-4"
+      >
+        <div className="flex items-center gap-3">
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-red-500/15 text-2xl">⚠️</span>
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-widest text-red-700">NPA / Loss Customers</p>
+            <p className="mt-0.5 text-[11px] text-ink-muted">
+              Risk accounts — EMI unpaid for more than 3 months (or already marked NPA). EMI due only; fines &amp; charges excluded.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-6">
+          <div className="text-right">
+            <p className="text-[10px] uppercase tracking-wide text-ink-muted">Accounts</p>
+            <CountUp value={m.npaCount} className="num block text-xl font-extrabold text-red-700" />
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] uppercase tracking-wide text-ink-muted">EMI Due (loss exposure)</p>
+            <CountUp value={m.npaEmiDue} format={fmt} className="num block text-xl font-extrabold text-red-700" />
+          </div>
+        </div>
+      </motion.div>
 
       {/* Fine collected — MONTH-wise (transaction-level, bucketed by approval month) */}
       {(() => {

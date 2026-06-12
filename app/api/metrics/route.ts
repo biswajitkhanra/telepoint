@@ -51,22 +51,20 @@ export interface PortfolioMetrics {
   firstChargeCollected: number;
   upcoming30d: number;
   overdueCustomers: number;
-  // ── Year-wise Profit & Loss (terminal accounts) ───────────────────────────
-  // PROFIT — FULLY COMPLETED customers ONLY, bucketed by the IST year they
-  // completed in: profit = everything actually collected (EMI + fine + 1st
-  // charge) − LOAN VALUE (purchase_value − down_payment). Running / partially
-  // active accounts never touch these figures. Customers with no
-  // completion_date recorded land in the "unknown" bucket so nothing is
-  // silently dropped from the totals.
-  profitByYear: Record<string, { amount: number; count: number }>;
-  // LOSS BOOKED — NPA + SETTLED accounts, bucketed the same way:
-  // loss = loan value − collected (the unrecovered money on closed-bad books).
-  lossBookedByYear: Record<string, { amount: number; count: number }>;
-  // EXPECTED LOSS (live, not year-bucketed) — RUNNING loans carrying an EMI
-  // unpaid for more than 3 months. Only the outstanding EMI principal counts
-  // (no fines / charges).
-  expectedLossCount: number;
-  expectedLossEmiDue: number;
+  // ── Realized profit — FULLY COMPLETED customers ONLY ──────────────────────
+  // profit = everything actually collected (EMI + fine + 1st charge) − money
+  // put into the market (disburse_amount, falling back to the financed
+  // principal). RUNNING / partially active accounts are excluded entirely —
+  // they belong to live tracking, never to realized profit.
+  profitYtd: number;        // completed within the current IST calendar year
+  profitAllTime: number;    // every COMPLETE customer
+  profitYtdCount: number;   // how many completions feed the YTD figure
+  // ── NPA / Loss classification ─────────────────────────────────────────────
+  // A loss/risk account = status NPA, or a RUNNING loan with an EMI unpaid for
+  // more than 3 months (90 days past due). Only the outstanding EMI principal
+  // is reported for this bucket (no fines / charges).
+  npaCount: number;
+  npaEmiDue: number;
   // Fine actually collected, bucketed by the IST calendar month ("YYYY-MM") it
   // was approved in. Transaction-level (one approved payment_request = one
   // collection event), so a month's figure reflects money taken in that month,
@@ -147,8 +145,8 @@ export async function GET(req: NextRequest) {
     customerCount: 0, runningCount: 0, loanAmount: 0, disburse: 0, emiDue: 0, fineDue: 0,
     firstChargeDue: 0, emiCollected: 0, fineCollected: 0, firstChargeCollected: 0,
     upcoming30d: 0, overdueCustomers: 0,
-    profitByYear: {}, lossBookedByYear: {},
-    expectedLossCount: 0, expectedLossEmiDue: 0,
+    profitYtd: 0, profitAllTime: 0, profitYtdCount: 0,
+    npaCount: 0, npaEmiDue: 0,
     fineCollectedByMonth,
   };
   if (!customers.length) return NextResponse.json(empty, { headers: { 'Cache-Control': 'no-store' } });
@@ -183,9 +181,8 @@ export async function GET(req: NextRequest) {
 
   const todayMs = Date.now();
   const in30Ms = todayMs + 30 * 86_400_000;
-  const staleCutoffMs = todayMs - 90 * 86_400_000; // EMI unpaid > 3 months
-  const closedYearOf = (c: CustomerRow) =>
-    c.completion_date ? (toISTDateString(c.completion_date) || '').slice(0, 4) || 'unknown' : 'unknown';
+  const npaCutoffMs = todayMs - 90 * 86_400_000; // EMI unpaid > 3 months
+  const currentISTYear = (toISTDateString(new Date().toISOString()) || '').slice(0, 4);
 
   const m: PortfolioMetrics = { ...empty, customerCount: customers.length };
 
@@ -199,44 +196,38 @@ export async function GET(req: NextRequest) {
     const cFirstChargeDue = chargeAmount > 0 && !chargePaid ? chargeAmount : 0;
     const cFirstChargeCollected = chargeAmount > 0 && chargePaid ? chargeAmount : 0;
 
-    const cLoanValue = Math.max(0, Number(c.purchase_value || 0) - Number(c.down_payment || 0));
+    const cDisburse = Number(c.disburse_amount || 0)
+      || Math.max(0, Number(c.purchase_value || 0) - Number(c.down_payment || 0));
     const cCollected =
       cEmis.reduce((s, e) => s + emiPaid(e), 0) +
       cEmis.reduce((s, e) => s + Number(e.fine_paid_amount || 0), 0) +
       cFirstChargeCollected;
 
-    // ── PROFIT: FULLY COMPLETED customers ONLY, year-wise ───────────────────
-    // profit = collected − loan value. Running / partially active accounts
-    // never touch these figures.
+    // ── Realized profit: FULLY COMPLETED customers ONLY ─────────────────────
+    // Running / partially active accounts never touch these figures.
     if (c.status === 'COMPLETE') {
-      const y = closedYearOf(c);
-      const bucket = m.profitByYear[y] || { amount: 0, count: 0 };
-      bucket.amount += cCollected - cLoanValue;
-      bucket.count += 1;
-      m.profitByYear[y] = bucket;
-    }
-
-    // ── LOSS BOOKED: NPA + SETTLED accounts, year-wise ──────────────────────
-    // loss = loan value − collected (money not recovered on closed-bad books).
-    if (c.status === 'NPA' || c.status === 'SETTLED') {
-      const y = closedYearOf(c);
-      const bucket = m.lossBookedByYear[y] || { amount: 0, count: 0 };
-      bucket.amount += cLoanValue - cCollected;
-      bucket.count += 1;
-      m.lossBookedByYear[y] = bucket;
-    }
-
-    // ── EXPECTED LOSS (live): RUNNING loans with an EMI unpaid > 3 months ───
-    // Only the outstanding EMI principal is reported for this bucket.
-    if (c.status === 'RUNNING') {
-      const hasStaleEmi = cEmis.some(e =>
-        (e.status === 'UNPAID' || e.status === 'PARTIALLY_PAID') &&
-        new Date(e.due_date).getTime() < staleCutoffMs,
-      );
-      if (hasStaleEmi) {
-        m.expectedLossCount += 1;
-        m.expectedLossEmiDue += cEmiDue;
+      const profit = cCollected - cDisburse;
+      m.profitAllTime += profit;
+      const completedYear = c.completion_date
+        ? (toISTDateString(c.completion_date) || '').slice(0, 4)
+        : '';
+      if (completedYear && completedYear === currentISTYear) {
+        m.profitYtd += profit;
+        m.profitYtdCount += 1;
       }
+    }
+
+    // ── NPA / Loss classification ───────────────────────────────────────────
+    // Already written off (status NPA), or a RUNNING loan carrying an EMI
+    // unpaid for more than 3 months. Only the EMI principal outstanding is
+    // reported for this bucket.
+    const hasStaleEmi = cEmis.some(e =>
+      (e.status === 'UNPAID' || e.status === 'PARTIALLY_PAID') &&
+      new Date(e.due_date).getTime() < npaCutoffMs,
+    );
+    if (c.status === 'NPA' || (c.status === 'RUNNING' && hasStaleEmi)) {
+      m.npaCount += 1;
+      m.npaEmiDue += cEmiDue;
     }
 
     // Scope (strict): only customers whose loan lifecycle is currently RUNNING.
