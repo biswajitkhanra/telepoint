@@ -22,8 +22,8 @@ import { addDays, subMonths, format, differenceInDays } from 'date-fns';
 import { formatCurrency, formatDateOnly, readJsonSafe } from '@/lib/formatters';
 import { motion, AnimatePresence } from 'framer-motion';
 import CountUp from '@/components/motion/CountUp';
+import CustomerLoader from '@/components/motion/CustomerLoader';
 import SkeletonDance from '@/components/motion/SkeletonDance';
-import ShelfSearch from '@/components/motion/ShelfSearch';
 import { SPRING, cardRise, staggerContainer, rowItem } from '@/lib/motion';
 
 type Tab = 'search' | 'retailers' | 'reports' | 'analysis' | 'broadcast';
@@ -188,7 +188,7 @@ export default function AdminDashboard() {
       setBreakdown({ customer_id: customer.id, customer_status: customer.status, next_emi_no: next?.emi_no, next_emi_amount: next?.amount, next_emi_due_date: next?.due_date, next_emi_status: next?.status, fine_due: af, first_emi_charge_due: fc, total_payable: (next?.amount ?? 0) + af + fc, popup_first_emi_charge: fc > 0, popup_fine_due: af > 0, is_overdue: next ? new Date(next.due_date) < new Date() : false } as DueBreakdown);
     } else setBreakdown(bd as DueBreakdown);
     const elapsed = Date.now() - started;
-    setTimeout(() => setCustomerLoading(false), Math.max(0, 1000 - elapsed));
+    setTimeout(() => setCustomerLoading(false), Math.max(0, 680 - elapsed));
   }
 
   // Always keep ref in sync with latest function
@@ -479,11 +479,6 @@ export default function AdminDashboard() {
 
             <SearchInput onSearch={handleSearch} loading={searchLoading} autoFocus />
 
-            {/* Inline records-room loader — compact, lives UNDER the search bar */}
-            <AnimatePresence>
-              {searchLoading && !customerLoading && <ShelfSearch />}
-            </AnimatePresence>
-
             {searchResults === null && (
               <div className="flex flex-col items-center justify-center py-20 text-center">
                 <div className="w-20 h-20 rounded-3xl bg-surface-2 border border-surface-4 flex items-center justify-center mb-5">
@@ -505,7 +500,7 @@ export default function AdminDashboard() {
             {searchResults !== null && searchResults.length > 1 && !selectedCustomer && (
               <div className="card overflow-hidden animate-fade-in">
                 <div className="px-5 py-3 border-b border-surface-4">
-                  <span className="text-xs text-ink-muted uppercase tracking-widest">📂 {searchResults.length} files pulled from the shelves — tap a customer to open</span>
+                  <span className="text-xs text-ink-muted uppercase tracking-widest">{searchResults.length} customers found — tap a card to view</span>
                 </div>
                 <motion.div
                   className="divide-y divide-surface-3"
@@ -636,11 +631,8 @@ export default function AdminDashboard() {
                   weeklyIncrement={fineSettings.weekly_fine_increment}
                 />
 
-                {/* Smart alert popup — EMI due in 5 days / fine due / 1st EMI charge
-                    pending. Gated on !customerLoading so it appears ONLY after the
-                    skeleton loader has exited, fed purely by the customer's real
-                    breakdown data (the loader holds no shared state). */}
-                {breakdown && !customerLoading && (
+                {/* Smart alert popup — EMI due in 5 days / fine due / 1st EMI charge pending */}
+                {breakdown && (
                   <SmartAlertPopup
                     key={selectedCustomer.id}
                     fineDue={breakdown.fine_due ?? 0}
@@ -1540,10 +1532,14 @@ export default function AdminDashboard() {
       )}
       <BottomNav role="admin" pendingCount={pendingCount} />
 
-      {/* Single-customer open: skeleton crew loader (UI-only placeholder —
-          exits with the phone-throw effect BEFORE the real-data popup shows) */}
+      {/* Full-screen dancing-skeleton search loader */}
       <AnimatePresence>
-        {customerLoading && <SkeletonDance name={selectedCustomer?.customer_name} />}
+        {searchLoading && <SkeletonDance />}
+      </AnimatePresence>
+
+      {/* Premium customer-open loading sequence */}
+      <AnimatePresence>
+        {customerLoading && !searchLoading && <CustomerLoader name={selectedCustomer?.customer_name} />}
       </AnimatePresence>
     </div>
   );
@@ -1556,17 +1552,13 @@ export default function AdminDashboard() {
 // ─────────────────────────────────────────────────────────────────────────────
 type MetricNumbers = {
   loanAmount: number;
+  disburse: number;
   emiDue: number;
   fineDue: number;
   firstEmiChargeDue: number;
   emiCollected: number;
   fineCollected: number;
   firstEmiChargeCollected: number;
-  profitYtd: number;
-  profitAllTime: number;
-  profitYtdCount: number;
-  npaCount: number;
-  npaEmiDue: number;
   fineCollectedByMonth: Record<string, number>;
 };
 
@@ -1603,17 +1595,13 @@ function MetricDashboard({
       const d = await res.json();
       setMetrics({
         loanAmount: d.loanAmount,
+        disburse: d.disburse ?? d.loanAmount,
         emiDue: d.emiDue,
         fineDue: d.fineDue,
         firstEmiChargeDue: d.firstChargeDue,
         emiCollected: d.emiCollected,
         fineCollected: d.fineCollected,
         firstEmiChargeCollected: d.firstChargeCollected,
-        profitYtd: d.profitYtd ?? 0,
-        profitAllTime: d.profitAllTime ?? 0,
-        profitYtdCount: d.profitYtdCount ?? 0,
-        npaCount: d.npaCount ?? 0,
-        npaEmiDue: d.npaEmiDue ?? 0,
         fineCollectedByMonth: d.fineCollectedByMonth ?? {},
       });
     } catch (err) {
@@ -1625,7 +1613,7 @@ function MetricDashboard({
 
   useEffect(() => { load(); }, [load]);
 
-  const m = metrics || { loanAmount: 0, emiDue: 0, fineDue: 0, firstEmiChargeDue: 0, emiCollected: 0, fineCollected: 0, firstEmiChargeCollected: 0, profitYtd: 0, profitAllTime: 0, profitYtdCount: 0, npaCount: 0, npaEmiDue: 0, fineCollectedByMonth: {} };
+  const m = metrics || { loanAmount: 0, disburse: 0, emiDue: 0, fineDue: 0, firstEmiChargeDue: 0, emiCollected: 0, fineCollected: 0, firstEmiChargeCollected: 0, fineCollectedByMonth: {} };
   const totalLoanValue = m.loanAmount;
   // Collection = everything actually received: EMI + fines + 1st EMI charges.
   const totalCollection = m.emiCollected + m.fineCollected + m.firstEmiChargeCollected;
@@ -1645,6 +1633,11 @@ function MetricDashboard({
   // because collections passed the principal.
   const expectedRevenue = marketDue;
   const invDue = expectedRevenue - totalCollection;
+  // Profit baseline = money actually put into the market (disburse_amount,
+  // falling back to the financed principal) — same convention as the
+  // /api/report/profit export.
+  const profitExpected = expectedRevenue - m.disburse;
+  const profitCollected = totalCollection - m.disburse;
   const collectionPct = expectedRevenue > 0
     ? Math.min(100, Math.round((totalCollection / expectedRevenue) * 100))
     : 0;
@@ -1736,44 +1729,15 @@ function MetricDashboard({
           graphic="alert"
         />
         <MetricCard
-          title={`PROFIT YTD ${new Date().getFullYear()}`}
-          formula={`Completed customers ONLY (${m.profitYtdCount} closed this year) · Collected − Disburse · running loans excluded`}
-          value={m.profitYtd}
-          valueLabel="Realized YTD"
-          secondary={{ label: 'All time', value: m.profitAllTime }}
+          title="PROFIT"
+          formula="Revenue − Disburse (money put in market)"
+          value={profitCollected}
+          valueLabel="Collected"
+          secondary={{ label: 'Expected', value: profitExpected }}
           gradient="from-lime-500 via-green-600 to-emerald-700"
           glow="shadow-green-500/40"
           graphic="trending-up"
         />
-      </motion.div>
-
-      {/* ── NPA / Loss customers — EMI unpaid for more than 3 months ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: '-40px' }}
-        transition={SPRING}
-        className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-xl border-2 border-red-500/40 bg-gradient-to-r from-red-500/10 via-rose-500/5 to-slate-500/10 p-4"
-      >
-        <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-red-500/15 text-2xl">⚠️</span>
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-widest text-red-700">NPA / Loss Customers</p>
-            <p className="mt-0.5 text-[11px] text-ink-muted">
-              Risk accounts — EMI unpaid for more than 3 months (or already marked NPA). EMI due only; fines &amp; charges excluded.
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-6">
-          <div className="text-right">
-            <p className="text-[10px] uppercase tracking-wide text-ink-muted">Accounts</p>
-            <CountUp value={m.npaCount} className="num block text-xl font-extrabold text-red-700" />
-          </div>
-          <div className="text-right">
-            <p className="text-[10px] uppercase tracking-wide text-ink-muted">EMI Due (loss exposure)</p>
-            <CountUp value={m.npaEmiDue} format={fmt} className="num block text-xl font-extrabold text-red-700" />
-          </div>
-        </div>
       </motion.div>
 
       {/* Fine collected — MONTH-wise (transaction-level, bucketed by approval month) */}

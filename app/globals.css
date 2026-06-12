@@ -299,16 +299,6 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 /* Safe area for bottom nav */
 .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
 
-/* ── High-quality image rendering ────────────────────────────
-   Photos & document scans must never look softened: keep browser-native
-   high-quality scaling, pin thumbnails to their own GPU layer so ancestor
-   transforms/filters can't rasterise them blurry mid-animation. */
-.img-crisp {
-  image-rendering: -webkit-optimize-contrast;
-  backface-visibility: hidden;
-  transform: translateZ(0);
-}
-
 /* Skeleton loading */
 @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
 .skeleton {

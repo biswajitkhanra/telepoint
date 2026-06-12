@@ -7,7 +7,6 @@ import { createClient } from '@/lib/supabase/client';
 import { PaymentRequest } from '@/lib/types';
 import NavBar from '@/components/NavBar';
 import SearchInput from '@/components/SearchInput';
-import SuccessBurst from '@/components/motion/SuccessBurst';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import Link from 'next/link';
@@ -32,19 +31,6 @@ export default function ApprovalsPage() {
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null); // tracks which request is in-flight
   const [statusFilter, setStatusFilter] = useState<'PENDING' | 'ALL'>('PENDING');
-  // Success celebration — mounted ONLY from the verified approve-success path
-  // and unmounted on a timer, so re-renders / refreshes / rotation can never
-  // replay it. The ref guards against double-fires from rapid double-clicks.
-  const [successBurst, setSuccessBurst] = useState(false);
-  const successTimerRef = useRef<number | null>(null);
-  const fireSuccessBurst = useCallback(() => {
-    if (successTimerRef.current) window.clearTimeout(successTimerRef.current);
-    setSuccessBurst(true);
-    successTimerRef.current = window.setTimeout(() => {
-      setSuccessBurst(false);
-      successTimerRef.current = null;
-    }, 1900);
-  }, []);
 
   // Edit payment modal state
   const [editModal, setEditModal] = useState<PaymentRequest | null>(null);
@@ -209,7 +195,6 @@ export default function ApprovalsPage() {
 
       console.log('Approval response:', data);
       toast.success('Payment approved successfully ✓', { id: toastId, duration: 4000 });
-      fireSuccessBurst(); // true success only — never on re-render/refresh
       setApprovingId(null);
       setApproveRemark('');
 
@@ -510,11 +495,6 @@ export default function ApprovalsPage() {
           </div>
         )}
       </div>
-
-      {/* Approval success celebration */}
-      <AnimatePresence>
-        {successBurst && <SuccessBurst label="Payment Approved" />}
-      </AnimatePresence>
 
       {/* Reject modal */}
       <AnimatePresence>

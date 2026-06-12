@@ -132,9 +132,7 @@ export default function CustomerDetailPanel({ customer, paidCount, totalEmis, is
             <motion.img
               src={ibbDirect(customer.customer_photo_url)}
               alt="Photo"
-              loading="eager"
-              decoding="async"
-              className="img-crisp absolute inset-0 w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-cover"
               initial={{ scale: 1.25, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
@@ -327,9 +325,7 @@ export default function CustomerDetailPanel({ customer, paidCount, totalEmis, is
                 <img
                   src={ibbDirect(d.url)}
                   alt={d.label}
-                  loading="eager"
-                  decoding="async"
-                  className="img-crisp h-20 w-28 object-cover rounded-xl border border-surface-4 group-hover:border-brand-300 transition-colors"
+                  className="h-20 w-28 object-cover rounded-xl border border-surface-4 group-hover:border-brand-300 transition-colors"
                   onError={e => {
                     const img = e.target as HTMLImageElement;
                     img.style.display = 'none';

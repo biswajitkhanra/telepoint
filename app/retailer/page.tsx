@@ -4,8 +4,8 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
+import CustomerLoader from '@/components/motion/CustomerLoader';
 import SkeletonDance from '@/components/motion/SkeletonDance';
-import ShelfSearch from '@/components/motion/ShelfSearch';
 import { SPRING, popIn, staggerContainer, rowItem } from '@/lib/motion';
 import { Customer, Retailer, EMISchedule, DueBreakdown, PaymentRequest } from '@/lib/types';
 import NavBar from '@/components/NavBar';
@@ -220,7 +220,7 @@ export default function RetailerDashboard() {
       setBreakdown({ customer_id: customer.id, customer_status: customer.status, next_emi_no: nx?.emi_no, next_emi_amount: nx?.amount, next_emi_due_date: nx?.due_date, next_emi_status: nx?.status, fine_due: af, first_emi_charge_due: fc, total_payable: (nx?.amount ?? 0) + af + fc, popup_first_emi_charge: fc > 0, popup_fine_due: af > 0, is_overdue: nx ? new Date(nx.due_date) < new Date() : false } as DueBreakdown);
     } else setBreakdown(bd as DueBreakdown);
     const elapsed = Date.now() - started;
-    setTimeout(() => setCustomerLoading(false), Math.max(0, 1000 - elapsed));
+    setTimeout(() => setCustomerLoading(false), Math.max(0, 680 - elapsed));
   }
 
   // Always keep ref in sync
@@ -542,10 +542,6 @@ export default function RetailerDashboard() {
         {/* Search */}
         <div className="mb-6">
           <SearchInput onSearch={handleSearch} loading={searchLoading} placeholder="Search your customers by name (3+ chars), IMEI (15 digits), or Aadhaar (12 digits)..." autoFocus />
-          {/* Inline records-room loader — compact, lives UNDER the search bar */}
-          <AnimatePresence>
-            {searchLoading && !customerLoading && <ShelfSearch />}
-          </AnimatePresence>
         </div>
 
         {/* Empty state */}
@@ -613,7 +609,7 @@ export default function RetailerDashboard() {
         {searchResults !== null && searchResults.length > 1 && !selectedCustomer && (
           <div className="card overflow-hidden animate-fade-in">
             <div className="px-5 py-3 border-b border-white/[0.05]">
-              <span className="text-xs text-ink-muted uppercase tracking-widest">📂 {searchResults.length} files pulled from the shelves — tap a customer to open</span>
+              <span className="text-xs text-ink-muted uppercase tracking-widest">{searchResults.length} customers found — tap a card to view</span>
             </div>
             <motion.div
               className="divide-y divide-surface-3"
@@ -751,11 +747,8 @@ export default function RetailerDashboard() {
               hideLoanAmount
             />
 
-            {/* Smart alert popup — EMI due in 5 days / fine due / 1st EMI charge
-                pending. Gated on !customerLoading so it appears ONLY after the
-                skeleton loader has exited, fed purely by the customer's real
-                breakdown data (the loader holds no shared state). */}
-            {breakdown && !customerLoading && (
+            {/* Smart alert popup — EMI due in 5 days / fine due / 1st EMI charge pending */}
+            {breakdown && (
               <SmartAlertPopup
                 key={selectedCustomer.id}
                 fineDue={breakdown.fine_due ?? 0}
@@ -875,10 +868,14 @@ export default function RetailerDashboard() {
       </AnimatePresence>
       <BottomNav role="retailer" />
 
-      {/* Single-customer open: skeleton crew loader (UI-only placeholder —
-          exits with the phone-throw effect BEFORE the real-data popup shows) */}
+      {/* Full-screen dancing-skeleton search loader */}
       <AnimatePresence>
-        {customerLoading && <SkeletonDance name={selectedCustomer?.customer_name} />}
+        {searchLoading && <SkeletonDance />}
+      </AnimatePresence>
+
+      {/* Premium customer-open loading sequence */}
+      <AnimatePresence>
+        {customerLoading && !searchLoading && <CustomerLoader name={selectedCustomer?.customer_name} />}
       </AnimatePresence>
     </div>
   );

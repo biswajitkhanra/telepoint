@@ -75,9 +75,8 @@ function Avatar({ row }: { row: UpcomingRow }) {
         <img
           src={ibbDirect(row.customer_photo_url)}
           alt={row.customer_name}
-          loading="eager"
-          decoding="async"
-          className="img-crisp absolute inset-0 h-full w-full object-cover"
+          loading="lazy"
+          className="absolute inset-0 h-full w-full object-cover"
           onError={() => setBroken(true)}
         />
       )}
