@@ -25,10 +25,19 @@ type Phase = 'idle' | 'blast' | 'slots';
 const NAME_WORDS = ['Biswodip', 'Goj'] as const;
 const REELS = ['BISWODIP', '·', 'GOJ'] as const;
 
-const COLORS = ['#f43f5e', '#ec4899', '#a855f7', '#8b5cf6', '#3b82f6', '#22d3ee', '#a3e635', '#facc15'];
+// Particle colour set — electric pinks, ultraviolet, cyan, lime.
+const PARTICLE_COLORS = [
+  '#f43f5e', '#ec4899', '#a855f7', '#8b5cf6',
+  '#3b82f6', '#22d3ee', '#a3e635', '#facc15',
+];
 
 interface Particle {
-  id: number; x: number; y: number; z: number; rotate: number; size: number; color: string; delay: number;
+  id: number;
+  x: number; y: number; z: number;
+  rotate: number;
+  size: number;
+  color: string;
+  delay: number;
 }
 
 // Compact spread so the whole burst stays inside the footer band.
@@ -64,7 +73,7 @@ export default function Footer() {
     window.setTimeout(() => setPhase('idle'), 650 + 1750);
   }, [phase, reduceMotion]);
 
-  if (pathname?.startsWith('/login')) return null;
+  if (pathname?.startsWith('/retailer')) return null;
 
   return (
     <footer
@@ -122,10 +131,8 @@ export default function Footer() {
                   </span>
                 ))}
               </span>
-            ))}
-          </span>
-        </motion.button>
-      </footer>
+            </motion.button>
+          )}
 
           {/* ── Act 1: contained 3D particle bomb ────────────────── */}
           {phase === 'blast' && (
@@ -161,12 +168,15 @@ export default function Footer() {
             </motion.div>
           )}
 
-            {/* Close button */}
-            <button
-              onClick={(e) => { e.stopPropagation(); close(); }}
-              className="glass-luxe absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full text-white"
-              style={{ paddingTop: 'env(safe-area-inset-top)' }}
-              aria-label="Close"
+          {/* ── Act 2: 777 slot machine ──────────────────────────── */}
+          {phase === 'slots' && (
+            <motion.div
+              key="slots"
+              className="flex items-center gap-2 sm:gap-3"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 1.04 }}
+              transition={{ duration: 0.25 }}
             >
               {REELS.map((label, i) => (
                 <Reel key={i} label={label} index={i} />
@@ -179,10 +189,13 @@ export default function Footer() {
   );
 }
 
-// ── 777 reel — spins lucky 7s then snaps to its label, with a stop-shake ────
+// ── 777 reel ──────────────────────────────────────────────────────────────
+// Each reel spins through a strip of lucky 7s, then snaps to its label.
+// Reels stop sequentially left → right via a per-index delay.
 function Reel({ label, index }: { label: string; index: number }) {
   const STOP_DELAY = 0.4 + index * 0.5;
   const strip = ['7', '7', '7', '7', '7', '7'];
+
   return (
     <div
       className="glass-luxe relative h-11 overflow-hidden rounded-xl px-3 sm:h-12"
@@ -208,21 +221,17 @@ function Reel({ label, index }: { label: string; index: number }) {
 
       <motion.div
         className="absolute inset-0 flex items-center justify-center"
-        initial={{ y: '120%', opacity: 0 }}
+        initial={{ y: '110%', opacity: 0 }}
         animate={{ y: '0%', opacity: 1 }}
-        transition={{ delay: STOP_DELAY, type: 'spring', stiffness: 420, damping: 22 }}
+        transition={{ delay: STOP_DELAY, type: 'spring', stiffness: 420, damping: 24 }}
       >
         <span
-          className="bg-gradient-to-b from-white via-fuchsia-100 to-cyan-200 bg-clip-text text-xl font-black tracking-wider text-transparent sm:text-2xl"
-          style={{ filter: 'drop-shadow(0 0 14px rgba(168,85,247,0.8))' }}
+          className="bg-gradient-to-b from-white via-fuchsia-100 to-cyan-200 bg-clip-text text-base font-black tracking-wider text-transparent sm:text-lg"
+          style={{ filter: 'drop-shadow(0 0 10px rgba(168,85,247,0.7))' }}
         >
           {label}
         </span>
       </motion.div>
-      <span aria-hidden className="pointer-events-none absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.22), transparent 38%, rgba(0,0,0,0.32))' }} />
-    </motion.div>
-  );
-}
 
       <span
         aria-hidden
