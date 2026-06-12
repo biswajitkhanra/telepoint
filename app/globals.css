@@ -39,8 +39,18 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 /* ── Component layer ─────────────────────────────────────── */
 @layer components {
 
-  /* Cards */
-  .card { @apply bg-white rounded-2xl shadow-card border border-surface-4; }
+  /* Cards — Apple-style "liquid glass": translucent, blurred, luminous.
+     Sits over the vibrant page aura so colour bleeds softly through while
+     dark body text stays crystal-clear on the frosted surface. */
+  .card {
+    @apply rounded-2xl shadow-card;
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(18px) saturate(165%);
+    -webkit-backdrop-filter: blur(18px) saturate(165%);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    transition: transform .3s cubic-bezier(.34,1.56,.64,1),
+                box-shadow .3s ease, background-color .3s ease;
+  }
   .card-hover {
     @apply card cursor-pointer;
     transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s ease;
@@ -307,7 +317,18 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 }
 
 /* Print */
-@media print { .no-print { display: none !important; } body { background: white; } }
+@media print {
+  .no-print { display: none !important; }
+  body { background: white; }
+  /* When a loan statement is open, print only that sheet. */
+  body:has(.statement-sheet) * { visibility: hidden; }
+  .statement-sheet, .statement-sheet * { visibility: visible; }
+  .statement-sheet {
+    position: absolute !important; inset: 0 !important; margin: 0 !important;
+    max-height: none !important; overflow: visible !important;
+    box-shadow: none !important; border-radius: 0 !important;
+  }
+}
 
 /* Accessibility — honour users who prefer reduced motion. Framer Motion is
    also told (MotionConfig reducedMotion="user") to soften transform/opacity
