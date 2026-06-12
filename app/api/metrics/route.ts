@@ -170,13 +170,19 @@ export async function GET(req: NextRequest) {
     const cFirstChargeDue = chargeAmount > 0 && !chargePaid ? chargeAmount : 0;
     const cFirstChargeCollected = chargeAmount > 0 && chargePaid ? chargeAmount : 0;
 
-    // Scope: active loans + any finished loan still carrying an unpaid fine or
-    // first-EMI charge. Fully-finished, fully-cleared loans drop out.
-    const loanFinished = c.status !== 'RUNNING';
-    const allCleared = cFineDue <= 0 && cFirstChargeDue <= 0;
-    if (loanFinished && allCleared) continue;
+    // Scope (strict): only customers whose loan lifecycle is currently RUNNING.
+    // The running financial landscape aggregates EVERYTHING for these active
+    // profiles — both already-collected and still-to-collect — across EMIs,
+    // 1st-EMI charges and fines (see the accumulators below).
+    //
+    // Terminal states are excluded entirely:
+    //   • NPA      — defaulted / non-performing asset, written off.
+    //   • COMPLETE — finished EMI lifecycle; dropped even if trailing unpaid
+    //                fines or charges still sit on the profile.
+    //   • SETTLED  — early closure; not an active running account.
+    if (c.status !== 'RUNNING') continue;
 
-    if (c.status === 'RUNNING') m.runningCount += 1;
+    m.runningCount += 1;
 
     m.loanAmount += Math.max(0, Number(c.purchase_value || 0) - Number(c.down_payment || 0));
     m.emiDue += cEmiDue;
