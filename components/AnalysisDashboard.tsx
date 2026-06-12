@@ -312,11 +312,6 @@ export default function AnalysisDashboard({
           format={formatCurrency}
         />
       </div>
-
-      {/* Component footer attribution */}
-      <p className="text-center text-[11px] text-ink-muted/70 italic pt-2">
-        Mastermind Behind The Code: Biswodip Goj
-      </p>
     </motion.div>
   );
 }
