@@ -1591,7 +1591,13 @@ function MetricDashboard({
   const totalLoanValue = m.loanAmount;
   // Collection = everything actually received: EMI + fines + 1st EMI charges.
   const totalCollection = m.emiCollected + m.fineCollected + m.firstEmiChargeCollected;
-  const marketDue = m.emiDue + m.fineDue + m.firstEmiChargeDue;
+  // MARKET DUE = the WHOLE running market: every EMI, every fine and every
+  // 1st-EMI charge across active accounts — both already collected AND still
+  // outstanding (not just the unpaid/due slice).
+  const marketDue =
+    (m.emiDue + m.emiCollected) +
+    (m.fineDue + m.fineCollected) +
+    (m.firstEmiChargeDue + m.firstEmiChargeCollected);
   const btd = totalLoanValue - totalCollection;
   // Expected revenue = financed principal + every fine + every 1st EMI charge
   // (each counted whether already collected or still due).
@@ -1652,7 +1658,7 @@ function MetricDashboard({
         />
         <MetricCard
           title="MARKET DUE"
-          formula="EMI Due + Fine Due + 1st EMI Charge"
+          formula="All EMI + All Fine + All 1st EMI Charge (paid + unpaid)"
           value={marketDue}
           colorTheme="bg-amber-500/10 border-amber-500 text-amber-700"
           graphic="progress-ring"

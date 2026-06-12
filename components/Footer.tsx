@@ -1,31 +1,29 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 
 /**
- * Global footer — mounted in app/layout.tsx so it sits below every page.
+ * Global footer — mounted in app/layout.tsx so it sits below every page and is
+ * the single source of the developer attribution.
  *
- * Cyber-Luxe interactive attribution. The footer opens in a calm "Made By"
- * resting state; tapping it triggers a three-act animation chain:
+ * Resting state shows the full credit — "Made By Biswodip Goj" — with the name
+ * carrying a constant, smooth moving gradient (deep reds → violet → electric
+ * blue), tuned to stay crystal-clear. Tapping it replays a contained celebration
+ * chain that lives ENTIRELY inside the footer band (never the full page):
  *
- *   1. 3D PARTICLE BOMB — the "Made By" label vaporizes into a burst of
- *      colourful light particles that fly out (and back through Z) from the
- *      exact click point.
- *   2. 777 SLOT MACHINE — three digital reels spin and stop sequentially,
- *      left → right, settling on the developer's name.
- *   3. MOVING GRADIENT REVEAL — the full credit line stays on screen, every
- *      word carrying a constant smooth gradient (deep reds → violet → blue)
- *      tuned to stay crystal-clear and readable.
+ *   1. 3D PARTICLE BOMB — a compact burst of colourful light particles.
+ *   2. 777 SLOT MACHINE — three glass reels spin and stop left → right on the
+ *      name, then it settles back to the resting credit.
  *
  * Attribution is intentionally hidden on retailer-facing routes.
  */
 
-type Phase = 'idle' | 'blast' | 'slots' | 'revealed';
+type Phase = 'idle' | 'blast' | 'slots';
 
+const NAME_WORDS = ['Biswodip', 'Goj'] as const;
 const REELS = ['BISWODIP', '·', 'GOJ'] as const;
-const FINAL_LINE = 'The Mastermind Behind The Code: Biswodip Goj';
 
 // Particle colour set — electric pinks, ultraviolet, cyan, lime.
 const PARTICLE_COLORS = [
@@ -42,19 +40,20 @@ interface Particle {
   delay: number;
 }
 
+// Compact spread so the whole burst stays inside the footer band.
 function makeParticles(count: number): Particle[] {
   return Array.from({ length: count }, (_, id) => {
     const angle = (Math.PI * 2 * id) / count + Math.random() * 0.5;
-    const dist = 60 + Math.random() * 140;
+    const dist = 36 + Math.random() * 70;
     return {
       id,
       x: Math.cos(angle) * dist,
-      y: Math.sin(angle) * dist - 20, // slight upward bias — fireworks feel
-      z: (Math.random() - 0.5) * 240,
-      rotate: Math.random() * 720 - 360,
-      size: 5 + Math.random() * 9,
+      y: Math.sin(angle) * dist * 0.5, // flatter — the band is short
+      z: (Math.random() - 0.5) * 160,
+      rotate: Math.random() * 540 - 270,
+      size: 4 + Math.random() * 7,
       color: PARTICLE_COLORS[id % PARTICLE_COLORS.length],
-      delay: Math.random() * 0.06,
+      delay: Math.random() * 0.05,
     };
   });
 }
@@ -63,23 +62,15 @@ export default function Footer() {
   const pathname = usePathname();
   const reduceMotion = useReducedMotion();
   const [phase, setPhase] = useState<Phase>('idle');
-  const containerRef = useRef<HTMLDivElement>(null);
-  const particles = useMemo(() => makeParticles(34), [phase === 'blast']); // eslint-disable-line react-hooks/exhaustive-deps
+  const particles = useMemo(() => makeParticles(28), [phase === 'blast']); // eslint-disable-line react-hooks/exhaustive-deps
 
   const trigger = useCallback(() => {
-    if (phase !== 'idle' && phase !== 'revealed') return;
-
-    // Reduced-motion users skip straight to the readable reveal.
-    if (reduceMotion) {
-      setPhase('revealed');
-      return;
-    }
+    if (phase !== 'idle') return;
+    if (reduceMotion) return; // name is already shown; nothing to animate
 
     setPhase('blast');
-    // Blast settles → reels spin in.
-    window.setTimeout(() => setPhase('slots'), 750);
-    // Reels stop left→right (staggered inside) → final line locks in.
-    window.setTimeout(() => setPhase('revealed'), 750 + 1850);
+    window.setTimeout(() => setPhase('slots'), 650);
+    window.setTimeout(() => setPhase('idle'), 650 + 1750);
   }, [phase, reduceMotion]);
 
   if (pathname?.startsWith('/retailer')) return null;
@@ -90,54 +81,60 @@ export default function Footer() {
       style={{
         paddingBottom: 'max(28px, env(safe-area-inset-bottom))',
         background:
-          'linear-gradient(135deg, #0a0d1a 0%, #161d35 45%, #1e1b4b 75%, #0a0d1a 100%)',
+          'linear-gradient(120deg, #2e1065 0%, #1e3a8a 30%, #0a0d1a 52%, #4c1d95 74%, #831843 100%)',
         perspective: '900px',
       }}
     >
-      {/* Ambient colour orbs behind the glass */}
+      {/* Eye-catching ambient colour orbs behind the glass */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-70"
+        className="pointer-events-none absolute inset-0"
         style={{
           background:
-            'radial-gradient(420px 200px at 15% 120%, rgba(168,85,247,0.30), transparent 60%),' +
-            'radial-gradient(420px 200px at 85% -20%, rgba(59,130,246,0.30), transparent 60%),' +
-            'radial-gradient(300px 160px at 50% 50%, rgba(244,63,94,0.18), transparent 65%)',
+            'radial-gradient(440px 220px at 12% 130%, rgba(236,72,153,0.45), transparent 60%),' +
+            'radial-gradient(440px 220px at 88% -30%, rgba(34,211,238,0.40), transparent 60%),' +
+            'radial-gradient(360px 200px at 50% 50%, rgba(168,85,247,0.30), transparent 65%)',
         }}
       />
 
       <div
-        ref={containerRef}
-        className="relative mx-auto flex min-h-[68px] max-w-2xl items-center justify-center"
+        className="relative mx-auto flex min-h-[60px] max-w-2xl items-center justify-center"
         style={{ transformStyle: 'preserve-3d' }}
       >
         <AnimatePresence mode="wait">
-          {/* ── Act 0: resting "Made By" ─────────────────────────── */}
+          {/* ── Resting: full "Made By Biswodip Goj" credit ──────── */}
           {phase === 'idle' && (
             <motion.button
-              key="made-by"
+              key="credit"
               type="button"
               onClick={trigger}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 1.6, filter: 'blur(6px)' }}
+              exit={{ opacity: 0, scale: 1.25, filter: 'blur(5px)' }}
               transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-              whileHover={{ scale: 1.06, y: -2 }}
-              whileTap={{ scale: 0.92 }}
-              className="glass-luxe group rounded-full px-7 py-3 text-sm font-bold tracking-wide text-white"
+              whileHover={{ scale: 1.05, y: -2 }}
+              whileTap={{ scale: 0.93 }}
+              className="glass-luxe rounded-full px-7 py-3"
               style={{ WebkitTapHighlightColor: 'transparent' }}
-              aria-label="Reveal the mastermind behind the code"
+              aria-label="Made By Biswodip Goj — tap to celebrate"
+              title="Tap me ✨"
             >
-              <span className="bg-gradient-to-r from-cyan-300 via-fuchsia-300 to-amber-200 bg-clip-text text-transparent">
-                Made&nbsp;By
-              </span>
-              <span className="ml-2 inline-block text-white/50 transition-transform duration-300 group-hover:translate-x-0.5">
-                ✦
+              <span className="flex items-center justify-center gap-x-[0.45ch] text-sm font-extrabold sm:text-base">
+                <span className="text-white/90">Made&nbsp;By</span>
+                {NAME_WORDS.map((word, i) => (
+                  <span
+                    key={word}
+                    className="luxe-word"
+                    style={{ animationDelay: `${i * -0.5}s` }}
+                  >
+                    {word}
+                  </span>
+                ))}
               </span>
             </motion.button>
           )}
 
-          {/* ── Act 1: 3D particle bomb blast ────────────────────── */}
+          {/* ── Act 1: contained 3D particle bomb ────────────────── */}
           {phase === 'blast' && (
             <motion.div
               key="blast"
@@ -146,13 +143,12 @@ export default function Footer() {
               exit={{ opacity: 0 }}
               style={{ transformStyle: 'preserve-3d' }}
             >
-              {/* Shockwave flash */}
               <motion.span
                 className="absolute rounded-full"
                 style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.9), rgba(168,85,247,0.4) 45%, transparent 70%)' }}
-                initial={{ width: 12, height: 12, opacity: 0.9 }}
-                animate={{ width: 320, height: 320, opacity: 0 }}
-                transition={{ duration: 0.6, ease: 'easeOut' }}
+                initial={{ width: 10, height: 10, opacity: 0.9 }}
+                animate={{ width: 180, height: 180, opacity: 0 }}
+                transition={{ duration: 0.55, ease: 'easeOut' }}
               />
               {particles.map((p) => (
                 <motion.span
@@ -162,18 +158,11 @@ export default function Footer() {
                     width: p.size,
                     height: p.size,
                     background: p.color,
-                    boxShadow: `0 0 12px ${p.color}, 0 0 4px ${p.color}`,
+                    boxShadow: `0 0 10px ${p.color}, 0 0 4px ${p.color}`,
                   }}
                   initial={{ x: 0, y: 0, z: 0, scale: 1, opacity: 1, rotate: 0 }}
-                  animate={{
-                    x: p.x,
-                    y: p.y,
-                    z: p.z,
-                    rotate: p.rotate,
-                    scale: 0,
-                    opacity: 0,
-                  }}
-                  transition={{ duration: 0.7, delay: p.delay, ease: [0.12, 0.8, 0.2, 1] }}
+                  animate={{ x: p.x, y: p.y, z: p.z, rotate: p.rotate, scale: 0, opacity: 0 }}
+                  transition={{ duration: 0.65, delay: p.delay, ease: [0.12, 0.8, 0.2, 1] }}
                 />
               ))}
             </motion.div>
@@ -194,36 +183,6 @@ export default function Footer() {
               ))}
             </motion.div>
           )}
-
-          {/* ── Act 3: moving-gradient reveal ────────────────────── */}
-          {phase === 'revealed' && (
-            <motion.button
-              key="revealed"
-              type="button"
-              onClick={trigger}
-              initial={{ opacity: 0, y: 10, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-              className="glass-luxe rounded-2xl px-5 py-3"
-              aria-label="The Mastermind Behind The Code: Biswodip Goj — tap to replay"
-              title="Tap to replay"
-            >
-              <p className="flex flex-wrap items-center justify-center gap-x-[0.4ch] gap-y-0.5 text-sm font-extrabold sm:text-base">
-                {FINAL_LINE.split(' ').map((word, i) => (
-                  <motion.span
-                    key={`${word}-${i}`}
-                    className="luxe-word"
-                    style={{ animationDelay: `${i * -0.4}s` }}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.05 * i, duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                  >
-                    {word}
-                  </motion.span>
-                ))}
-              </p>
-            </motion.button>
-          )}
         </AnimatePresence>
       </div>
     </footer>
@@ -234,30 +193,25 @@ export default function Footer() {
 // Each reel spins through a strip of lucky 7s, then snaps to its label.
 // Reels stop sequentially left → right via a per-index delay.
 function Reel({ label, index }: { label: string; index: number }) {
-  const STOP_DELAY = 0.45 + index * 0.55; // left reel locks first
+  const STOP_DELAY = 0.4 + index * 0.5;
   const strip = ['7', '7', '7', '7', '7', '7'];
 
   return (
     <div
-      className="glass-luxe relative h-12 overflow-hidden rounded-xl px-3 sm:h-14"
-      style={{ minWidth: label === '·' ? 26 : 96 }}
+      className="glass-luxe relative h-11 overflow-hidden rounded-xl px-3 sm:h-12"
+      style={{ minWidth: label === '·' ? 24 : 92 }}
     >
-      {/* Spinning 7s */}
       <motion.div
         className="absolute inset-x-0 top-0 flex flex-col items-center"
         initial={{ y: 0 }}
         animate={{ y: ['0%', '-83.33%'] }}
-        transition={{
-          duration: 0.22,
-          repeat: Infinity,
-          ease: 'linear',
-        }}
+        transition={{ duration: 0.22, repeat: Infinity, ease: 'linear' }}
         style={{ filter: 'blur(0.4px)' }}
       >
         {strip.map((s, i) => (
           <span
             key={i}
-            className="flex h-12 items-center justify-center text-2xl font-black text-amber-300 sm:h-14"
+            className="flex h-11 items-center justify-center text-2xl font-black text-amber-300 sm:h-12"
             style={{ textShadow: '0 0 14px rgba(250,204,21,0.7)' }}
           >
             {s}
@@ -265,7 +219,6 @@ function Reel({ label, index }: { label: string; index: number }) {
         ))}
       </motion.div>
 
-      {/* Locked-in label slides up over the spin once the reel "stops" */}
       <motion.div
         className="absolute inset-0 flex items-center justify-center"
         initial={{ y: '110%', opacity: 0 }}
@@ -280,7 +233,6 @@ function Reel({ label, index }: { label: string; index: number }) {
         </span>
       </motion.div>
 
-      {/* Reel glass sheen */}
       <span
         aria-hidden
         className="pointer-events-none absolute inset-0"

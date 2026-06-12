@@ -216,11 +216,21 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 /* ── Layout ──────────────────────────────────────────────── */
 .page-bg {
   background:
-    radial-gradient(1200px 600px at -10% -20%, #fef3c7 0%, transparent 60%),
-    radial-gradient(900px 600px at 110% -10%, #dbeafe 0%, transparent 60%),
-    radial-gradient(900px 600px at 50% 120%, #ede9fe 0%, transparent 60%),
-    linear-gradient(135deg, #fefce8 0%, #f0f9ff 50%, #faf5ff 100%);
+    radial-gradient(1100px 560px at -8% -18%, rgba(244,114,182,0.38) 0%, transparent 58%),
+    radial-gradient(1000px 600px at 108% -12%, rgba(56,189,248,0.42) 0%, transparent 58%),
+    radial-gradient(900px 620px at 50% 122%, rgba(167,139,250,0.45) 0%, transparent 60%),
+    radial-gradient(720px 480px at 92% 112%, rgba(163,230,53,0.26) 0%, transparent 55%),
+    linear-gradient(135deg, #fff7ed 0%, #eef6ff 45%, #f7f0ff 100%);
+  background-size: 160% 160%, 160% 160%, 160% 160%, 160% 160%, 100% 100%;
+  animation: pageAura 18s ease-in-out infinite alternate;
   min-height: 100vh;
+}
+@keyframes pageAura {
+  0%   { background-position: 0% 0%, 100% 0%, 50% 100%, 100% 100%, 0 0; }
+  100% { background-position: 20% 10%, 80% 12%, 40% 90%, 80% 92%, 0 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-bg { animation: none; }
 }
 
 /* Section accent palette — distinct colour per area */
