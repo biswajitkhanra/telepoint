@@ -7,7 +7,7 @@
 
 html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; overflow-x: hidden; }
 body {
-  background: linear-gradient(135deg, #f5f0ff 0%, #eadcff 52%, #f8f4ff 100%); color: #1e293b;
+  background: #1A1B3A; color: #1e293b;
   font-family: 'Inter', 'Noto Sans Bengali', 'Noto Sans Devanagari', system-ui, sans-serif; line-height: 1.5;
   overflow-x: hidden; /* Prevent horizontal scroll on mobile */
   -webkit-tap-highlight-color: transparent;
@@ -306,20 +306,20 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 }
 
 /* ── Layout ──────────────────────────────────────────────── */
-/* Light purple gradient shell. Subtle violet glows keep it soft while
-   preserving readable dark text on the page background. */
+/* Deep indigo→violet shell. Subtle coloured glows keep it energetic
+   without washing out the dark base the content cards float on. */
 .page-bg {
   background:
-    radial-gradient(1100px 560px at -8% -18%, rgba(196,181,253,0.50) 0%, transparent 58%),
-    radial-gradient(1000px 600px at 108% -12%, rgba(221,214,254,0.55) 0%, transparent 58%),
-    radial-gradient(900px 620px at 50% 122%, rgba(233,213,255,0.48) 0%, transparent 60%),
-    radial-gradient(720px 480px at 92% 112%, rgba(216,180,254,0.38) 0%, transparent 55%),
-    linear-gradient(135deg, #f5f0ff 0%, #eadcff 52%, #f8f4ff 100%);
+    radial-gradient(1100px 560px at -8% -18%, rgba(124,58,237,0.40) 0%, transparent 58%),
+    radial-gradient(1000px 600px at 108% -12%, rgba(56,189,248,0.26) 0%, transparent 58%),
+    radial-gradient(900px 620px at 50% 122%, rgba(236,72,153,0.26) 0%, transparent 60%),
+    radial-gradient(720px 480px at 92% 112%, rgba(99,102,241,0.30) 0%, transparent 55%),
+    linear-gradient(135deg, #1A1B3A 0%, #3B2F6B 100%);
   background-size: 160% 160%, 160% 160%, 160% 160%, 160% 160%, 100% 100%;
   background-attachment: fixed;
   animation: pageAura 18s ease-in-out infinite alternate;
   min-height: 100vh;
-  color: #111827;
+  color: #e2e8f0;
 }
 @keyframes pageAura {
   0%   { background-position: 0% 0%, 100% 0%, 50% 100%, 100% 100%, 0 0; }
