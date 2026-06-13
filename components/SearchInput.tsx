@@ -105,7 +105,7 @@ export default function SearchInput({
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         placeholder={placeholder}
-        className="input pl-10 pr-10 py-3 text-base shadow-sm relative"
+        className="input pl-10 pr-10 py-3 text-base text-black placeholder-black/70 shadow-sm relative"
         autoCorrect="off"
         autoCapitalize="off"
         autoComplete="off"
