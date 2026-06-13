@@ -38,7 +38,7 @@ function DancingSkeleton({ scale = 1, delay = 0, phoneIsHero = false }: {
     >
       {/* Head */}
       <motion.div
-        className="text-6xl leading-none drop-shadow-[0_0_18px_rgba(255,255,255,0.45)]"
+        className="text-6xl leading-none drop-shadow-[0_3px_10px_rgba(15,23,42,0.45)]"
         animate={{ rotate: [-14, 14, -14] }}
         transition={{ duration: 0.62, repeat: Infinity, ease: 'easeInOut', delay }}
       >
@@ -47,17 +47,19 @@ function DancingSkeleton({ scale = 1, delay = 0, phoneIsHero = false }: {
 
       {/* Torso + arms */}
       <div className="relative -mt-1 flex items-center">
-        <Bone className="origin-right text-3xl" delayOffset={delay} />
-        {/* Ribcage — pure divs so it renders identically everywhere */}
+        <Bone className="origin-right text-3xl drop-shadow-[0_2px_6px_rgba(15,23,42,0.4)]" delayOffset={delay} />
+        {/* Ribcage — pure divs so it renders identically everywhere. Bones are a
+           solid slate so the skeleton stays crisp over the now-transparent
+           background (it dances over whatever page is behind it). */}
         <motion.div
           className="relative mx-2 h-10 w-10"
           animate={{ scaleX: [1, 1.14, 1] }}
           transition={{ duration: 0.31, repeat: Infinity, ease: 'easeInOut', delay }}
         >
-          <div className="absolute left-1/2 top-0 h-10 w-1.5 -translate-x-1/2 rounded-full bg-white/90 shadow-[0_0_10px_rgba(255,255,255,0.6)]" />
-          <div className="absolute left-1/2 top-1 h-1.5 w-9 -translate-x-1/2 rounded-full bg-white/90" />
-          <div className="absolute left-1/2 top-4 h-1.5 w-7 -translate-x-1/2 rounded-full bg-white/90" />
-          <div className="absolute left-1/2 top-7 h-1.5 w-5 -translate-x-1/2 rounded-full bg-white/90" />
+          <div className="absolute left-1/2 top-0 h-10 w-1.5 -translate-x-1/2 rounded-full bg-slate-700 shadow-[0_1px_4px_rgba(15,23,42,0.5)]" />
+          <div className="absolute left-1/2 top-1 h-1.5 w-9 -translate-x-1/2 rounded-full bg-slate-700" />
+          <div className="absolute left-1/2 top-4 h-1.5 w-7 -translate-x-1/2 rounded-full bg-slate-700" />
+          <div className="absolute left-1/2 top-7 h-1.5 w-5 -translate-x-1/2 rounded-full bg-slate-700" />
         </motion.div>
         {/* Phone hand — every skeleton in the crew has one */}
         <motion.div
@@ -78,15 +80,16 @@ function DancingSkeleton({ scale = 1, delay = 0, phoneIsHero = false }: {
         animate={{ x: [-10, 10, -10] }}
         transition={{ duration: 0.62, repeat: Infinity, ease: 'easeInOut', delay }}
       >
-        <Bone className="origin-top text-2xl" from={-30} to={25} delayOffset={delay} />
-        <Bone className="origin-top text-2xl" from={25} to={-30} delayOffset={delay + 0.31} />
+        <Bone className="origin-top text-2xl drop-shadow-[0_2px_6px_rgba(15,23,42,0.4)]" from={-30} to={25} delayOffset={delay} />
+        <Bone className="origin-top text-2xl drop-shadow-[0_2px_6px_rgba(15,23,42,0.4)]" from={25} to={-30} delayOffset={delay + 0.31} />
       </motion.div>
 
-      {/* Dance floor glow */}
+      {/* Dance floor shadow — a soft contact shadow so the skeleton looks
+         grounded on the transparent stage. */}
       <motion.div
         className="mt-3 h-3 w-36 rounded-full"
-        style={{ background: 'radial-gradient(closest-side, rgba(255,255,255,0.55), transparent)' }}
-        animate={{ scaleX: [1, 0.75, 1], opacity: [0.7, 0.4, 0.7] }}
+        style={{ background: 'radial-gradient(closest-side, rgba(15,23,42,0.28), transparent)' }}
+        animate={{ scaleX: [1, 0.75, 1], opacity: [0.6, 0.35, 0.6] }}
         transition={{ duration: 0.62, repeat: Infinity, ease: 'easeInOut', delay }}
       />
     </motion.div>
@@ -101,43 +104,13 @@ export default function SkeletonDance({ name }: { name?: string }) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, transition: { duration: 0.45 } }}
       className="fixed inset-0 z-[80] flex flex-col items-center justify-center overflow-hidden"
-      style={{
-        background:
-          'radial-gradient(700px 420px at 20% 10%, rgba(236,72,153,0.35), transparent 60%),' +
-          'radial-gradient(700px 420px at 80% 90%, rgba(34,211,238,0.35), transparent 60%),' +
-          'radial-gradient(600px 500px at 50% 50%, rgba(168,85,247,0.30), transparent 65%),' +
-          'linear-gradient(135deg, #0f172a, #1e1b4b 55%, #312e81)',
-      }}
+      // No colour wash — the background stays fully transparent so ONLY the
+      // skeletons dancing with their phones appear on screen, over whatever
+      // page is loading behind them.
+      style={{ background: 'transparent' }}
       aria-busy="true"
       aria-live="polite"
     >
-      {/* Disco light sweeps */}
-      {[0, 1, 2].map(i => (
-        <motion.div
-          key={i}
-          className="pointer-events-none absolute h-72 w-72 rounded-full blur-3xl"
-          style={{
-            background: ['rgba(244,63,94,0.35)', 'rgba(34,211,238,0.3)', 'rgba(163,230,53,0.28)'][i],
-            top: `${15 + i * 25}%`,
-          }}
-          animate={{ left: ['-10%', '85%', '-10%'] }}
-          transition={{ duration: 5 + i * 1.4, repeat: Infinity, ease: 'easeInOut', delay: i * 0.6 }}
-        />
-      ))}
-
-      {/* Floating music notes */}
-      {['🎵', '🎶', '🎵', '🎶', '✨'].map((n, i) => (
-        <motion.span
-          key={i}
-          className="pointer-events-none absolute text-2xl"
-          style={{ left: `${12 + i * 18}%`, bottom: '30%' }}
-          animate={{ y: [-6, -90], opacity: [0, 1, 0], rotate: [0, i % 2 ? 28 : -28] }}
-          transition={{ duration: 2.1, repeat: Infinity, delay: i * 0.45, ease: 'easeOut' }}
-        >
-          {n}
-        </motion.span>
-      ))}
-
       {/* ── The skeleton crew — phones out, dancing ── */}
       <div className="flex items-end gap-4 sm:gap-10">
         <DancingSkeleton scale={0.72} delay={0.2} />
@@ -154,16 +127,17 @@ export default function SkeletonDance({ name }: { name?: string }) {
         style={{ background: 'radial-gradient(circle at 50% 48%, rgba(255,255,255,0.95), transparent 55%)' }}
       />
 
-      {/* Caption */}
+      {/* Caption — dark, chip-backed text so it stays legible on the
+         transparent stage regardless of the page behind it. */}
       <motion.p
-        className="mt-8 text-base font-bold text-white drop-shadow"
-        animate={{ opacity: [0.7, 1, 0.7] }}
+        className="mt-8 rounded-full bg-slate-900/85 px-4 py-1.5 text-base font-bold text-white shadow-lg"
+        animate={{ opacity: [0.75, 1, 0.75] }}
         transition={{ duration: 1.2, repeat: Infinity }}
       >
         Opening customer…
       </motion.p>
-      {name && <p className="mt-1 max-w-[80vw] truncate text-sm font-semibold text-amber-300">{name}</p>}
-      <p className="mt-1 text-xs text-white/70">The skeleton crew is pulling it up on their phones 📲</p>
+      {name && <p className="mt-2 max-w-[80vw] truncate rounded-full bg-amber-500 px-3 py-1 text-sm font-semibold text-white shadow">{name}</p>}
+      <p className="mt-2 rounded-full bg-slate-900/70 px-3 py-1 text-xs text-white/90">The skeleton crew is pulling it up on their phones 📲</p>
     </motion.div>
   );
 }
