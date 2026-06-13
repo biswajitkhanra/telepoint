@@ -107,7 +107,7 @@ export default function Footer() {
               title="Tap me ✨"
             >
               <span className="flex items-center justify-center gap-x-[0.45ch] text-sm font-extrabold sm:text-base">
-                <span style={{ color: '#cbd5e1' }}>Made&nbsp;By</span>
+                <span className="text-ink-muted">Made&nbsp;By</span>
                 {NAME_WORDS.map((word, i) => (
                   <span
                     key={word}

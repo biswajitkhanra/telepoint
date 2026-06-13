@@ -664,6 +664,7 @@ export default function CustomerPortal() {
               <span className="text-2xl">📄</span>
               <div>
                 <p className="font-display text-base font-bold text-white">View Loan Statement</p>
+                <p className="text-xs text-white/70">Bank-style statement · full schedule, fines &amp; balance · PDF</p>
               </div>
             </div>
             <span className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur">Open →</span>
