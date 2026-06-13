@@ -6,6 +6,14 @@ import Footer from '@/components/Footer';
 export const metadata: Metadata = {
   title: 'EMI Management Portal',
   description: 'Professional EMI collection and approval portal',
+  icons: {
+    icon: [
+      { url: '/logo.svg', type: 'image/svg+xml' },
+      { url: '/icon-192.svg', type: 'image/svg+xml', sizes: '192x192' },
+    ],
+    shortcut: '/logo.svg',
+    apple: '/icon-192.svg',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -15,6 +23,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono&display=swap" rel="stylesheet" />
+        <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+        <link rel="apple-touch-icon" href="/icon-192.svg" />
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#eab308" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
