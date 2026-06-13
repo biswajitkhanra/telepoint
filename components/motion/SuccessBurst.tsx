@@ -57,21 +57,47 @@ export default function SuccessBurst({ label = 'Payment Approved' }: { label?: s
 
       {/* Rotating success ring */}
       <motion.div
-        className="absolute h-44 w-44 rounded-full border-4 border-dashed border-emerald-300/80"
+        className="absolute h-64 w-64 rounded-full border-4 border-dashed border-emerald-300/80"
         initial={{ rotate: 0, scale: 0.4, opacity: 0 }}
         animate={{ rotate: 360, scale: 1, opacity: 1 }}
         transition={{ rotate: { duration: 2.2, repeat: Infinity, ease: 'linear' }, scale: { type: 'spring', stiffness: 260, damping: 18, delay: 0.25 }, opacity: { delay: 0.25 } }}
       />
 
-      {/* The badge itself spins into place */}
+      {/* BIG tick mark — a large gradient disc whose checkmark draws itself in,
+         the centrepiece the moment a payment is approved. */}
       <motion.div
-        className="relative flex flex-col items-center gap-2 rounded-3xl bg-gradient-to-br from-emerald-500 to-teal-600 px-8 py-6 text-center shadow-2xl shadow-emerald-500/50"
-        initial={{ scale: 0, rotate: -540 }}
+        className="relative flex flex-col items-center gap-4"
+        initial={{ scale: 0, rotate: -180 }}
         animate={{ scale: 1, rotate: 0 }}
-        transition={{ type: 'spring', stiffness: 300, damping: 19, delay: 0.2 }}
+        transition={{ type: 'spring', stiffness: 280, damping: 18, delay: 0.2 }}
       >
-        <span className="text-5xl drop-shadow">✓</span>
-        <p className="text-sm font-extrabold uppercase tracking-widest text-white drop-shadow-sm">{label}</p>
+        <motion.div
+          className="flex h-40 w-40 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 via-emerald-500 to-teal-600 shadow-2xl shadow-emerald-500/60 ring-8 ring-white/40"
+          animate={{ scale: [1, 1.06, 1] }}
+          transition={{ duration: 0.7, repeat: 3, delay: 0.5 }}
+        >
+          <svg viewBox="0 0 52 52" className="h-24 w-24" fill="none">
+            <motion.path
+              d="M14 27 L23 36 L39 18"
+              stroke="white"
+              strokeWidth="5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              initial={{ pathLength: 0 }}
+              animate={{ pathLength: 1 }}
+              transition={{ duration: 0.5, ease: 'easeOut', delay: 0.55 }}
+              style={{ filter: 'drop-shadow(0 2px 4px rgba(6,78,59,0.45))' }}
+            />
+          </svg>
+        </motion.div>
+        <motion.p
+          className="rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-2 text-base font-extrabold uppercase tracking-widest text-white shadow-xl shadow-emerald-500/50"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7 }}
+        >
+          {label}
+        </motion.p>
       </motion.div>
     </motion.div>
   );

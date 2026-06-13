@@ -39,8 +39,9 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 /* ── Component layer ─────────────────────────────────────── */
 @layer components {
 
-  /* Cards */
-  .card { @apply bg-white rounded-2xl shadow-card border border-surface-4; }
+  /* Cards — a whisper-soft gradient keeps surfaces lively while text stays
+     on near-white for full legibility. */
+  .card { @apply rounded-2xl shadow-card border border-surface-4 bg-gradient-to-br from-white to-surface-2; }
   .card-hover {
     @apply card cursor-pointer;
     transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s ease;
@@ -64,10 +65,27 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
   }
   .btn:hover:not(:disabled) { transform: translateY(-2px); }
   .btn:active:not(:disabled) { transform: translateY(0) scale(.94); transition-duration: .08s; }
-  .btn-primary { @apply btn px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white shadow-sm shadow-brand-500/20; }
-  .btn-secondary { @apply btn px-5 py-2.5 bg-surface-3 hover:bg-surface-4 text-ink border border-surface-4; }
-  .btn-danger { @apply btn px-5 py-2.5 bg-danger-light hover:bg-red-100 text-danger border border-danger-border; }
-  .btn-success { @apply btn px-5 py-2.5 bg-success-light hover:bg-green-100 text-success border border-success-border; }
+  /* Eye-catching gradient buttons. Primary uses a bright gold→amber gradient
+     with near-black text so the label stays crisply legible (text visibility
+     is the priority); success/danger use saturated gradients with white text
+     for maximum contrast. */
+  .btn-primary {
+    @apply btn px-5 py-2.5 text-slate-900 font-bold shadow-md shadow-amber-500/30
+           bg-gradient-to-br from-amber-300 via-yellow-400 to-amber-500
+           hover:from-amber-400 hover:via-amber-400 hover:to-amber-600;
+  }
+  .btn-secondary {
+    @apply btn px-5 py-2.5 text-ink border border-surface-4 shadow-sm
+           bg-gradient-to-br from-white to-surface-3 hover:from-surface-2 hover:to-surface-4;
+  }
+  .btn-danger {
+    @apply btn px-5 py-2.5 text-white font-semibold shadow-md shadow-rose-500/30
+           bg-gradient-to-br from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700;
+  }
+  .btn-success {
+    @apply btn px-5 py-2.5 text-white font-semibold shadow-md shadow-emerald-500/30
+           bg-gradient-to-br from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700;
+  }
   .btn-ghost { @apply btn px-4 py-2 text-ink-muted hover:text-ink hover:bg-surface-3; }
   .btn-icon { @apply btn p-2 rounded-xl text-ink-muted hover:text-ink hover:bg-surface-3; min-width: 44px; }
 
@@ -81,19 +99,19 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
   }
   .label { @apply block text-xs font-semibold text-ink-muted uppercase tracking-wide mb-1.5; }
 
-  /* Badges */
-  .badge { @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold; }
-  .badge-green  { @apply badge bg-success-light text-success border border-success-border; }
-  .badge-blue   { @apply badge bg-info-light text-info border border-info-border; }
-  .badge-yellow { @apply badge bg-warning-light text-warning border border-warning-border; }
-  .badge-red    { @apply badge bg-danger-light text-danger border border-danger-border; }
-  .badge-gray   { @apply badge bg-surface-3 text-ink-muted border border-surface-4; }
+  /* Badges — soft gradient pills with bold, high-contrast text */
+  .badge { @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold; }
+  .badge-green  { @apply badge text-emerald-800 border border-success-border bg-gradient-to-r from-emerald-50 to-green-100; }
+  .badge-blue   { @apply badge text-blue-800    border border-info-border    bg-gradient-to-r from-sky-50     to-blue-100; }
+  .badge-yellow { @apply badge text-amber-800   border border-warning-border bg-gradient-to-r from-amber-50   to-yellow-100; }
+  .badge-red    { @apply badge text-rose-800    border border-danger-border  bg-gradient-to-r from-rose-50    to-red-100; }
+  .badge-gray   { @apply badge text-ink-muted   border border-surface-4      bg-gradient-to-r from-surface-2  to-surface-3; }
 
-  /* Alerts */
-  .alert-warning { @apply rounded-xl border border-warning-border bg-warning-light p-4; }
-  .alert-danger  { @apply rounded-xl border border-danger-border bg-danger-light p-4; }
-  .alert-info    { @apply rounded-xl border border-info-border bg-info-light p-4; }
-  .alert-success { @apply rounded-xl border border-success-border bg-success-light p-4; }
+  /* Alerts — gentle gradient washes, dark text kept for legibility */
+  .alert-warning { @apply rounded-xl border border-warning-border p-4 bg-gradient-to-br from-amber-50 to-yellow-100; }
+  .alert-danger  { @apply rounded-xl border border-danger-border  p-4 bg-gradient-to-br from-rose-50  to-red-100; }
+  .alert-info    { @apply rounded-xl border border-info-border    p-4 bg-gradient-to-br from-sky-50   to-blue-100; }
+  .alert-success { @apply rounded-xl border border-success-border p-4 bg-gradient-to-br from-emerald-50 to-green-100; }
 
   .form-section { @apply text-xs font-bold text-ink-muted uppercase tracking-widest mb-3 mt-1; }
 
@@ -110,7 +128,7 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 
   /* Table — responsive */
   .tbl { @apply w-full text-sm; }
-  .tbl th { @apply text-left text-xs font-semibold text-ink-muted uppercase tracking-wide py-3 px-4 border-b border-surface-4 bg-surface-2; }
+  .tbl th { @apply text-left text-xs font-bold text-ink-muted uppercase tracking-wide py-3 px-4 border-b border-surface-4 bg-gradient-to-b from-surface-2 to-surface-3; }
   .tbl td { @apply py-3 px-4 border-b border-surface-3 text-ink; }
   .tbl tr:last-child td { @apply border-0; }
   .tbl tbody tr:hover td { @apply bg-surface-2; }
@@ -118,9 +136,9 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
   .divider { @apply h-px bg-surface-4 my-6; }
 
   .nav-link { @apply flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-3 transition-colors; min-height: 44px; }
-  .nav-link-active { @apply nav-link bg-brand-50 text-brand-700 hover:bg-brand-100 hover:text-brand-700; }
+  .nav-link-active { @apply nav-link font-bold text-slate-900 shadow-sm shadow-amber-500/30 bg-gradient-to-r from-amber-200 to-yellow-300 hover:from-amber-300 hover:to-yellow-400 hover:text-slate-900; }
 
-  .stat-card { @apply card p-5; }
+  .stat-card { @apply card p-5 bg-gradient-to-br from-white via-white to-brand-50; }
   /* Numbers use a clean-zero SANS stack with tabular figures for ledger-style
      column alignment. We deliberately avoid `font-mono` / bare `monospace`
      here: common system mono fallbacks (Consolas, SF Mono, DejaVu Sans Mono)
@@ -189,6 +207,27 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 }
 @media (prefers-reduced-motion: reduce) {
   .luxe-word { animation: none; background-position: 0 50%; }
+}
+
+/* Reusable gradient text helpers — eye-catching, yet kept bold + with a soft
+   shadow so glyphs stay crisp and readable against light surfaces. */
+.text-gradient-gold {
+  background-image: linear-gradient(100deg, #b45309 0%, #d97706 35%, #ca8a04 70%, #92400e 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+  font-weight: 800;
+}
+.text-gradient-brand {
+  background-image: linear-gradient(100deg, #7c3aed 0%, #4f46e5 30%, #2563eb 60%, #0ea5e9 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+  font-weight: 800;
+}
+.text-gradient-success {
+  background-image: linear-gradient(100deg, #047857 0%, #059669 50%, #0d9488 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+  font-weight: 800;
 }
 
 /* Reusable glassmorphic panel — backdrop-blur over the dark gradient void. */

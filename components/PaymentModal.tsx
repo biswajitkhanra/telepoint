@@ -714,6 +714,19 @@ function GullakCelebration({ amount, isAdmin }: { amount: number; isAdmin: boole
       }}
       aria-live="polite"
     >
+      {/* Success banner — confirms the payment landed before the receipt shows */}
+      <motion.div
+        className="relative flex flex-col items-center"
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 320, damping: 18, delay: 0.1 }}
+      >
+        <span className="flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-2.5 text-lg font-extrabold text-white shadow-xl shadow-emerald-500/50 ring-4 ring-white/30">
+          <span className="text-2xl">✓</span>
+          {isAdmin ? 'Payment Recorded!' : 'Request Submitted!'}
+        </span>
+      </motion.div>
+
       {/* The gullak — wobbles, then tips to pour */}
       <motion.div
         className="relative mt-2 flex flex-col items-center"
@@ -781,7 +794,7 @@ function GullakCelebration({ amount, isAdmin }: { amount: number; isAdmin: boole
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.6 }}
         >
-          Amount collected into the gullak! 🎉
+          Money moved from the gullak into this payment! 🎉
         </motion.p>
       </motion.div>
     </motion.div>

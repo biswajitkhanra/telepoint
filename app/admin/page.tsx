@@ -1749,8 +1749,6 @@ function MetricDashboard({
         const yP = profitBy[plYear] || { amount: 0, count: 0 };
         const yL = lossBy[plYear] || { amount: 0, count: 0 };
         const net = yP.amount - yL.amount;
-        const unkP = profitBy['unknown'];
-        const unkL = lossBy['unknown'];
         const maxBar = Math.max(1, ...years.map(y =>
           Math.max(Math.abs(profitBy[y]?.amount || 0), Math.abs(lossBy[y]?.amount || 0)),
         ));
@@ -1862,16 +1860,6 @@ function MetricDashboard({
               })}
             </div>
 
-            {/* Accounts with no completion date recorded — never silently dropped */}
-            {(unkP || unkL) && (
-              <p className="mt-3 rounded-lg bg-surface-2 px-3 py-2 text-[11px] text-ink-muted">
-                ⓘ No completion date recorded:&nbsp;
-                {unkP ? <>profit {fmt(unkP.amount)} across {unkP.count} completed customer{unkP.count === 1 ? '' : 's'}</> : null}
-                {unkP && unkL ? ' · ' : null}
-                {unkL ? <>loss {fmt(unkL.amount)} across {unkL.count} NPA/settled account{unkL.count === 1 ? '' : 's'}</> : null}
-                . Set the completion date on these profiles to place them in the right year.
-              </p>
-            )}
           </motion.div>
         );
       })()}
