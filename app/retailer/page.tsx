@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
-import SkeletonDance from '@/components/motion/SkeletonDance';
+import StackUnfold from '@/components/motion/StackUnfold';
 import ShelfSearch from '@/components/motion/ShelfSearch';
 import { SPRING, popIn, staggerContainer, rowItem } from '@/lib/motion';
 import { Customer, Retailer, EMISchedule, DueBreakdown, PaymentRequest } from '@/lib/types';
@@ -875,10 +875,10 @@ export default function RetailerDashboard() {
       </AnimatePresence>
       <BottomNav role="retailer" />
 
-      {/* Single-customer open: skeleton crew loader (UI-only placeholder —
-          exits with the phone-throw effect BEFORE the real-data popup shows) */}
+      {/* Single-customer open: stack-unfold loader (UI-only placeholder —
+          the top card unfolds to full screen BEFORE the real-data popup shows) */}
       <AnimatePresence>
-        {customerLoading && <SkeletonDance name={selectedCustomer?.customer_name} />}
+        {customerLoading && <StackUnfold name={selectedCustomer?.customer_name} />}
       </AnimatePresence>
     </div>
   );
