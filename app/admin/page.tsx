@@ -22,7 +22,7 @@ import { addDays, subMonths, format, differenceInDays } from 'date-fns';
 import { formatCurrency, formatDateOnly, readJsonSafe } from '@/lib/formatters';
 import { motion, AnimatePresence } from 'framer-motion';
 import CountUp from '@/components/motion/CountUp';
-import SkeletonDance from '@/components/motion/SkeletonDance';
+import StackUnfold from '@/components/motion/StackUnfold';
 import ShelfSearch from '@/components/motion/ShelfSearch';
 import { SPRING, cardRise, staggerContainer, rowItem } from '@/lib/motion';
 
@@ -1540,10 +1540,10 @@ export default function AdminDashboard() {
       )}
       <BottomNav role="admin" pendingCount={pendingCount} />
 
-      {/* Single-customer open: skeleton crew loader (UI-only placeholder —
-          exits with the phone-throw effect BEFORE the real-data popup shows) */}
+      {/* Single-customer open: stack-unfold loader (UI-only placeholder —
+          the top card unfolds to full screen BEFORE the real-data popup shows) */}
       <AnimatePresence>
-        {customerLoading && <SkeletonDance name={selectedCustomer?.customer_name} />}
+        {customerLoading && <StackUnfold name={selectedCustomer?.customer_name} />}
       </AnimatePresence>
     </div>
   );
