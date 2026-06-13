@@ -106,7 +106,15 @@ export default function CustomerDetailPanel({ customer, paidCount, totalEmis, is
   ).filter(d => d.url);
 
   return (
-    <motion.div className="card overflow-hidden" variants={fadeUp} initial="hidden" animate="show">
+    <motion.div className="card card-festive overflow-hidden" variants={fadeUp} initial="hidden" animate="show">
+      {/* One-time colourful confetti burst when the record opens — pure
+          decoration, sits above the animated top ribbon. */}
+      <div className="confetti-pop pointer-events-none absolute left-1/2 top-2 z-10 -translate-x-1/2" aria-hidden="true">
+        {['#f43f5e', '#f59e0b', '#22c55e', '#3b82f6', '#a855f7', '#ec4899', '#06b6d4'].map((c, i) => (
+          <i key={i} style={{ left: `${i * 16 - 48}px`, background: c, animationDelay: `${i * 0.06}s` }} />
+        ))}
+      </div>
+
       {/* Header row */}
       <div className="flex items-start gap-4 p-5 border-b border-surface-4">
         {/* Photo — springs in with a playful settle, zooms on hover */}
@@ -118,9 +126,9 @@ export default function CustomerDetailPanel({ customer, paidCount, totalEmis, is
           whileHover={{ scale: 1.06, rotate: 1 }}
           whileTap={{ scale: 0.95 }}
         >
-          <div className="absolute inset-0 bg-amber-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-gradient-to-br from-amber-100 via-rose-50 to-indigo-100 flex items-center justify-center">
             <motion.span
-              className="text-3xl font-bold text-amber-400 font-display select-none leading-none"
+              className="text-3xl font-bold text-gradient-brand font-display select-none leading-none"
               initial={{ scale: 0.4, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ ...SPRING, delay: 0.18 }}
@@ -258,7 +266,7 @@ export default function CustomerDetailPanel({ customer, paidCount, totalEmis, is
         </div>
         <div className="h-2 bg-surface-4 rounded-full overflow-hidden">
           <motion.div
-            className="h-full bg-gradient-to-r from-brand-400 to-brand-500 rounded-full"
+            className="h-full progress-festive rounded-full"
             initial={{ width: 0 }}
             animate={{ width: `${progress}%` }}
             transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}

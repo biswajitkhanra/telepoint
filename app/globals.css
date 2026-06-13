@@ -72,19 +72,23 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
   .btn-primary {
     @apply btn px-5 py-2.5 text-slate-900 font-bold shadow-md shadow-amber-500/30
            bg-gradient-to-br from-amber-300 via-yellow-400 to-amber-500
-           hover:from-amber-400 hover:via-amber-400 hover:to-amber-600;
+           hover:from-amber-400 hover:via-amber-400 hover:to-amber-600
+           hover:shadow-lg hover:shadow-amber-500/45;
   }
   .btn-secondary {
     @apply btn px-5 py-2.5 text-ink border border-surface-4 shadow-sm
-           bg-gradient-to-br from-white to-surface-3 hover:from-surface-2 hover:to-surface-4;
+           bg-gradient-to-br from-white to-surface-3 hover:from-surface-2 hover:to-surface-4
+           hover:border-brand-300 hover:shadow-md;
   }
   .btn-danger {
     @apply btn px-5 py-2.5 text-white font-semibold shadow-md shadow-rose-500/30
-           bg-gradient-to-br from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700;
+           bg-gradient-to-br from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700
+           hover:shadow-lg hover:shadow-rose-500/45;
   }
   .btn-success {
     @apply btn px-5 py-2.5 text-white font-semibold shadow-md shadow-emerald-500/30
-           bg-gradient-to-br from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700;
+           bg-gradient-to-br from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700
+           hover:shadow-lg hover:shadow-emerald-500/45;
   }
   .btn-ghost { @apply btn px-4 py-2 text-ink-muted hover:text-ink hover:bg-surface-3; }
   .btn-icon { @apply btn p-2 rounded-xl text-ink-muted hover:text-ink hover:bg-surface-3; min-width: 44px; }
@@ -92,11 +96,12 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
   /* Inputs — proper mobile sizing */
   .input {
     @apply w-full rounded-xl border border-surface-4 bg-white px-4 py-2.5 text-sm text-ink
-           placeholder-ink-muted/50 transition-all duration-150
-           focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/15;
+           placeholder-ink-muted/50 transition-all duration-200
+           focus:outline-none focus:border-brand-400 focus:ring-4 focus:ring-brand-400/25;
     min-height: 44px; /* Touch-friendly */
     font-size: 16px; /* Prevents iOS zoom on focus */
   }
+  .input:focus { box-shadow: 0 0 0 4px rgba(250,204,21,0.18), 0 2px 8px rgba(234,179,8,0.12); }
   .label { @apply block text-xs font-semibold text-ink-muted uppercase tracking-wide mb-1.5; }
 
   /* Badges — soft gradient pills with bold, high-contrast text */
@@ -118,7 +123,7 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
   /* Modal — slide up from bottom on mobile */
   .modal-backdrop {
     @apply fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4
-           bg-ink/40 backdrop-blur-sm;
+           bg-ink/50 backdrop-blur-md;
   }
   .modal-panel {
     @apply bg-white rounded-t-3xl sm:rounded-2xl w-full sm:max-w-lg max-h-[92vh] overflow-y-auto
@@ -131,14 +136,18 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
   .tbl th { @apply text-left text-xs font-bold text-ink-muted uppercase tracking-wide py-3 px-4 border-b border-surface-4 bg-gradient-to-b from-surface-2 to-surface-3; }
   .tbl td { @apply py-3 px-4 border-b border-surface-3 text-ink; }
   .tbl tr:last-child td { @apply border-0; }
-  .tbl tbody tr:hover td { @apply bg-surface-2; }
+  /* Zebra striping for easier row scanning, with a warm brand-tinted hover. */
+  .tbl tbody tr:nth-child(even) td { @apply bg-surface-2/60; }
+  .tbl tbody tr { transition: background-color .15s ease; }
+  .tbl tbody tr:hover td { @apply bg-brand-50; }
 
   .divider { @apply h-px bg-surface-4 my-6; }
 
   .nav-link { @apply flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-3 transition-colors; min-height: 44px; }
   .nav-link-active { @apply nav-link font-bold text-slate-900 shadow-sm shadow-amber-500/30 bg-gradient-to-r from-amber-200 to-yellow-300 hover:from-amber-300 hover:to-yellow-400 hover:text-slate-900; }
 
-  .stat-card { @apply card p-5 bg-gradient-to-br from-white via-white to-brand-50; }
+  .stat-card { @apply card p-5 bg-gradient-to-br from-white via-brand-50/40 to-brand-100/70; transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s ease; }
+  .stat-card:hover { transform: translateY(-2px); @apply shadow-card-hover; }
   /* Numbers use a clean-zero SANS stack with tabular figures for ledger-style
      column alignment. We deliberately avoid `font-mono` / bare `monospace`
      here: common system mono fallbacks (Consolas, SF Mono, DejaVu Sans Mono)
@@ -241,6 +250,50 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 
 /* Progress / meter bars that grow in from the left on first paint */
 .bar-grow { transform-origin: left center; animation: growBar .9s cubic-bezier(0.16,1,0.3,1) both; }
+
+/* ── Festive single-customer card ────────────────────────────
+   When one customer record is opened it gets a colourful, animated
+   top ribbon plus a softly shifting celebratory aura, so a single
+   result feels lively and playful — not flat. */
+@keyframes festiveRibbon { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+@keyframes festiveAura {
+  0%, 100% { box-shadow: 0 12px 44px -14px rgba(99,102,241,0.45); }
+  33%      { box-shadow: 0 12px 44px -14px rgba(244,63,94,0.42); }
+  66%      { box-shadow: 0 12px 44px -14px rgba(16,185,129,0.42); }
+}
+.card-festive { position: relative; isolation: isolate; animation: festiveAura 7s ease-in-out infinite; }
+.card-festive::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 5px; z-index: 3;
+  background: linear-gradient(90deg,#f43f5e,#f59e0b,#22c55e,#3b82f6,#a855f7,#ec4899,#f43f5e);
+  background-size: 300% 100%;
+  animation: festiveRibbon 6s linear infinite;
+}
+
+/* Rainbow progress fill — colourful and gently shifting */
+.progress-festive {
+  background: linear-gradient(90deg,#22c55e,#3b82f6,#a855f7,#f43f5e,#f59e0b,#22c55e);
+  background-size: 250% 100%;
+  animation: festiveRibbon 5s linear infinite;
+}
+
+/* Tiny confetti dots that drift up once when the card mounts */
+@keyframes confettiFloat {
+  0%   { transform: translateY(0) scale(0.6); opacity: 0; }
+  15%  { opacity: 1; }
+  100% { transform: translateY(-46px) scale(1); opacity: 0; }
+}
+.confetti-pop { position: relative; }
+.confetti-pop > i {
+  position: absolute; bottom: 0; width: 7px; height: 7px; border-radius: 2px;
+  animation: confettiFloat 1.5s ease-out both; pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-festive,
+  .card-festive::before,
+  .progress-festive,
+  .confetti-pop > i { animation: none; }
+}
 
 /* Sweeping sheen overlay (e.g. across CTA buttons / headers) */
 .sheen-track { position: relative; overflow: hidden; }
