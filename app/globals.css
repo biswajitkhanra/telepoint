@@ -329,39 +329,39 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
   .page-bg { animation: none; }
 }
 
-/* ── Dark-shell readability ───────────────────────────────────
-   Content lives on light cards, so flip ONLY shell-level ink/muted
-   text to light, then re-assert the original dark ink inside every
-   light surface (cards, modals, nav bars, alerts, sections, pills).
-   The @apply-based classes (.btn-*, .input, .label, .nav-link) carry
-   no literal text-ink class, so they're untouched and keep their own
-   colours. */
-.page-bg .text-ink       { color: #f8fafc; }
-.page-bg .text-ink-muted { color: #c7d2e3; }
+/* ── Dark-shell readability + bold-black text mandate ──────────
+   Black / near-black text (ink, muted, dark slates) is forced BOLD
+   everywhere, and rendered PURE BLACK on light surfaces. Directly on
+   the dark gradient it stays light (so titles/labels remain visible).
+   Coloured text (emerald/amber/rose/blue/indigo/violet/sky/white) and
+   the @apply classes are excluded — except .label / .tbl cells, which
+   always sit on light surfaces and are blackened below. */
 
-/* Light containers — reset inherited colour back to dark ink */
-.page-bg .card, .page-bg .stat-card, .page-bg .modal-panel, .page-bg header,
-.page-bg [class*="bg-white"], .page-bg [class*="bg-surface-2"],
-.page-bg [class*="bg-surface-3"], .page-bg [class*="bg-surface-4"],
-.page-bg [class*="section-"], .page-bg [class*="alert-"] { color: #1e293b; }
+/* Shell-level black text → light + bold (stays visible on the gradient) */
+.page-bg :is(.text-ink, .text-slate-200, .text-slate-300) { color: #f8fafc; font-weight: 700; }
+.page-bg :is(.text-ink-muted, .text-slate-400, .text-slate-500, .text-slate-600, .text-slate-700) { color: #e2e8f0; font-weight: 700; }
 
-/* Re-assert dark ink for ink/muted text INSIDE light containers */
-.page-bg .card .text-ink, .page-bg .stat-card .text-ink, .page-bg .modal-panel .text-ink,
-.page-bg header .text-ink, .page-bg [class*="bg-white"] .text-ink,
-.page-bg [class*="bg-surface-2"] .text-ink, .page-bg [class*="bg-surface-3"] .text-ink,
-.page-bg [class*="bg-surface-4"] .text-ink,
-.page-bg [class*="section-"] .text-ink, .page-bg [class*="alert-"] .text-ink { color: #0f172a; }
-.page-bg .card .text-ink-muted, .page-bg .stat-card .text-ink-muted, .page-bg .modal-panel .text-ink-muted,
-.page-bg header .text-ink-muted, .page-bg [class*="bg-white"] .text-ink-muted,
-.page-bg [class*="bg-surface-2"] .text-ink-muted, .page-bg [class*="bg-surface-3"] .text-ink-muted,
-.page-bg [class*="bg-surface-4"] .text-ink-muted,
-.page-bg [class*="section-"] .text-ink-muted, .page-bg [class*="alert-"] .text-ink-muted { color: #64748b; }
+/* Light containers — reset inherited colour to black */
+.page-bg :is(.card, .stat-card, .modal-panel, header,
+  [class*="bg-white"], [class*="bg-surface-2"], [class*="bg-surface-3"], [class*="bg-surface-4"],
+  [class*="section-"], [class*="alert-"]) { color: #000; }
 
-/* Same-element cases: a light bg utility AND ink text on one node */
-.page-bg [class*="bg-white"].text-ink, .page-bg [class*="bg-surface-2"].text-ink,
-.page-bg [class*="bg-surface-3"].text-ink, .page-bg [class*="bg-surface-4"].text-ink { color: #0f172a; }
-.page-bg [class*="bg-white"].text-ink-muted, .page-bg [class*="bg-surface-2"].text-ink-muted,
-.page-bg [class*="bg-surface-3"].text-ink-muted, .page-bg [class*="bg-surface-4"].text-ink-muted { color: #64748b; }
+/* Black-related text INSIDE light surfaces → PURE BLACK + BOLD */
+.page-bg :is(.card, .stat-card, .modal-panel, header,
+  [class*="bg-white"], [class*="bg-surface-2"], [class*="bg-surface-3"], [class*="bg-surface-4"],
+  [class*="section-"], [class*="alert-"])
+  :is(.text-ink, .text-ink-muted, .text-slate-200, .text-slate-300, .text-slate-400, .text-slate-500, .text-slate-600, .text-slate-700) {
+  color: #000; font-weight: 700;
+}
+
+/* Same-element: a light bg utility AND black text on one node */
+.page-bg :is([class*="bg-white"], [class*="bg-surface-2"], [class*="bg-surface-3"], [class*="bg-surface-4"]):is(.text-ink, .text-ink-muted, .text-slate-200, .text-slate-300, .text-slate-400, .text-slate-500, .text-slate-600, .text-slate-700) {
+  color: #000; font-weight: 700;
+}
+
+/* @apply-based black components that always live on light surfaces:
+   table cells, headers and field labels → pure black + bold. */
+.page-bg :is(.tbl td, .tbl th, .label) { color: #000; font-weight: 700; }
 
 /* Section accent palette — distinct colour per area */
 .section-emerald { @apply border-l-4 border-emerald-500 bg-gradient-to-br from-emerald-50 to-white; }
