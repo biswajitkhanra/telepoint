@@ -7,7 +7,7 @@
 
 html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; overflow-x: hidden; }
 body {
-  background: #1A1B3A; color: #1e293b;
+  background: #f8fafc; color: #1e293b;
   font-family: 'Inter', 'Noto Sans Bengali', 'Noto Sans Devanagari', system-ui, sans-serif; line-height: 1.5;
   overflow-x: hidden; /* Prevent horizontal scroll on mobile */
   -webkit-tap-highlight-color: transparent;
@@ -306,20 +306,16 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 }
 
 /* ── Layout ──────────────────────────────────────────────── */
-/* Deep indigo→violet shell. Subtle coloured glows keep it energetic
-   without washing out the dark base the content cards float on. */
 .page-bg {
   background:
-    radial-gradient(1100px 560px at -8% -18%, rgba(124,58,237,0.40) 0%, transparent 58%),
-    radial-gradient(1000px 600px at 108% -12%, rgba(56,189,248,0.26) 0%, transparent 58%),
-    radial-gradient(900px 620px at 50% 122%, rgba(236,72,153,0.26) 0%, transparent 60%),
-    radial-gradient(720px 480px at 92% 112%, rgba(99,102,241,0.30) 0%, transparent 55%),
-    linear-gradient(135deg, #1A1B3A 0%, #3B2F6B 100%);
+    radial-gradient(1100px 560px at -8% -18%, rgba(244,114,182,0.38) 0%, transparent 58%),
+    radial-gradient(1000px 600px at 108% -12%, rgba(56,189,248,0.42) 0%, transparent 58%),
+    radial-gradient(900px 620px at 50% 122%, rgba(167,139,250,0.45) 0%, transparent 60%),
+    radial-gradient(720px 480px at 92% 112%, rgba(163,230,53,0.26) 0%, transparent 55%),
+    linear-gradient(135deg, #fff7ed 0%, #eef6ff 45%, #f7f0ff 100%);
   background-size: 160% 160%, 160% 160%, 160% 160%, 160% 160%, 100% 100%;
-  background-attachment: fixed;
   animation: pageAura 18s ease-in-out infinite alternate;
   min-height: 100vh;
-  color: #e2e8f0;
 }
 @keyframes pageAura {
   0%   { background-position: 0% 0%, 100% 0%, 50% 100%, 100% 100%, 0 0; }
@@ -328,40 +324,6 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 @media (prefers-reduced-motion: reduce) {
   .page-bg { animation: none; }
 }
-
-/* ── Dark-shell readability ───────────────────────────────────
-   Content lives on light cards, so flip ONLY shell-level ink/muted
-   text to light, then re-assert the original dark ink inside every
-   light surface (cards, modals, nav bars, alerts, sections, pills).
-   The @apply-based classes (.btn-*, .input, .label, .nav-link) carry
-   no literal text-ink class, so they're untouched and keep their own
-   colours. */
-.page-bg .text-ink       { color: #f8fafc; }
-.page-bg .text-ink-muted { color: #c7d2e3; }
-
-/* Light containers — reset inherited colour back to dark ink */
-.page-bg .card, .page-bg .stat-card, .page-bg .modal-panel, .page-bg header,
-.page-bg [class*="bg-white"], .page-bg [class*="bg-surface-2"],
-.page-bg [class*="bg-surface-3"], .page-bg [class*="bg-surface-4"],
-.page-bg [class*="section-"], .page-bg [class*="alert-"] { color: #1e293b; }
-
-/* Re-assert dark ink for ink/muted text INSIDE light containers */
-.page-bg .card .text-ink, .page-bg .stat-card .text-ink, .page-bg .modal-panel .text-ink,
-.page-bg header .text-ink, .page-bg [class*="bg-white"] .text-ink,
-.page-bg [class*="bg-surface-2"] .text-ink, .page-bg [class*="bg-surface-3"] .text-ink,
-.page-bg [class*="bg-surface-4"] .text-ink,
-.page-bg [class*="section-"] .text-ink, .page-bg [class*="alert-"] .text-ink { color: #0f172a; }
-.page-bg .card .text-ink-muted, .page-bg .stat-card .text-ink-muted, .page-bg .modal-panel .text-ink-muted,
-.page-bg header .text-ink-muted, .page-bg [class*="bg-white"] .text-ink-muted,
-.page-bg [class*="bg-surface-2"] .text-ink-muted, .page-bg [class*="bg-surface-3"] .text-ink-muted,
-.page-bg [class*="bg-surface-4"] .text-ink-muted,
-.page-bg [class*="section-"] .text-ink-muted, .page-bg [class*="alert-"] .text-ink-muted { color: #64748b; }
-
-/* Same-element cases: a light bg utility AND ink text on one node */
-.page-bg [class*="bg-white"].text-ink, .page-bg [class*="bg-surface-2"].text-ink,
-.page-bg [class*="bg-surface-3"].text-ink, .page-bg [class*="bg-surface-4"].text-ink { color: #0f172a; }
-.page-bg [class*="bg-white"].text-ink-muted, .page-bg [class*="bg-surface-2"].text-ink-muted,
-.page-bg [class*="bg-surface-3"].text-ink-muted, .page-bg [class*="bg-surface-4"].text-ink-muted { color: #64748b; }
 
 /* Section accent palette — distinct colour per area */
 .section-emerald { @apply border-l-4 border-emerald-500 bg-gradient-to-br from-emerald-50 to-white; }
