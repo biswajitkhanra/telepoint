@@ -2,7 +2,8 @@
 export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
+import { Customer, EMISchedule, DueBreakdown } from '@/lib/types';
 import { format, differenceInDays } from 'date-fns';
 import toast from 'react-hot-toast';
 import { calculateTotalFineFromEmis, getPerEmiFineBreakdown } from '@/lib/fineCalc';
@@ -10,6 +11,7 @@ import { toISTDateString } from '@/lib/ist';
 import BroadcastAnimator from '@/components/BroadcastAnimator';
 import SmartAlertPopup from '@/components/SmartAlertPopup';
 import LoanStatementModal from '@/components/LoanStatementModal';
+import { AnimatePresence } from 'framer-motion';
 import { formatCurrency, formatDateOnly, readJsonSafe } from '@/lib/formatters';
 import { SPRING, fadeUp, popIn, staggerContainer, rowItem } from '@/lib/motion';
 
@@ -63,20 +65,6 @@ export default function CustomerPortal() {
   const [isLaunchingUpi, setIsLaunchingUpi] = useState(false);
   const [pendingWhatsappShare, setPendingWhatsappShare] = useState(false);
   const [showStatement, setShowStatement] = useState(false);
-
-  // Light-mode portal: paint the shared <body> + global footer light while
-  // this screen is mounted, and tint the mobile address bar to match. The
-  // dark admin/retailer shell is restored on unmount.
-  useEffect(() => {
-    document.body.classList.add('portal-shell');
-    const meta = document.querySelector('meta[name="theme-color"]');
-    const prevTheme = meta?.getAttribute('content') ?? null;
-    meta?.setAttribute('content', '#F8FAFF');
-    return () => {
-      document.body.classList.remove('portal-shell');
-      if (meta) meta.setAttribute('content', prevTheme ?? '#1A1B3A');
-    };
-  }, []);
 
   // Restore session from localStorage OR auto-login via token
   useEffect(() => {
@@ -226,20 +214,6 @@ export default function CustomerPortal() {
     ? differenceInDays(new Date(nextUnpaidEmi.due_date), new Date())
     : null;
 
-  // High-level loan figures for the EMI Summary card.
-  const loanSummary = useMemo(() => {
-    const totalEmiContract = sortedEmis.reduce((s, e) => s + Number(e.amount || 0), 0);
-    const totalEmiPaid = sortedEmis.reduce(
-      (s, e) => s + Math.min(Number(e.amount || 0), Number(e.partial_paid_amount || (e.status === 'APPROVED' ? e.amount : 0) || 0)),
-      0,
-    );
-    const totalEmiRemaining = Math.max(0, totalEmiContract - totalEmiPaid);
-    const financed = customer?.disburse_amount != null
-      ? Number(customer.disburse_amount)
-      : Math.max(0, Number(customer?.purchase_value || 0) - Number(customer?.down_payment || 0));
-    return { totalEmiContract, totalEmiPaid, totalEmiRemaining, financed };
-  }, [sortedEmis, customer]);
-
   const dueSummary = useMemo(() => {
     // Current IST month boundary (YYYY-MM). Future months' EMIs are excluded —
     // the customer pays everything outstanding up to and including this month only.
@@ -342,66 +316,6 @@ export default function CustomerPortal() {
     });
   }
 
-  // "Download Receipt" — a clean account-summary image the customer can keep
-  // or share: identity, paid-so-far, remaining balance, and any open dues.
-  async function handleDownloadReceipt() {
-    if (!customer) return;
-    const canvas = document.createElement('canvas');
-    canvas.width = 1080;
-    canvas.height = 1180;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) { toast.error('Could not generate receipt'); return; }
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    // Header band
-    ctx.fillStyle = '#1D4ED8';
-    ctx.fillRect(0, 0, canvas.width, 150);
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 52px sans-serif';
-    ctx.fillText('TelePoint · Account Summary', 64, 96);
-    // Body
-    ctx.fillStyle = '#0f172a';
-    ctx.font = '34px sans-serif';
-    const rows: [string, string][] = [
-      ['Name', customer?.customer_name || '-'],
-      ['Mobile', customer?.mobile || '-'],
-      ['IMEI', customer?.imei || '-'],
-      ['Device', customer?.model_no || '-'],
-      ['Monthly EMI', fmt(customer?.emi_amount || 0)],
-      ['EMIs Paid', `${paidEmis.length} / ${sortedEmis.length}`],
-      ['Total Paid', fmt(loanSummary.totalEmiPaid)],
-      ['Remaining Balance', fmt(loanSummary.totalEmiRemaining)],
-      ['Outstanding Due', fmt(dueSummary.totalDue)],
-      ['Statement Date', format(new Date(), 'd MMM yyyy, h:mm a')],
-    ];
-    rows.forEach(([label, value], i) => {
-      const y = 250 + i * 84;
-      ctx.fillStyle = '#6b7280';
-      ctx.font = '30px sans-serif';
-      ctx.fillText(label, 64, y);
-      ctx.fillStyle = '#0f172a';
-      ctx.font = 'bold 36px sans-serif';
-      ctx.fillText(value, 520, y);
-    });
-    ctx.fillStyle = '#9ca3af';
-    ctx.font = '26px sans-serif';
-    ctx.fillText('Computer-generated summary · TelePoint EMI Portal', 64, 1130);
-
-    await new Promise<void>((resolve) => {
-      canvas.toBlob((blob) => {
-        if (!blob) { toast.error('Could not generate receipt'); resolve(); return; }
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `telepoint-summary-${customer?.imei || 'account'}.png`;
-        a.click();
-        URL.revokeObjectURL(url);
-        toast.success('Receipt downloaded');
-        resolve();
-      }, 'image/png');
-    });
-  }
-
   async function shareOnWhatsapp(totalAmount: number) {
     const text = [
       'TelePoint EMI Payment Update',
@@ -461,11 +375,11 @@ export default function CustomerPortal() {
     // Multi-loan selection screen
     if (multiLoans && multiLoans.length > 0) {
       return (
-        <div className="portal-light flex items-center justify-center p-4">
+        <div className="min-h-screen page-bg flex items-center justify-center p-4">
           <div className="relative w-full max-w-md animate-slide-up">
             <div className="text-center mb-8">
-              <h1 className="p-title text-2xl">Select Your Account</h1>
-              <p className="p-sec text-sm mt-1">Multiple EMI accounts found. Tap one to view its details.</p>
+              <h1 className="font-display text-2xl font-bold text-ink">Select Your Account</h1>
+              <p className="text-slate-500 text-sm mt-1">Multiple EMI accounts found. Tap to view details.</p>
             </div>
             <div className="space-y-3">
               {multiLoans.map((loan) => (
@@ -473,26 +387,31 @@ export default function CustomerPortal() {
                   key={loan.id}
                   onClick={() => selectLoan(loan.id)}
                   disabled={loadingLoan}
-                  className="pcard w-full p-4 text-left transition-shadow hover:shadow-[0_10px_28px_rgba(0,0,0,0.10)] disabled:opacity-60"
+                  className="card w-full p-4 text-left hover:border-brand-400 transition-all"
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="p-val text-[15px] truncate">{loan.customer_name}</p>
-                      <p className="p-label text-xs mt-0.5 truncate">{loan.model_no || 'Device'} · IMEI {loan.imei}</p>
-                      <p className="p-label text-xs">Retailer: {loan.retailer?.name || '—'}</p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-ink">{loan.customer_name}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">{loan.model_no || 'Device'} · IMEI: {loan.imei}</p>
+                      <p className="text-xs text-slate-500">Retailer: {loan.retailer?.name || '—'}</p>
                     </div>
-                    <div className="text-right flex-shrink-0">
-                      <span className={loan.status === 'RUNNING' ? 'p-badge p-badge-green' : 'p-badge p-badge-blue'}>
+                    <div className="text-right">
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                        loan.status === 'RUNNING' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
+                      }`}>
                         {loan.status}
                       </span>
-                      <p className="p-val text-sm mt-1.5 p-num">{fmt(loan.emi_amount)}/mo</p>
+                      <p className="text-sm font-semibold text-ink mt-1">{fmt(loan.emi_amount)}/mo</p>
                     </div>
                   </div>
                 </button>
               ))}
             </div>
-            <button onClick={() => setMultiLoans(null)} className="p-btn p-btn-ghost w-full mt-4">
-              ← Back to login
+            <button
+              onClick={() => { setMultiLoans(null); }}
+              className="btn-ghost w-full mt-4 py-2.5"
+            >
+              ← Back to Login
             </button>
           </div>
         </div>
@@ -500,64 +419,71 @@ export default function CustomerPortal() {
     }
 
     return (
-      <div className="portal-light flex items-center justify-center p-4">
+      <div className="min-h-screen page-bg flex items-center justify-center p-4">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-sapphire-500/5 blur-3xl" />
+          <div className="absolute -bottom-40 -left-40 w-96 h-96 rounded-full bg-gold-500/5 blur-3xl" />
+        </div>
+
         <div className="relative w-full max-w-md animate-slide-up">
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white border border-[#E5E7EB] shadow-[0_6px_20px_rgba(0,0,0,0.06)] mb-5">
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1D4ED8" strokeWidth="1.6">
+          <div className="text-center mb-10">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-sapphire-500/10 border border-sapphire-500/20 mb-5">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="1.5">
                 <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z" />
               </svg>
             </div>
-            <h1 className="p-title text-3xl">Customer Portal</h1>
-            <p className="p-sec text-sm mt-1.5">View your EMI plan and payment history</p>
+            <h1 className="font-display text-3xl font-bold text-ink tracking-wide">Customer Portal</h1>
+            <p className="text-slate-500 text-sm mt-1">View your EMI plan and payment history</p>
           </div>
 
-          <div className="pcard p-6 sm:p-7">
-            <p className="p-label text-xs text-center mb-6">
-              Login using Aadhaar <span className="text-[#9CA3AF]">OR</span> mobile number
+          <div className="card p-8 shadow-2xl shadow-black/40">
+            <p className="text-xs text-slate-500 text-center mb-6 tracking-wide">
+              Login using Aadhaar <span className="text-slate-400">OR</span> mobile number
             </p>
-            <form onSubmit={handleLogin} className="space-y-4">
+            <form onSubmit={handleLogin} className="space-y-5">
               <div>
-                <label className="p-field-label">Aadhaar Number <span className="text-[#9CA3AF] font-normal">(optional if mobile provided)</span></label>
+                <label className="form-label">Aadhaar Number <span className="text-slate-400 font-normal">(optional if mobile provided)</span></label>
                 <input
                   type="text"
                   inputMode="numeric"
                   value={aadhaar}
                   onChange={e => setAadhaar(e.target.value.replace(/\D/g, '').slice(0, 12))}
                   placeholder="12-digit Aadhaar number"
-                  className="p-input p-num"
+                  className="form-input"
                   autoFocus
                 />
               </div>
               <div>
-                <label className="p-field-label">Mobile Number <span className="text-[#9CA3AF] font-normal">(optional if Aadhaar provided)</span></label>
+                <label className="form-label">Mobile Number <span className="text-slate-400 font-normal">(optional if Aadhaar provided)</span></label>
                 <input
                   type="text"
                   inputMode="numeric"
                   value={mobile}
                   onChange={e => setMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
                   placeholder="10-digit mobile number"
-                  className="p-input p-num"
+                  className="form-input"
                 />
               </div>
-              <p className="p-sec text-xs leading-relaxed">
-                💡 Provide at least one. If multiple accounts share a mobile, use Aadhaar for a precise login.
+              <p className="text-xs text-slate-500">
+                💡 Provide at least one. If multiple accounts share a mobile, use Aadhaar for precise login.
               </p>
               <button
                 type="submit"
                 disabled={loading || (!aadhaar && !mobile)}
-                className="p-btn p-btn-primary w-full text-base mt-1"
+                className="btn-primary w-full py-3.5 text-base mt-2"
               >
-                {loading ? 'Verifying…' : 'View My Account'}
+                {loading ? 'Verifying...' : 'View My Account'}
               </button>
             </form>
 
-            <div className="p-divider my-5" />
-            <p className="text-center p-label text-xs">Read-only access · TelePoint EMI Portal</p>
+            <div className="gold-line" />
+            <p className="text-center text-xs text-slate-600">
+              Read-only access · TelePoint EMI Portal
+            </p>
           </div>
 
           <div className="text-center mt-6">
-            <a href="/login" className="text-xs text-[#4B5563] hover:text-[#1D4ED8] transition-colors underline underline-offset-4">
+            <a href="/login" className="text-xs text-slate-600 hover:text-slate-400 transition-colors underline underline-offset-4">
               Staff login →
             </a>
           </div>
@@ -566,69 +492,48 @@ export default function CustomerPortal() {
     );
   }
 
-  const statusBadgeClass =
-    customer?.status === 'RUNNING' ? 'p-badge p-badge-green'
-    : customer?.status === 'NPA' ? 'p-badge p-badge-red'
-    : 'p-badge p-badge-blue';
-  const statusLabel =
-    customer?.status === 'RUNNING' ? '● Running'
-    : customer?.status === 'COMPLETE' ? '✓ Complete'
-    : customer?.status === 'SETTLED' ? '✓ Settled'
-    : customer?.status === 'NPA' ? '⚠ NPA'
-    : customer?.status || '—';
-  const progressPct = sortedEmis.length > 0 ? (paidEmis.length / sortedEmis.length) * 100 : 0;
-  const paidHistory = sortedEmis.filter(e => e.status === 'APPROVED' && e.paid_at);
-
   return (
-    <div className="portal-light">
-      {/* Top bar */}
+    <div className="min-h-screen page-bg">
+      {/* Navbar */}
       <motion.nav
-        className="sticky top-0 z-40 border-b border-[#E5E7EB] bg-white/85 backdrop-blur-md"
+        className="sticky top-0 z-40 border-b border-surface-4 bg-white/90 backdrop-blur-md"
         initial={{ y: -24, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={SPRING}
       >
-        <div className="max-w-2xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] flex items-center justify-center flex-shrink-0">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1D4ED8" strokeWidth="2">
+        <div className="max-w-md mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-sapphire-500/15 border border-sapphire-500/20 flex items-center justify-center">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2">
                 <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z" />
               </svg>
             </div>
-            <span className="p-title text-base truncate">My Account</span>
+            <span className="font-display text-base font-semibold text-ink">My Account</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={async () => {
-                const t = localStorage.getItem(TOKEN_KEY);
-                if (t) {
-                  try {
-                    const r = await fetch('/api/customer-app-token?token=' + t);
-                    const d = await r.json();
-                    if (d.customer) {
-                      const ns = { customer: d.customer, emis: d.emis || [], breakdown: d.breakdown || null };
-                      setSession(ns);
-                      localStorage.setItem(SESSION_KEY, JSON.stringify(ns));
-                      if (d.broadcasts?.length) setBroadcastMessages(d.broadcasts);
-                      toast.success('Data refreshed');
-                    }
-                  } catch { toast.error('Refresh failed'); }
-                }
-              }}
-              className="text-xs font-semibold text-[#4B5563] hover:text-[#1D4ED8] hover:bg-[#F3F4F6] transition-colors px-2.5 py-1.5 rounded-lg"
-            >
-              ↻ Refresh
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-slate-400 hidden sm:block">{customer?.customer_name}</span>
+            <button onClick={async () => {
+              const t = localStorage.getItem(TOKEN_KEY);
+              if (t) {
+                try {
+                  const r = await fetch('/api/customer-app-token?token=' + t);
+                  const d = await r.json();
+                  if (d.customer) {
+                    const ns = { customer: d.customer, emis: d.emis || [], breakdown: d.breakdown || null };
+                    setSession(ns);
+                    localStorage.setItem(SESSION_KEY, JSON.stringify(ns));
+                    if (d.broadcasts?.length) setBroadcastMessages(d.broadcasts);
+                    toast.success('Data refreshed');
+                  }
+                } catch { toast.error('Refresh failed'); }
+              }
+            }} className="text-xs text-jade-400 hover:text-jade-500 transition-colors border border-white/[0.08] px-3 py-1.5 rounded-lg mr-2">
+              🔄 Refresh
             </button>
-            <button
-              onClick={() => { setSession(null); localStorage.removeItem(SESSION_KEY); localStorage.removeItem(TOKEN_KEY); }}
-              className="text-xs font-semibold text-[#4B5563] hover:text-[#1D4ED8] hover:bg-[#F3F4F6] transition-colors px-2.5 py-1.5 rounded-lg"
-            >
+            <button onClick={() => { setSession(null); localStorage.removeItem(SESSION_KEY); localStorage.removeItem(TOKEN_KEY); }} className="text-xs text-slate-500 hover:text-brand-400 transition-colors border border-white/[0.08] px-3 py-1.5 rounded-lg">
               Switch
             </button>
-            <button
-              onClick={handleLogout}
-              className="text-xs font-semibold text-[#4B5563] hover:text-[#B91C1C] hover:bg-[#FEF2F2] transition-colors px-2.5 py-1.5 rounded-lg"
-            >
+            <button onClick={handleLogout} className="text-xs text-slate-500 hover:text-crimson-400 transition-colors border border-white/[0.08] px-3 py-1.5 rounded-lg">
               Logout
             </button>
           </div>
@@ -636,23 +541,24 @@ export default function CustomerPortal() {
       </motion.nav>
 
       <motion.div
-        className="max-w-2xl mx-auto px-4 py-6 space-y-6 pb-32"
-        variants={staggerContainer(0.08, 0.05)}
+        className="max-w-2xl mx-auto px-4 py-8 space-y-5 pb-32"
+        variants={staggerContainer(0.1, 0.05)}
         initial="hidden"
         animate="show"
       >
+
         {/* Install App Prompt — shows on mobile when token-based and not installed as PWA */}
         {typeof window !== 'undefined' && localStorage.getItem(TOKEN_KEY) && !window.matchMedia('(display-mode: standalone)').matches && (
-          <motion.div variants={fadeUp} className="pcard p-4 flex items-center gap-3">
-            <span className="text-2xl">📱</span>
+          <motion.div variants={fadeUp} className="card p-4 flex items-center gap-3" style={{ background: 'linear-gradient(135deg, #dbeafe, #eff6ff)', border: '2px solid #93c5fd' }}>
+            <span className="text-3xl">📱</span>
             <div className="flex-1">
-              <p className="p-val text-sm">Install the TelePoint App</p>
-              <p className="p-sec text-xs mt-0.5">Open your browser menu (⋮) and choose <strong>&quot;Add to Home Screen&quot;</strong> for one-tap access.</p>
+              <p className="font-bold text-sm text-blue-900">Install TelePoint App</p>
+              <p className="text-xs text-blue-700 mt-0.5">Tap the menu button (⋮ or □↑) in your browser and select <strong>&quot;Add to Home Screen&quot;</strong> for quick access.</p>
             </div>
           </motion.div>
         )}
 
-        {/* Phase 6: Animated Broadcasts */}
+                {/* Phase 6: Animated Broadcasts */}
         <BroadcastAnimator broadcasts={broadcastMessages} />
 
         {/* Phase 6: Smart Alert Popup */}
@@ -666,12 +572,14 @@ export default function CustomerPortal() {
 
         {/* 1st EMI Charge alert */}
         {breakdown?.popup_first_emi_charge && (
-          <motion.div variants={popIn} className="pcard p-4 border-l-4 border-l-[#B45309]">
-            <div className="flex items-start gap-3">
-              <span className="text-xl">⚠️</span>
+          <motion.div variants={popIn} className="alert-gold">
+            <div className="flex items-center gap-3">
+              <motion.span className="text-2xl" animate={{ rotate: [0, -12, 12, 0] }} transition={{ duration: 1.4, repeat: Infinity, repeatDelay: 2 }}>⚠️</motion.span>
               <div>
-                <p className="p-val text-sm">1st EMI Charge Pending</p>
-                <p className="p-sec text-sm mt-0.5">A one-time charge of {fmt(breakdown.first_emi_charge_due)} is due. Contact your retailer to pay.</p>
+                <p className="text-gold-300 font-semibold">1st EMI Charge Pending</p>
+                <p className="text-gold-400/70 text-sm mt-0.5">
+                  A one-time charge of {fmt(breakdown.first_emi_charge_due)} is due. Contact your retailer to pay.
+                </p>
               </div>
             </div>
           </motion.div>
@@ -679,335 +587,396 @@ export default function CustomerPortal() {
 
         {/* Fine alert */}
         {breakdown?.popup_fine_due && (
-          <motion.div variants={popIn} className="pcard p-4 border-l-4 border-l-[#B91C1C]">
-            <div className="flex items-start gap-3">
-              <span className="text-xl">🔴</span>
+          <motion.div variants={popIn} className="alert-red">
+            <div className="flex items-center gap-3">
+              <motion.span className="text-2xl" animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 1.2, repeat: Infinity }}>🔴</motion.span>
               <div>
-                <p className="p-val text-sm">Late Fine Due</p>
-                <p className="p-sec text-sm mt-0.5">A late fine of {fmt(breakdown.fine_due)} applies. Contact your retailer.</p>
+                <p className="text-crimson-300 font-semibold">Late Fine Due</p>
+                <p className="text-crimson-400/70 text-sm mt-0.5">
+                  A late fine of {fmt(breakdown.fine_due)} applies. Contact your retailer.
+                </p>
               </div>
             </div>
           </motion.div>
         )}
 
-        {/* ── 1 · Customer Header Card ─────────────────────────────── */}
-        <motion.section variants={fadeUp} className="pcard overflow-hidden">
+        {/* Profile card */}
+        <motion.div variants={fadeUp} className="card overflow-hidden">
           <div className="flex items-start gap-4 p-5">
             <motion.div
-              className="w-[72px] h-[72px] rounded-2xl border border-[#E5E7EB] flex-shrink-0 relative overflow-hidden bg-[#F3F4F6]"
-              initial={{ scale: 0.7, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ ...SPRING, delay: 0.1 }}
+              className="w-20 h-20 rounded-2xl border border-surface-4 flex-shrink-0 relative overflow-hidden"
+              initial={{ scale: 0.6, opacity: 0, rotate: -8 }}
+              animate={{ scale: 1, opacity: 1, rotate: 0 }}
+              transition={{ ...SPRING, delay: 0.15 }}
+              whileHover={{ scale: 1.06, rotate: 1 }}
             >
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-3xl font-bold text-[#1D4ED8] select-none leading-none">
+              <div className="absolute inset-0 bg-amber-50 flex items-center justify-center">
+                <span className="text-3xl font-bold text-amber-400 font-display select-none leading-none">
                   {customer?.customer_name?.[0]?.toUpperCase() ?? '?'}
                 </span>
               </div>
               {customer?.customer_photo_url && (
-                <img
+                <motion.img
                   src={ibbDirect(customer.customer_photo_url)}
-                  alt="Customer"
+                  alt="Photo"
                   className="absolute inset-0 w-full h-full object-cover"
+                  initial={{ scale: 1.25, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                 />
               )}
             </motion.div>
             <div className="flex-1 min-w-0">
-              <h2 className="p-title text-2xl leading-tight truncate">{customer?.customer_name}</h2>
-              {customer?.father_name && <p className="p-sec text-sm mt-0.5">C/O {customer.father_name}</p>}
-              <div className="flex flex-wrap items-center gap-2 mt-2">
-                <span className={statusBadgeClass}>{statusLabel}</span>
-                {customer?.model_no && <span className="p-badge p-badge-gray">{customer.model_no}</span>}
+              <h2 className="font-display text-2xl font-bold text-ink">{customer?.customer_name}</h2>
+              {customer?.father_name && <p className="text-slate-500 text-sm">C/O {customer.father_name}</p>}
+              <div className="flex flex-wrap gap-2 mt-2">
+                <span className={customer?.status === 'COMPLETE' ? 'badge-complete' : 'badge-running'}>
+                  {customer?.status === 'COMPLETE' ? '✓ Complete' : '● Running'}
+                </span>
+                {customer?.model_no && <span className="text-xs text-slate-500 bg-surface-3 px-2 py-0.5 rounded-full">{customer.model_no}</span>}
               </div>
             </div>
           </div>
-          <div className="p-divider" />
-          <div className="px-5 py-4 grid grid-cols-2 gap-x-4 gap-y-4">
-            <InfoItem label="Mobile" value={customer?.mobile || '—'} mono />
-            <InfoItem label="IMEI" value={customer?.imei || '—'} mono />
-            <InfoItem label="Purchase Date" value={customer?.purchase_date ? format(new Date(customer.purchase_date), 'd MMM yyyy') : '—'} />
-            <InfoItem label="Purchase Value" value={fmt(customer?.purchase_value || 0)} mono />
-            <InfoItem label="Down Payment" value={fmt(customer?.down_payment || 0)} mono />
-            {customer?.disburse_amount != null && <InfoItem label="Financed" value={fmt(customer.disburse_amount)} mono />}
+          <div className="border-t border-surface-4 px-5 py-4 grid grid-cols-2 gap-4">
+            <Field label="Mobile" value={customer?.mobile || ''} mono />
+            <Field label="IMEI" value={customer?.imei || ''} mono />
+            <Field label="Purchase Date" value={customer?.purchase_date ? format(new Date(customer.purchase_date), 'd MMM yyyy') : ''} />
+            <Field label="Purchase Value" value={fmt(customer?.purchase_value || 0)} mono />
+            <Field label="Down Payment" value={fmt(customer?.down_payment || 0)} mono />
+            {customer?.disburse_amount != null && <Field label="Financed" value={fmt(customer.disburse_amount)} mono />}
           </div>
-        </motion.section>
+        </motion.div>
 
-        {/* ── 2 · EMI Summary Card ─────────────────────────────────── */}
-        <motion.section variants={fadeUp} className="pcard p-5">
-          <p className="p-eyebrow mb-4">EMI Summary</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <div className="p-tile">
-              <p className="p-label text-xs mb-1">Total Loan</p>
-              <p className="p-val text-xl p-num">{fmt(loanSummary.financed)}</p>
+        {/* Loan Statement button */}
+        <motion.button
+          variants={fadeUp}
+          onClick={() => setShowStatement(true)}
+          whileHover={{ scale: 1.01, y: -2 }}
+          whileTap={{ scale: 0.97 }}
+          className="card w-full overflow-hidden p-0 text-left"
+        >
+          <div
+            className="sheen-track flex items-center justify-between gap-3 px-5 py-4"
+            style={{ background: 'linear-gradient(120deg, #0c4a6e, #1e40af 55%, #4c1d95)' }}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">📄</span>
+              <div>
+                <p className="font-display text-base font-bold text-white">View Loan Statement</p>
+              </div>
             </div>
-            <div className="p-tile">
-              <p className="p-label text-xs mb-1">Monthly EMI</p>
-              <p className="p-val text-xl p-num">{fmt(customer?.emi_amount || 0)}</p>
-            </div>
-            <div className="p-tile col-span-2 sm:col-span-1">
-              <p className="p-label text-xs mb-1">Remaining Balance</p>
-              <p className="p-val text-xl p-num">{fmt(loanSummary.totalEmiRemaining)}</p>
+            <span className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur">Open →</span>
+          </div>
+        </motion.button>
+
+        {/* EMI Plan */}
+        <motion.div variants={fadeUp} className="card overflow-hidden border-l-4 border-emerald-500">
+          <div className="px-5 py-3 border-b border-surface-4 flex items-center justify-between bg-gradient-to-r from-emerald-50 to-white">
+            <span className="text-xs font-semibold text-emerald-700 uppercase tracking-widest">My EMI Plan</span>
+            <div className="flex items-center gap-2 text-xs">
+              <span className={`font-semibold ${paidEmis.length > 0 ? 'text-jade-400' : 'text-slate-400'}`}>{paidEmis.length} paid</span>
+              <span className="text-slate-600">/</span>
+              <span className="text-slate-400">{sortedEmis.length} total</span>
             </div>
           </div>
 
-          <div className="mt-5">
-            <div className="flex items-center justify-between mb-2">
-              <span className="p-label text-xs">Repayment Progress</span>
-              <span className="p-sec text-xs font-semibold p-num">{paidEmis.length} / {sortedEmis.length} paid</span>
+          <div className="px-5 py-3 border-b border-surface-4">
+            <div className="flex items-center justify-between mb-2 text-xs text-slate-500">
+              <span>EMI Progress</span>
+              <span className="font-num">{fmt(customer?.emi_amount || 0)} / month</span>
             </div>
-            <div className="h-2.5 bg-[#EEF2F7] rounded-full overflow-hidden">
+            <div className="h-2 bg-surface-3 rounded-full overflow-hidden">
               <motion.div
-                className="h-full bg-[#1D4ED8] rounded-full"
+                className="h-full bg-gradient-to-r from-jade-500 to-jade-400 rounded-full"
                 initial={{ width: 0 }}
-                animate={{ width: `${progressPct}%` }}
+                animate={{ width: `${sortedEmis.length > 0 ? (paidEmis.length / sortedEmis.length) * 100 : 0}%` }}
                 transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
               />
             </div>
           </div>
 
-          {dueSummary.totalDue > 0 && (
-            <div className="mt-5 rounded-[10px] border border-[#BFDBFE] bg-[#F5F9FF] p-4 flex items-center justify-between gap-4">
-              <div className="min-w-0">
-                <p className="p-label text-xs">Next Amount Due</p>
-                <p className="p-val text-2xl mt-0.5 p-num text-[#1D4ED8]">{fmt(dueSummary.totalDue)}</p>
+          <motion.div
+            className="p-3 space-y-2.5"
+            variants={staggerContainer(0.05, 0.05)}
+            initial="hidden"
+            animate="show"
+          >
+            {sortedEmis.map(emi => {
+              const isOverdue = ['UNPAID', 'PARTIALLY_PAID'].includes(emi.status) && new Date(emi.due_date) < new Date();
+              const daysLeft = differenceInDays(new Date(emi.due_date), new Date());
+              const isUpcoming = ['UNPAID', 'PARTIALLY_PAID'].includes(emi.status) && daysLeft >= 0 && daysLeft <= 5;
+              return (
+                <motion.div key={emi.id} variants={rowItem} whileHover={{ scale: 1.01, x: 2 }} className={`flex items-center justify-between px-4 py-3.5 rounded-xl border ${
+                  emi.status === 'APPROVED' ? 'bg-jade-500/5 border-jade-500/30' :
+                  isOverdue ? 'bg-crimson-500/5 border-crimson-500/40' :
+                  isUpcoming ? 'bg-yellow-50/40 border-yellow-400/50' :
+                  'bg-surface-2/50 border-surface-4'
+                }`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+                      emi.status === 'APPROVED' ? 'bg-jade-500/20 text-jade-400' :
+                      emi.status === 'PARTIALLY_PAID' ? 'bg-amber-500/20 text-amber-600' :
+                      emi.status === 'PENDING_APPROVAL' ? 'bg-gold-500/20 text-gold-400' :
+                      isOverdue ? 'bg-crimson-500/20 text-crimson-400' :
+                      isUpcoming ? 'bg-yellow-100 text-yellow-700' : 'bg-surface-3 text-slate-500'
+                    }`}>
+                      {emi.emi_no}
+                    </div>
+                    <div>
+                      <p className={`text-sm font-medium ${emi.status === 'APPROVED' ? 'text-jade-400' : isOverdue ? 'text-crimson-300' : 'text-ink'}`}>
+                        EMI #{emi.emi_no}
+                        {isUpcoming && !isOverdue && <span className="ml-1 text-[10px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full font-bold">DUE SOON</span>}
+                      </p>
+                      <p className={`text-xs font-num ${isOverdue ? 'text-crimson-400' : 'text-slate-500'}`}>
+                        Due: {format(new Date(emi.due_date), 'd MMM yyyy')}
+                        {isOverdue && ' — OVERDUE'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-num text-sm text-ink">{fmt(emi.amount)}</p>
+                    <div>
+                      {emi.status === 'APPROVED' && <span className="text-[10px] text-jade-400 font-semibold">✓ PAID</span>}
+                      {emi.status === 'PARTIALLY_PAID' && <span className="text-[10px] text-amber-600 font-semibold">◐ PARTIAL</span>}
+                      {emi.status === 'PENDING_APPROVAL' && <span className="text-[10px] text-gold-400 font-semibold">⏳ PENDING</span>}
+                      {emi.status === 'UNPAID' && <span className="text-[10px] text-slate-500 font-semibold">UNPAID</span>}
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </motion.div>
+        </motion.div>
+
+        {/* Due summary */}
+                {/* Due summary with auto-calculated fine */}
+        {(() => {
+          const totalDue = dueSummary.totalDue;
+          return totalDue > 0 ? (
+            <motion.div variants={fadeUp} className="card p-5">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-4">Next Payment Due</p>
+              <div className="space-y-2.5">
+                {dueSummary.emiDue > 0 && <div className="flex justify-between text-sm"><span className="text-slate-400">{dueSummary.dueEmiNos.length > 1 ? `EMI #${dueSummary.dueEmiNos.join(', #')}` : `EMI #${dueSummary.nextEmiNo || breakdown?.next_emi_no}`}</span><span className="font-num text-ink">{fmt(dueSummary.emiDue)}</span></div>}
+                {dueSummary.emiPaid > 0 && <div className="flex justify-between text-sm"><span className="text-amber-600">Already paid towards these EMIs</span><span className="font-num text-amber-600">{fmt(dueSummary.emiPaid)}</span></div>}
+                {dueSummary.totalFineRemaining > 0 && <div className="flex justify-between text-sm"><span className="text-crimson-400">Fine due{dueSummary.fineEmiNos.length > 0 ? ` (EMI ${dueSummary.fineEmiNos.join(',')})` : ''}</span><span className="font-num text-crimson-400">{fmt(dueSummary.totalFineRemaining)}</span></div>}
+                {dueSummary.firstChargeDue > 0 && <div className="flex justify-between text-sm"><span className="text-gold-400">1st EMI charge</span><span className="font-num text-gold-400">{fmt(dueSummary.firstChargeDue)}</span></div>}
+                <div className="h-px bg-white/[0.06]" />
+                <div className="flex justify-between"><span className="font-semibold text-ink">Total Payable</span><span className="font-num text-xl font-bold text-gold-400">{fmt(totalDue)}</span></div>
               </div>
-              {dueSummary.nextDueDate && (
-                <div className="text-right flex-shrink-0">
-                  <p className="p-label text-xs">Due Date</p>
-                  <p className="p-val text-sm mt-0.5">{formatDateOnly(dueSummary.nextDueDate)}</p>
-                </div>
-              )}
-            </div>
-          )}
-        </motion.section>
+              {dueSummary.nextDueDate && <p className="text-xs text-slate-500 mt-3">Due: {format(new Date(dueSummary.nextDueDate), 'd MMM yyyy')}</p>}
 
-        {/* ── Amount-due breakdown (only when something is owed) ───── */}
-        {dueSummary.totalDue > 0 && (
-          <motion.section variants={fadeUp} className="pcard p-5">
-            <p className="p-eyebrow mb-4">Payment Breakdown</p>
-            <div className="space-y-2.5 text-sm">
-              {dueSummary.emiDue > 0 && (
-                <div className="flex justify-between gap-3">
-                  <span className="p-sec">{dueSummary.dueEmiNos.length > 1 ? `EMI #${dueSummary.dueEmiNos.join(', #')}` : `EMI #${dueSummary.nextEmiNo || breakdown?.next_emi_no}`}</span>
-                  <span className="p-val p-num">{fmt(dueSummary.emiDue)}</span>
-                </div>
-              )}
-              {dueSummary.emiPaid > 0 && (
-                <div className="flex justify-between gap-3">
-                  <span className="text-[#B45309]">Already paid towards these EMIs</span>
-                  <span className="p-num text-[#B45309]">{fmt(dueSummary.emiPaid)}</span>
-                </div>
-              )}
-              {dueSummary.totalFineRemaining > 0 && (
-                <div className="flex justify-between gap-3">
-                  <span className="text-[#B91C1C]">Fine due{dueSummary.fineEmiNos.length > 0 ? ` (EMI ${dueSummary.fineEmiNos.join(',')})` : ''}</span>
-                  <span className="p-num text-[#B91C1C]">{fmt(dueSummary.totalFineRemaining)}</span>
-                </div>
-              )}
-              {dueSummary.firstChargeDue > 0 && (
-                <div className="flex justify-between gap-3">
-                  <span className="text-[#B45309]">1st EMI charge</span>
-                  <span className="p-num text-[#B45309]">{fmt(dueSummary.firstChargeDue)}</span>
-                </div>
-              )}
-              <div className="p-divider !my-3" />
-              <div className="flex justify-between items-center gap-3">
-                <span className="p-title text-sm">Total Payable</span>
-                <span className="p-num text-xl font-bold text-[#1D4ED8]">{fmt(dueSummary.totalDue)}</span>
+              <div className="mt-4 rounded-xl bg-surface-2 border border-surface-4 px-3 py-2">
+                <p className="text-[10px] uppercase tracking-wide text-slate-500 mb-0.5">UPI reference</p>
+                <p className="text-xs text-slate-400 break-words font-num">{buildUpiNote()}</p>
               </div>
-            </div>
-            <div className="mt-4 rounded-[10px] bg-[#F9FAFF] border border-[#E5E7EB] px-3 py-2.5">
-              <p className="p-label text-[10px] uppercase tracking-wide mb-0.5">UPI reference</p>
-              <p className="p-sec text-xs break-words p-num">{buildUpiNote()}</p>
-            </div>
-            <p className="p-label text-[11px] mt-2 leading-relaxed">Pay using any UPI app. Status updates after verification.</p>
-          </motion.section>
-        )}
+              <p className="text-[11px] text-slate-600 mt-2 leading-relaxed">
+                Pay using any UPI app. Status updates after verification.
+              </p>
+            </motion.div>
+          ) : null;
+        })()}
 
-        {/* ── EMI Schedule (structured table) ──────────────────────── */}
-        <motion.section variants={fadeUp} className="pcard overflow-hidden">
-          <div className="px-5 py-4 flex items-center justify-between">
-            <p className="p-eyebrow">EMI Schedule</p>
-            <span className="p-sec text-xs font-semibold p-num">{paidEmis.length} of {sortedEmis.length} paid</span>
-          </div>
-          <div className="p-divider" />
-          <div className="overflow-x-auto">
-            <table className="p-table">
-              <thead>
-                <tr>
-                  <th>EMI</th>
-                  <th>Due Date</th>
-                  <th className="p-td-right">Amount</th>
-                  <th className="p-td-right">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sortedEmis.map(emi => {
-                  const isOverdue = ['UNPAID', 'PARTIALLY_PAID'].includes(emi.status) && new Date(emi.due_date) < new Date();
-                  const daysLeft = differenceInDays(new Date(emi.due_date), new Date());
-                  const isUpcoming = ['UNPAID', 'PARTIALLY_PAID'].includes(emi.status) && daysLeft >= 0 && daysLeft <= 5;
-                  return (
-                    <tr key={emi.id}>
-                      <td className="p-val">#{emi.emi_no}</td>
-                      <td className="p-sec p-num">
-                        {format(new Date(emi.due_date), 'd MMM yyyy')}
-                        {isOverdue && <span className="block text-[11px] font-semibold text-[#B91C1C]">Overdue</span>}
-                      </td>
-                      <td className="p-td-right p-val p-num">{fmt(emi.amount)}</td>
-                      <td className="p-td-right">
-                        <EmiStatusPill status={emi.status} isOverdue={isOverdue} isUpcoming={isUpcoming} />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </motion.section>
-
-        {/* ── 3 · Payment History (table) ──────────────────────────── */}
-        {paidHistory.length > 0 && (
-          <motion.section variants={fadeUp} className="pcard overflow-hidden">
-            <div className="px-5 py-4"><p className="p-eyebrow">Payment History</p></div>
-            <div className="p-divider" />
-            <div className="overflow-x-auto">
-              <table className="p-table">
-                <thead>
-                  <tr>
-                    <th>EMI</th>
-                    <th>Paid On</th>
-                    <th>Mode</th>
-                    <th className="p-td-right">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paidHistory.map(e => {
-                    // Always show the method; derive it when `mode` is null
-                    // (UTR ⇒ UPI, otherwise a settled EMI was Cash).
-                    const method = e.mode || (e.utr ? 'UPI' : 'CASH');
-                    return (
-                      <tr key={e.id}>
-                        <td className="p-val">#{e.emi_no}</td>
-                        <td className="p-sec p-num">{e.paid_at ? format(new Date(e.paid_at), 'd MMM yyyy') : '—'}</td>
-                        <td className="p-sec">
-                          {method === 'UPI' ? '🟢 UPI' : '💵 Cash'}
-                          {method === 'UPI' && e.utr ? <span className="block text-[11px] p-num text-[#6B7280]">UTR {e.utr}</span> : ''}
-                        </td>
-                        <td className="p-td-right p-val p-num">
-                          {fmt(e.amount)}
-                          {e.fine_paid_amount > 0 && <span className="block text-[11px] text-[#B91C1C] p-num">+ Fine {fmt(e.fine_paid_amount)}</span>}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </motion.section>
-        )}
-
-        {/* ── Fine Details ─────────────────────────────────────────── */}
+        {/* Fine Breakdown */}
         {(() => {
           const fb = getPerEmiFineBreakdown(sortedEmis);
           if (!fb.length) return null;
           return (
-            <motion.section variants={fadeUp} className="pcard overflow-hidden">
-              <div className="px-5 py-4"><p className="p-eyebrow">⚠️ Fine Details</p></div>
-              <div className="p-divider" />
-              <div>
-                {fb.sort((a, b) => a.emi_no - b.emi_no).map((r, i) => (
-                  <div key={r.emi_no} className={`px-5 py-3.5 ${i % 2 === 1 ? 'bg-[#F9FAFF]' : ''}`}>
-                    <div className="flex justify-between items-center">
-                      <span className="p-val text-sm">EMI #{r.emi_no}</span>
-                      <span className="text-xs font-semibold text-[#B91C1C]">{r.days}d overdue</span>
+            <motion.div variants={fadeUp} className="card overflow-hidden">
+              <div className="px-5 py-3 border-b border-surface-4"><span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">⚠️ Fine Details</span></div>
+              <div className="divide-y divide-white/[0.03]">
+                {fb.sort((a, b) => a.emi_no - b.emi_no).map(r => (
+                  <div key={r.emi_no} className="px-5 py-3 space-y-1">
+                    <div className="flex justify-between"><span className="text-sm font-medium text-ink">EMI #{r.emi_no}</span><span className="text-xs text-crimson-400 font-semibold">{r.days}d overdue</span></div>
+                    <div className="flex justify-between text-xs text-slate-500"><span>Base Fine</span><span className="font-num">{fmt(r.baseFineTotal)}</span></div>
+                    {r.weeklyFine > 0 && <div className="flex justify-between text-xs text-slate-500"><span>+₹25/wk</span><span className="font-num">{fmt(r.weeklyFine)}</span></div>}
+                    <div className="flex justify-between text-sm font-semibold"><span className="text-crimson-400">Total</span><span className="font-num text-crimson-400">{fmt(r.totalFine)}</span></div>
+                    {r.paid > 0 && <div className="flex justify-between text-xs"><span className="text-jade-400">Paid{(() => { const e = sortedEmis.find(x => x.emi_no === r.emi_no); return e?.fine_paid_at ? ` (${new Date(e.fine_paid_at).toLocaleDateString('en-IN', {day:'numeric',month:'short'})})` : ''; })()}</span><span className="font-num text-jade-400">-{fmt(r.paid)}</span></div>}
+                  </div>
+                ))}
+              </div>
+              <div className="px-5 py-3 border-t border-surface-4"><p className="text-[11px] text-slate-600">₹450 base + ₹25/week until paid. Contact retailer.</p></div>
+            </motion.div>
+          );
+        })()}
+
+        {/* Fine History */}
+        {(() => {
+          const fineRows = sortedEmis
+            .filter(e => (e.fine_amount || 0) > 0 || (e.fine_paid_amount || 0) > 0)
+            .map(e => {
+              const total = Number(e.fine_amount || 0);
+              const paid = Number(e.fine_paid_amount || 0);
+              return {
+                id: e.id,
+                emiNo: e.emi_no,
+                detectedAt: format(new Date(e.due_date), 'd MMM yyyy'),
+                total,
+                paid,
+                pending: Math.max(0, total - paid),
+                status: total > 0 && paid >= total ? 'PAID' : paid > 0 ? 'PARTIALLY_PAID' : 'PENDING',
+              };
+            });
+          if (!fineRows.length) return null;
+          return (
+            <motion.div variants={fadeUp} className="card overflow-hidden">
+              <div className="px-5 py-3 border-b border-surface-4">
+                <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">🧾 Fine History</span>
+              </div>
+              <div className="divide-y divide-surface-3">
+                {fineRows.map(r => (
+                  <div key={r.id} className="px-5 py-3 text-xs">
+                    <div className="flex items-center justify-between">
+                      <p className="font-semibold text-ink">EMI #{r.emiNo}</p>
+                      <span className={r.status === 'PAID' ? 'badge-approved' : r.status === 'PARTIALLY_PAID' ? 'badge-yellow' : 'badge-pending'}>{r.status === 'PARTIALLY_PAID' ? 'PARTIAL' : r.status}</span>
                     </div>
-                    <div className="mt-1.5 space-y-1">
-                      <div className="flex justify-between text-xs"><span className="p-label">Base Fine</span><span className="p-sec p-num">{fmt(r.baseFineTotal)}</span></div>
-                      {r.weeklyFine > 0 && <div className="flex justify-between text-xs"><span className="p-label">+ ₹25/week</span><span className="p-sec p-num">{fmt(r.weeklyFine)}</span></div>}
-                      <div className="flex justify-between text-sm font-semibold"><span className="text-[#B91C1C]">Total Fine</span><span className="p-num text-[#B91C1C]">{fmt(r.totalFine)}</span></div>
-                      {r.paid > 0 && <div className="flex justify-between text-xs"><span className="text-[#047857]">Paid</span><span className="p-num text-[#047857]">−{fmt(r.paid)}</span></div>}
+                    <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+                      <p className="text-slate-500">Detected Date</p><p className="text-right font-num">{r.detectedAt}</p>
+                      <p className="text-slate-500">Total Fine</p><p className="text-right font-num">{fmt(r.total)}</p>
+                      <p className="text-slate-500">Paid</p><p className="text-right font-num text-jade-400">{fmt(r.paid)}</p>
+                      <p className="text-slate-500">Pending</p><p className="text-right font-num text-crimson-400">{fmt(r.pending)}</p>
                     </div>
                   </div>
                 ))}
               </div>
-              <div className="p-divider" />
-              <div className="px-5 py-3"><p className="p-label text-[11px]">₹450 base + ₹25/week until paid. Contact your retailer.</p></div>
-            </motion.section>
+            </motion.div>
           );
         })()}
 
-        {/* ── 1st EMI Charge status ────────────────────────────────── */}
+        {/* 1st EMI Charge status */}
         {(customer?.first_emi_charge_amount || 0) > 0 && (
-          <motion.section variants={fadeUp} className="pcard p-4 flex items-center justify-between gap-3">
+          <motion.div variants={fadeUp} className={`glass-card p-4 flex items-center justify-between ${customer?.first_emi_charge_paid_at ? 'border-jade-500/20' : 'border-gold-500/20'}`}>
             <div>
-              <p className="p-label text-xs mb-0.5">1st EMI Charge</p>
-              <p className="p-val text-lg p-num">{fmt(customer?.first_emi_charge_amount || 0)}</p>
+              <p className="text-xs text-slate-500 mb-0.5">1st EMI Charge</p>
+              <p className="font-num font-semibold text-ink">{fmt(customer?.first_emi_charge_amount || 0)}</p>
             </div>
-            <span className={customer?.first_emi_charge_paid_at ? 'p-badge p-badge-green' : 'p-badge p-badge-amber'}>
-              {customer?.first_emi_charge_paid_at ? '✓ Paid' : '⚠ Pending'}
-            </span>
-          </motion.section>
+            {customer?.first_emi_charge_paid_at ? (
+              <span className="badge-approved">✓ Paid</span>
+            ) : (
+              <span className="badge-pending">⚠ Pending</span>
+            )}
+          </motion.div>
         )}
 
-        {/* ── 4 · Actions Panel ────────────────────────────────────── */}
-        <motion.section variants={fadeUp} className="pcard p-5">
-          <p className="p-eyebrow mb-4">Actions</p>
-          <div className="space-y-3">
-            <button
-              onClick={handleOnlinePay}
-              disabled={isLaunchingUpi || dueSummary.totalDue <= 0}
-              className="p-btn p-btn-primary w-full text-base"
-            >
-              {isLaunchingUpi ? 'Opening UPI app…' : dueSummary.totalDue > 0 ? `Pay EMI · ${fmt(dueSummary.totalDue)}` : 'No payment due'}
-            </button>
-            <div className="grid grid-cols-2 gap-3">
-              <button onClick={() => setShowStatement(true)} className="p-btn p-btn-secondary">
-                📄 View Details
-              </button>
-              <button onClick={handleDownloadReceipt} className="p-btn p-btn-secondary">
-                ⬇ Download Receipt
-              </button>
-            </div>
-          </div>
-        </motion.section>
+        {/* Payment Summary — Full Transparency */}
+        {session && (() => {
+          const totalEmiContract = sortedEmis.reduce((s, e) => s + Number(e.amount || 0), 0);
+          const totalEmiPaid = sortedEmis.reduce((s, e) => s + Math.min(Number(e.amount || 0), Number(e.partial_paid_amount || (e.status === 'APPROVED' ? e.amount : 0) || 0)), 0);
+          const totalEmiRemaining = Math.max(0, totalEmiContract - totalEmiPaid);
+          const totalFineAccrued = sortedEmis.reduce((s, e) => s + Math.max(Number(e.fine_amount || 0), Number(e.fine_paid_amount || 0)), 0);
+          const totalFinePaid = sortedEmis.reduce((s, e) => s + Number(e.fine_paid_amount || 0), 0);
+          const totalFineRemaining = Math.max(0, totalFineAccrued - totalFinePaid);
+          return (
+            <motion.div variants={fadeUp} className="card overflow-hidden">
+              <div className="px-5 py-3 border-b border-surface-4 bg-surface-2"><span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Payment Summary</span></div>
+              <div className="grid gap-3 p-5 sm:grid-cols-2">
+                <div className="rounded-2xl border border-surface-4 bg-surface-2 p-4">
+                  <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">EMI Progress</p>
+                  <p className="text-2xl font-semibold text-ink">{paidEmis.length}<span className="text-sm text-slate-500"> / {sortedEmis.length}</span></p>
+                  <div className="mt-3 space-y-1.5 text-sm">
+                    <div className="flex justify-between"><span className="text-slate-500">EMI paid</span><span className="font-num text-jade-400">{fmt(totalEmiPaid)}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">EMI remaining</span><span className="font-num text-ink">{fmt(totalEmiRemaining)}</span></div>
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-surface-4 bg-surface-2 p-4">
+                  <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Fine Summary</p>
+                  <div className="space-y-1.5 text-sm mt-3">
+                    <div className="flex justify-between"><span className="text-slate-500">Fine accrued</span><span className="font-num text-crimson-400">{fmt(totalFineAccrued)}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Fine paid</span><span className="font-num text-jade-400">{fmt(totalFinePaid)}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Fine remaining</span><span className="font-num text-crimson-400">{fmt(totalFineRemaining)}</span></div>
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-surface-4 bg-brand-50 p-4 sm:col-span-2 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-brand-700">Next amount due</p>
+                    <p className="text-lg font-semibold text-ink">{fmt(dueSummary.totalDue)}</p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {[
+                        dueSummary.emiDue > 0 ? `EMI ${fmt(dueSummary.emiDue)}` : null,
+                        dueSummary.totalFineRemaining > 0 ? `Fine ${fmt(dueSummary.totalFineRemaining)}` : null,
+                        dueSummary.firstChargeDue > 0 ? `1st charge ${fmt(dueSummary.firstChargeDue)}` : null,
+                      ].filter(Boolean).join(' · ')}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-slate-500">Next due date</p>
+                    <p className="font-medium text-ink">{formatDateOnly(dueSummary.nextDueDate)}</p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          );
+        })()}
 
-        {/* ── Important note (rules) ───────────────────────────────── */}
-        <motion.section variants={fadeUp} className="pcard overflow-hidden">
-          <div className="px-5 py-4 border-l-4 border-l-[#B45309]">
-            <p className="p-eyebrow !text-[#B45309]">Important Note ( নিয়মাবলী )</p>
+        {/* Payment History — shows paid EMIs with dates */}
+        {session && sortedEmis.some(e => e.status === 'APPROVED' && e.paid_at) && (() => {
+          const paidEmis = sortedEmis.filter(e => e.status === 'APPROVED' && e.paid_at);
+          if (!paidEmis.length) return null;
+          return (
+            <motion.div variants={fadeUp} className="card overflow-hidden">
+              <div className="px-5 py-3 border-b border-surface-4"><span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">📅 Payment History</span></div>
+              <div className="divide-y divide-white/[0.03]">
+                {paidEmis.map(e => (
+                  <div key={e.id} className="px-5 py-2.5 flex justify-between items-center">
+                    <div>
+                      <p className="text-sm font-medium text-ink">EMI #{e.emi_no} — {fmt(e.amount)}</p>
+                      {e.fine_paid_amount > 0 && <p className="text-xs text-crimson-400">+ Fine: {fmt(e.fine_paid_amount)}{e.fine_paid_at ? ` (${format(new Date(e.fine_paid_at), 'd MMM')})` : ''}</p>}
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-jade-400 font-semibold">✓ Paid</p>
+                      {e.paid_at && <p className="text-[10px] text-slate-500">{format(new Date(e.paid_at), 'd MMM yyyy')}</p>}
+                      {(() => {
+                        // Always show the method; derive it when `mode` is null
+                        // (UTR ⇒ UPI, otherwise a settled EMI was Cash).
+                        const method = e.mode || (e.utr ? 'UPI' : 'CASH');
+                        return (
+                          <p className="text-[10px] text-slate-500">
+                            {method === 'UPI' ? '🟢 UPI' : '💵 Cash'}
+                            {method === 'UPI' && e.utr ? <span className="font-mono"> · UTR {e.utr}</span> : ''}
+                          </p>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          );
+        })()}
+
+        <motion.div variants={fadeUp} className="card overflow-hidden">
+          <div className="px-5 py-3 border-b border-surface-4" style={{ background: 'linear-gradient(135deg, #fef3c7, #fff7ed)' }}>
+            <span className="text-xs font-bold text-amber-700 uppercase tracking-widest">IMPORTANT NOTE ( নিয়মাবলী )</span>
           </div>
-          <div className="p-divider" />
-          <div className="px-5 py-4 p-sec text-xs leading-relaxed">
+          <div className="px-5 py-4 text-xs text-slate-500 leading-relaxed">
             <ol className="list-decimal pl-4 space-y-2">
-              <li>মোবাইল চুরি, হারানো বা খারাপ হয়ে গেলেও EMI দিতে হবে।</li>
-              <li>নিদির্ষ্ট তারিখের রাত্রি ১২ টার মধ্যে EMI জমা না পড়লে Phone Auto Lock হবে। 450/- টাকা ফাইন চার্জ সহ EMI দিতে হবে।</li>
+              <li>মোবাইল চুরি, হারানো বা খারাপ হয়ে গেলেও EMI দিতে হবে।</li>
+              <li>নিদির্ষ্ট তারিখের রাত্রি ১২ টার মধ্যে EMI জমা না পড়লে Phone Auto Lock হবে। 450/- টাকা ফাইন চার্জ সহ EMI দিতে হবে।</li>
               <li>যে মাসের Fine সেই মাসের মধ্যেই পেমেন্ট করতে হবে। তা না হলে, ওই মাসের EMI Date এর ৩০ দিন পর থেকে সপ্তাহে 25/- টাকা করে (Base Fine 450/-) এর সাথে যোগ হবে।</li>
-              <li>প্রতি মাসের EMI প্রতি মাসেই পেমেন্ট করতে হবে। আগের মাসের EMI বাকি রেখে বর্তমান মাসের EMI দেওয়া যাবে না।</li>
-              <li>EMI চলা-কালীন মোবাইল বিক্রি / Reset করা যাবে না। Reset / Format করে ফেললে Minimum 500/- টাকা চার্জ পড়বে।</li>
-              <li>EMI মিটে যাবার ৭ দিন পর Original Bill &amp; Phone Box পাওয়া যাবে।</li>
-              <li>EMI এর টাকা আপনার ব্যাঙ্ক থেকে Auto Debit হবে না। Cash অথবা কার্ডে দেওয়া QR Code এ পেমেন্ট করতে পারেন।</li>
+              <li>প্রতি মাসের EMI প্রতি মাসেই পেমেন্ট করতে হবে। আগের মাসের EMI বাকি রেখে বর্তমান মাসের EMI দেওয়া যাবে না।</li>
+              <li>EMI চলা-কালীন মোবাইল বিক্রি / Reset করা যাবে না। Reset / Format করে ফেললে Minimum 500/- টাকা চার্জ পড়বে।</li>
+              <li>EMI মিটে যাবার ৭ দিন পর Original Bill &amp; Phone Box পাওয়া যাবে।</li>
+              <li>EMI এর টাকা আপনার ব্যাঙ্ক থেকে Auto Debit হবে না। Cash অথবা কার্ডে দেওয়া QR Code এ পেমেন্ট করতে পারেন।</li>
               <li>Online এ টাকা পাঠালে (7003617029) - এই নম্বরে ফোন করে জানাতে পারেন, অথবা কার্ডের প্রথম পৃষ্টার ছবি আর টাকা পাঠানোর Screen Shot টা পাঠাবেন।</li>
-              <li>Portal এ পেমেন্ট Update হতে ১ - ২ দিন সময় লাগতে পারে। তারপর ও যদি না হয় দোকানে যোগাযোগ করুন।</li>
-              <li>ফোন ভেঙে যাওয়া, জলে পড়ে যাওয়া, - এগুলো হলে কোন Guarantee / Warranty পাওয়া যায় না।</li>
+              <li>Portal এ পেমেন্ট Update হতে ১ - ২ দিন সময় লাগতে পারে। তারপর ও যদি না হয় দোকানে যোগাযোগ করুন।</li>
+              <li>ফোন ভেঙে যাওয়া, জলে পড়ে যাওয়া, - এগুলো হলে কোন Guarantee / Warranty পাওয়া যায় না।</li>
             </ol>
           </div>
-        </motion.section>
-
-        <motion.p variants={fadeUp} className="text-center p-sec text-xs pb-2">Read-only view · TelePoint EMI Portal</motion.p>
+        </motion.div>
+        <motion.p variants={fadeUp} className="text-center text-xs text-slate-700 pb-4">Read-only view · TelePoint EMI Portal</motion.p>
       </motion.div>
 
-      {/* Sticky pay bar — pay from anywhere on the page */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#E5E7EB] bg-white/95 backdrop-blur-md" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      {/* Fixed pay bar — always present at the bottom so the customer can pay from anywhere on the page */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-surface-4 bg-white/95 backdrop-blur-md" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-4">
           <div className="min-w-0">
-            <p className="p-label text-[10px] uppercase tracking-wide leading-none">Total payable</p>
-            <p className="p-val text-lg leading-tight mt-0.5 p-num">{fmt(dueSummary.totalDue)}</p>
+            <p className="text-[10px] uppercase tracking-wide text-slate-500 leading-none">Total payable</p>
+            <p className="font-num text-lg font-bold text-ink leading-tight mt-0.5">{fmt(dueSummary.totalDue)}</p>
           </div>
           <button
             onClick={handleOnlinePay}
             disabled={isLaunchingUpi || dueSummary.totalDue <= 0}
-            className="p-btn p-btn-primary flex-1 text-base"
+            className="btn-primary flex-1 py-3.5 text-base flex items-center justify-center gap-2 disabled:opacity-60"
           >
             {isLaunchingUpi ? 'Opening UPI app…' : dueSummary.totalDue > 0 ? 'Pay using UPI' : 'No payment due'}
           </button>
@@ -1028,7 +997,7 @@ export default function CustomerPortal() {
   );
 }
 
-function InfoItem({ label, value, mono }: { label: string; value: string | number | null | undefined; mono?: boolean }) {
+function Field({ label, value, mono }: { label: string; value: string | number | null | undefined; mono?: boolean }) {
   // Render 0 / "0" explicitly — only fall back to em-dash for genuine empty/undefined values.
   const display = value === 0 || value === '0'
     ? '0'
@@ -1037,17 +1006,8 @@ function InfoItem({ label, value, mono }: { label: string; value: string | numbe
       : String(value);
   return (
     <div>
-      <p className="p-label text-[11px] uppercase tracking-wide mb-0.5">{label}</p>
-      <p className={`p-val text-sm ${mono ? 'p-num' : ''}`}>{display}</p>
+      <p className="text-xs text-slate-600 mb-0.5 uppercase tracking-wide">{label}</p>
+      <p className={`text-sm text-ink ${mono ? 'font-num' : ''}`}>{display}</p>
     </div>
   );
-}
-
-function EmiStatusPill({ status, isOverdue, isUpcoming }: { status: string; isOverdue: boolean; isUpcoming: boolean }) {
-  if (status === 'APPROVED') return <span className="p-badge p-badge-green">✓ Paid</span>;
-  if (status === 'PARTIALLY_PAID') return <span className="p-badge p-badge-amber">◐ Partial</span>;
-  if (status === 'PENDING_APPROVAL') return <span className="p-badge p-badge-amber">⏳ Pending</span>;
-  if (isOverdue) return <span className="p-badge p-badge-red">Overdue</span>;
-  if (isUpcoming) return <span className="p-badge p-badge-amber">Due soon</span>;
-  return <span className="p-badge p-badge-gray">Unpaid</span>;
 }
