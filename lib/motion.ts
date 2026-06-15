@@ -110,10 +110,15 @@ export const tapOnly = {
 // `fixed inset-0` backdrop stays mounted, swallowing every click (the page
 // appears "frozen" until a refresh). The blur is supplied statically by the
 // `.modal-backdrop` CSS class instead, which fades in/out with the opacity.
+//
+// `pointerEvents` is a hard safeguard: it is applied instantly (non-animatable),
+// so the moment a modal starts exiting the backdrop STOPS capturing clicks.
+// Even if an exit animation were ever to hang and leave the node mounted, it can
+// no longer trap the page or block the modal from re-opening.
 export const backdrop: Variants = {
   hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { duration: 0.25, ease: EASE_OUT } },
-  exit: { opacity: 0, transition: { duration: 0.2, ease: EASE_IN } },
+  show: { opacity: 1, pointerEvents: 'auto', transition: { duration: 0.25, ease: EASE_OUT } },
+  exit: { opacity: 0, pointerEvents: 'none', transition: { duration: 0.2, ease: EASE_IN } },
 };
 
 /** Desktop modal — scale + rise in, reverse out. */

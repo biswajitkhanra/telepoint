@@ -31,8 +31,8 @@ export default function SmartAlertPopup({ fineDue, daysUntilDue, nextEmiNo, next
           className="fixed inset-0 z-[60] flex items-center justify-center p-4"
           onClick={() => setDismissed(true)}
           initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+          animate={{ opacity: 1, pointerEvents: 'auto' }}
+          exit={{ opacity: 0, pointerEvents: 'none' }}
         >
           {/* Blur is supplied statically via the CSS class — animating
               backdrop-filter inside an AnimatePresence exit can hang the exit
