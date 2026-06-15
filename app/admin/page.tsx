@@ -567,10 +567,17 @@ export default function AdminDashboard() {
                 {/* Action bar */}
                 {/* Action bar — wraps on desktop; "Record Payment" pinned at bottom on mobile */}
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  {searchResults && searchResults.length > 1 && (
+                  {searchResults && searchResults.length > 1 ? (
                     <button onClick={() => setSelectedCustomer(null)} className="btn-ghost flex items-center gap-2">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6" /></svg>
                       Back to results
+                    </button>
+                  ) : (
+                    /* When this is the only result (or the panel was left open after
+                       switching tabs), give an explicit way back to a clean search. */
+                    <button onClick={() => { setSelectedCustomer(null); setSearchResults(null); }} className="btn-ghost flex items-center gap-2">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6" /></svg>
+                      New Search
                     </button>
                   )}
                   <div className="flex flex-wrap items-center gap-2 ml-auto">
