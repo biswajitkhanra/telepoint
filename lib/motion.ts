@@ -104,10 +104,16 @@ export const tapOnly = {
 } as const;
 
 // ── Overlay / modal / sheet variants ─────────────────────────────────────────
+// NOTE: We deliberately animate ONLY `opacity` here — never `backdropFilter`.
+// Animating backdrop-filter inside an AnimatePresence `exit` does not reliably
+// fire its completion callback in Chromium, so the exit never resolves and the
+// `fixed inset-0` backdrop stays mounted, swallowing every click (the page
+// appears "frozen" until a refresh). The blur is supplied statically by the
+// `.modal-backdrop` CSS class instead, which fades in/out with the opacity.
 export const backdrop: Variants = {
-  hidden: { opacity: 0, backdropFilter: 'blur(0px)' },
-  show: { opacity: 1, backdropFilter: 'blur(6px)', transition: { duration: 0.25, ease: EASE_OUT } },
-  exit: { opacity: 0, backdropFilter: 'blur(0px)', transition: { duration: 0.2, ease: EASE_IN } },
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { duration: 0.25, ease: EASE_OUT } },
+  exit: { opacity: 0, transition: { duration: 0.2, ease: EASE_IN } },
 };
 
 /** Desktop modal — scale + rise in, reverse out. */

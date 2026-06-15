@@ -34,11 +34,14 @@ export default function SmartAlertPopup({ fineDue, daysUntilDue, nextEmiNo, next
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
+          {/* Blur is supplied statically via the CSS class — animating
+              backdrop-filter inside an AnimatePresence exit can hang the exit
+              and leave this full-screen overlay mounted, freezing the page. */}
           <motion.div
-            className="fixed inset-0 bg-black/50"
-            initial={{ opacity: 0, backdropFilter: 'blur(0px)' }}
-            animate={{ opacity: 1, backdropFilter: 'blur(6px)' }}
-            exit={{ opacity: 0, backdropFilter: 'blur(0px)' }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-md"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
           />
           <motion.div
             className="relative z-10 bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
