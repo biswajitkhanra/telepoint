@@ -231,7 +231,10 @@ export default function LoanStatementModal({
 
     const iframe = document.createElement('iframe');
     iframe.setAttribute('aria-hidden', 'true');
-    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
+    // Off-screen but FULLY rendered. Do NOT use display:none, visibility:hidden,
+    // zero size or opacity:0 — any of those give the print engine no render tree
+    // and the PDF comes out as blank white pages (the bug seen on Android).
+    iframe.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;height:1123px;border:0;background:#fff;';
     document.body.appendChild(iframe);
 
     const cleanup = () => { setTimeout(() => iframe.remove(), 1000); };
