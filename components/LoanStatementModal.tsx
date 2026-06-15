@@ -6,6 +6,24 @@ import { format } from 'date-fns';
 import { formatCurrency } from '@/lib/formatters';
 import { getPerEmiFineBreakdown } from '@/lib/fineCalc';
 
+/** Resolve an ImgBB share link to a direct image URL (mirrors the portal helper). */
+function ibbDirect(url?: string | null): string {
+  if (!url) return '';
+  if (/i\.ibb\.co|\.jpg|\.jpeg|\.png|\.webp/i.test(url)) return url;
+  if (url.includes('ibb.co/')) {
+    const id = url.split('ibb.co/')[1]?.split('/')[0];
+    if (id) return `https://i.ibb.co/${id}/img.jpg`;
+  }
+  return url;
+}
+
+/** The payment method for a settled/partial EMI. `mode` is authoritative;
+ * when missing we derive it (a UTR implies UPI, otherwise Cash). */
+function paymentMethod(e: AnyEmi): string {
+  const m = e.mode || (e.utr ? 'UPI' : 'CASH');
+  return String(m).toUpperCase();
+}
+
 /**
  * Loan Statement — a formal, bank-style account statement for a single
  * customer loan, openable from the customer portal AND from the admin /
@@ -101,14 +119,30 @@ export default function LoanStatementModal({
           className="sticky top-0 z-10 flex items-center justify-between gap-3 px-6 py-4"
           style={{ background: 'linear-gradient(120deg, #0c4a6e, #1e40af 55%, #4c1d95)' }}
         >
-          <div className="text-left">
-            <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-white/70">TelePoint EMI Finance</p>
-            <h2 className="font-display text-lg font-bold text-white">Statement of Loan Account</h2>
-            <p className="text-[10px] text-white/70">
-              {firstDue && lastDue
-                ? `Period: ${format(new Date(firstDue), 'd MMM yyyy')} — ${format(new Date(lastDue), 'd MMM yyyy')}`
-                : 'Full account history'}
-            </p>
+          <div className="flex items-center gap-3 text-left">
+            {/* Borrower photo — falls back to a monogram tile when absent or broken. */}
+            <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-white/30 bg-white/10">
+              <span className="absolute inset-0 flex items-center justify-center font-display text-2xl font-bold text-white/80">
+                {customer?.customer_name?.[0]?.toUpperCase() ?? '?'}
+              </span>
+              {customer?.customer_photo_url && (
+                <img
+                  src={ibbDirect(customer.customer_photo_url)}
+                  alt={customer?.customer_name || 'Customer'}
+                  className="absolute inset-0 h-full w-full object-cover"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+              )}
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-white/70">TelePoint EMI Finance</p>
+              <h2 className="font-display text-lg font-bold text-white">Statement of Loan Account</h2>
+              <p className="text-[10px] text-white/70">
+                {firstDue && lastDue
+                  ? `Period: ${format(new Date(firstDue), 'd MMM yyyy')} — ${format(new Date(lastDue), 'd MMM yyyy')}`
+                  : 'Full account history'}
+              </p>
+            </div>
           </div>
           <div className="no-print flex items-center gap-2">
             <button
@@ -152,13 +186,15 @@ export default function LoanStatementModal({
           <section>
             <p className="mb-2 text-xs font-bold uppercase tracking-widest text-ink-muted">Instalment Ledger</p>
             <div className="overflow-x-auto rounded-xl border border-surface-4">
-              <table className="w-full min-w-[560px] text-xs">
+              <table className="w-full min-w-[720px] text-xs">
                 <thead>
                   <tr className="bg-slate-800 text-white">
                     <th className="px-3 py-2 text-left font-semibold">#</th>
                     <th className="px-3 py-2 text-left font-semibold">Due Date</th>
                     <th className="px-3 py-2 text-right font-semibold">Instalment</th>
                     <th className="px-3 py-2 text-right font-semibold">Paid</th>
+                    <th className="px-3 py-2 text-left font-semibold">Paid On</th>
+                    <th className="px-3 py-2 text-left font-semibold">Method</th>
                     <th className="px-3 py-2 text-right font-semibold">Fine</th>
                     <th className="px-3 py-2 text-right font-semibold">Status</th>
                     <th className="px-3 py-2 text-right font-semibold">Balance O/S</th>
@@ -174,12 +210,23 @@ export default function LoanStatementModal({
                       const paid = e.status === 'APPROVED';
                       const partial = e.status === 'PARTIALLY_PAID';
                       const overdue = !paid && new Date(e.due_date) < new Date();
+                      const hasPayment = paidAmt > 0;
+                      const method = hasPayment ? paymentMethod(e) : '';
                       return (
                         <tr key={e.id} className={`border-t border-surface-3 ${i % 2 ? 'bg-surface-2/60' : 'bg-white'}`}>
                           <td className="px-3 py-2 font-semibold text-ink">{e.emi_no}</td>
                           <td className="px-3 py-2 text-ink-muted">{format(new Date(e.due_date), 'd MMM yy')}</td>
                           <td className="num px-3 py-2 text-right text-ink">{fmt(e.amount)}</td>
                           <td className="num px-3 py-2 text-right text-emerald-700">{paidAmt > 0 ? fmt(paidAmt) : '—'}</td>
+                          <td className="px-3 py-2 text-ink-muted">{e.paid_at ? format(new Date(e.paid_at), 'd MMM yy') : '—'}</td>
+                          <td className="px-3 py-2">
+                            {method
+                              ? <span className={`font-semibold ${method === 'UPI' ? 'text-emerald-700' : 'text-ink'}`}>
+                                  {method === 'UPI' ? '🟢 UPI' : '💵 Cash'}
+                                  {method === 'UPI' && e.utr ? <span className="num block text-[10px] font-normal text-ink-muted">UTR {e.utr}</span> : null}
+                                </span>
+                              : <span className="text-ink-muted">—</span>}
+                          </td>
                           <td className="num px-3 py-2 text-right text-rose-600">{fine && fine.total > 0 ? fmt(fine.total) : '—'}</td>
                           <td className="px-3 py-2 text-right">
                             <span className={
@@ -202,6 +249,7 @@ export default function LoanStatementModal({
                     <td className="px-3 py-2" colSpan={2}>TOTAL</td>
                     <td className="num px-3 py-2 text-right">{fmt(totals.emiContract)}</td>
                     <td className="num px-3 py-2 text-right text-emerald-700">{fmt(totals.emiPaid)}</td>
+                    <td className="px-3 py-2" colSpan={2} />
                     <td className="num px-3 py-2 text-right text-rose-600">{fmt(totals.fineAccrued)}</td>
                     <td className="px-3 py-2" />
                     <td className="num px-3 py-2 text-right">{fmt(totals.emiRemaining)}</td>
