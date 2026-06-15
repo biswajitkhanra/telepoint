@@ -7,6 +7,7 @@ import { Customer, Retailer, EMISchedule, DueBreakdown, PaymentRequest } from '@
 import NavBar from '@/components/NavBar';
 import SearchInput from '@/components/SearchInput';
 import CustomerDetailPanel from '@/components/CustomerDetailPanel';
+import PhoneLockBadge from '@/components/PhoneLockBadge';
 import CustomerPaymentSummary from '@/components/CustomerPaymentSummary';
 import RetailerPaymentSummary from '@/components/RetailerPaymentSummary';
 import CustomerFormModal from '@/components/CustomerFormModal';
@@ -572,7 +573,17 @@ export default function AdminDashboard() {
                       Back to results
                     </button>
                   )}
-                  <div className="flex flex-wrap gap-2 ml-auto">
+                  <div className="flex flex-wrap items-center gap-2 ml-auto">
+                    {/* Lock toggle — kept in the always-visible action bar so it's
+                        reachable on mobile without scrolling into the detail card. */}
+                    <PhoneLockBadge
+                      customerId={selectedCustomer.id}
+                      isLocked={selectedCustomer.is_locked || false}
+                      lockProvider={selectedCustomer.lock_provider}
+                      isAdmin={true}
+                      variant="button"
+                      onToggled={v => setSelectedCustomer(c => (c ? { ...c, is_locked: v } : c))}
+                    />
                     <button onClick={() => { setEditingCustomer(selectedCustomer); setShowCustomerForm(true); }} className="btn-ghost">
                       ✏️ Edit
                     </button>
@@ -625,6 +636,7 @@ export default function AdminDashboard() {
                   emis={customerEmis}
                   baseFine={fineSettings.default_fine_amount}
                   weeklyIncrement={fineSettings.weekly_fine_increment}
+                  onLockToggled={v => setSelectedCustomer(c => (c ? { ...c, is_locked: v } : c))}
                 />
 
                 {/* Payment Summary mounted directly beneath Customer Details */}
