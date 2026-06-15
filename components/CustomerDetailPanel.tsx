@@ -27,13 +27,15 @@ interface Props {
   emis?: EMISchedule[];
   baseFine?: number;
   weeklyIncrement?: number;
+  /** Notified when the lock is toggled (e.g. so the parent can sync the action-bar control). */
+  onLockToggled?: (locked: boolean) => void;
 }
 
 function fmt(n: number) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(n);
 }
 
-export default function CustomerDetailPanel({ customer, paidCount, totalEmis, isAdmin, emis, baseFine, weeklyIncrement }: Props) {
+export default function CustomerDetailPanel({ customer, paidCount, totalEmis, isAdmin, emis, baseFine, weeklyIncrement, onLockToggled }: Props) {
   const [copiedNum, setCopiedNum] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [showStatement, setShowStatement] = useState(false);
@@ -170,9 +172,10 @@ export default function CustomerDetailPanel({ customer, paidCount, totalEmis, is
             </span>
           </div>
 
-          {/* Phone Lock */}
+          {/* Phone Lock — read-only status here; the toggle lives in the top action
+              bar so it stays reachable on mobile without scrolling into this card. */}
           <div className="flex flex-wrap items-center gap-3 mt-2.5">
-            <PhoneLockBadge customerId={customer.id} isLocked={customer.is_locked || false} lockProvider={customer.lock_provider} isAdmin={isAdmin || false} />
+            <PhoneLockBadge customerId={customer.id} isLocked={customer.is_locked || false} lockProvider={customer.lock_provider} isAdmin={isAdmin || false} variant="badge" onToggled={onLockToggled} />
           </div>
 
           {/* Phones + share */}
