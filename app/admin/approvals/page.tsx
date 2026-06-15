@@ -77,20 +77,30 @@ export default function ApprovalsPage() {
       }
 
       if (query && query.length >= 3) {
-        if (/^\d{15}$/.test(query)) {
-          const { data: cust } = await sb.from('customers').select('id').eq('imei', query).single();
-          if (cust) qb = qb.eq('customer_id', cust.id);
-          else { setRequests([]); return; }
-        } else if (/^\d{12}$/.test(query)) {
-          const { data: cust } = await sb.from('customers').select('id').eq('aadhaar', query).single();
-          if (cust) qb = qb.eq('customer_id', cust.id);
-          else { setRequests([]); return; }
+        const q = query.trim();
+        // Collect candidate customer ids that match the query by IMEI / Aadhaar
+        // / name. We ALSO match the request's UTR directly so a payment can be
+        // looked up by its UPI reference. A 12-digit value is ambiguous
+        // (Aadhaar *or* a UPI UTR), so we try both and OR the result with a
+        // direct UTR match below.
+        let customerIds: string[] = [];
+        if (/^\d{15}$/.test(q)) {
+          const { data: cust } = await sb.from('customers').select('id').eq('imei', q);
+          customerIds = (cust || []).map(c => c.id);
+        } else if (/^\d{12}$/.test(q)) {
+          const { data: cust } = await sb.from('customers').select('id').eq('aadhaar', q);
+          customerIds = (cust || []).map(c => c.id);
         } else {
-          const { data: custs } = await sb.from('customers').select('id').ilike('customer_name', `%${query}%`);
-          const ids = (custs || []).map(c => c.id);
-          if (ids.length === 0) { setRequests([]); return; }
-          qb = qb.in('customer_id', ids);
+          const { data: custs } = await sb.from('customers').select('id').ilike('customer_name', `%${q}%`);
+          customerIds = (custs || []).map(c => c.id);
         }
+
+        // Build an OR filter: match the UTR/reference directly, or any of the
+        // candidate customers. PostgREST needs commas in the value escaped.
+        const safe = q.replace(/[(),]/g, '');
+        const ors = [`utr.ilike.%${safe}%`];
+        if (customerIds.length) ors.push(`customer_id.in.(${customerIds.join(',')})`);
+        qb = qb.or(ors.join(','));
       }
 
       const { data, error } = await qb;
@@ -312,7 +322,7 @@ export default function ApprovalsPage() {
           <SearchInput
             value={searchQuery}
             onChange={handleSearch}
-            placeholder="Search by customer name, IMEI (15 digits), or Aadhaar (12 digits)…"
+            placeholder="Search by customer name, IMEI, Aadhaar, or UTR / reference…"
             loading={loading}
           />
         </div>

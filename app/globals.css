@@ -437,29 +437,25 @@ input[type='checkbox']:active {
 
 /* Print */
 @media print {
-  /* Render the statement in full, exact colour (letterhead gradient, table
-     header bands, status chips and the borrower photo) instead of the
-     browser's default ink-saving mono output. */
-  @page { size: A4; margin: 10mm; }
   .no-print { display: none !important; }
   body { background: white; }
-  html, body,
+  /* The loan statement "Download PDF" prints a self-contained white document
+     from a hidden iframe (see LoanStatementModal), so colours and the photo
+     render exactly without the dark app theme bleeding in. The rules below
+     are only a fallback for a manual Ctrl+P with the modal open. */
+  body:has(.statement-sheet) * { visibility: hidden; }
   .statement-sheet, .statement-sheet * {
+    visibility: visible;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
-  /* When a loan statement is open, print only that sheet. */
-  body:has(.statement-sheet) * { visibility: hidden; }
-  .statement-sheet, .statement-sheet * { visibility: visible; }
   .statement-sheet {
     position: absolute !important; inset: 0 !important; margin: 0 !important;
     width: 100% !important; max-width: none !important;
     max-height: none !important; overflow: visible !important;
     box-shadow: none !important; border-radius: 0 !important;
   }
-  /* Let the instalment ledger use the full page width so no column is clipped. */
   .statement-sheet table { min-width: 0 !important; width: 100% !important; }
-  /* Keep ledger rows intact across page breaks. */
   .statement-sheet tr { break-inside: avoid; }
 }
 
