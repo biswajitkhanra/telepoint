@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { formatCurrency } from '@/lib/formatters';
@@ -52,6 +53,15 @@ export default function LoanStatementModal({
   weeklyIncrement?: number;
   onClose: () => void;
 }) {
+  // Portal target. The overlay is `position: fixed`, but when this modal is
+  // mounted inside a transformed / `overflow-hidden` ancestor (e.g. the animated
+  // `card-festive` panel in CustomerDetailPanel) that ancestor becomes the
+  // containing block for fixed descendants and clips the overlay — the statement
+  // then renders cramped *inside* the card and overlaps surrounding UI. Rendering
+  // through a portal to <body> guarantees a full-viewport overlay everywhere.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const sorted = useMemo(
     () => [...emis].sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()),
     [emis],
@@ -267,7 +277,7 @@ export default function LoanStatementModal({
     }
   };
 
-  return (
+  const overlay = (
     <motion.div
       className="fixed inset-0 z-[110] flex items-end justify-center bg-ink/50 p-0 backdrop-blur-md sm:items-center sm:p-4"
       initial={{ opacity: 0 }}
@@ -469,6 +479,9 @@ export default function LoanStatementModal({
       </motion.div>
     </motion.div>
   );
+
+  if (!mounted) return null;
+  return createPortal(overlay, document.body);
 }
 
 function Cell({ label, value, mono }: { label: string; value: unknown; mono?: boolean }) {
