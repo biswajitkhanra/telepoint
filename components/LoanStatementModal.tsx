@@ -139,6 +139,18 @@ export default function LoanStatementModal({
       const methodCell = method
         ? `${method === 'UPI' ? '🟢 UPI' : '💵 Cash'}${method === 'UPI' && e.utr ? `<div style="font-size:9px;color:#64748b">UTR ${esc(e.utr)}</div>` : ''}`
         : '—';
+      // Fine cell shows the amount AND whether it has been paid (and how). A
+      // fine is collected with its EMI payment, so the method mirrors the EMI's.
+      const fineMethod = fine && fine.paid > 0 ? paymentMethod(e) : '';
+      const fineMethodTxt = fineMethod ? (fineMethod === 'UPI' ? '🟢 UPI' : '💵 Cash') : '';
+      const fineCell = !fine || fine.total <= 0
+        ? '—'
+        : `<div style="color:#e11d48">${esc(fmt(fine.total))}</div>` +
+          (fine.remaining <= 0
+            ? `<div style="font-size:9px;color:#059669;font-weight:600">✓ Paid${fineMethodTxt ? ` · ${fineMethodTxt}` : ''}</div>`
+            : fine.paid > 0
+              ? `<div style="font-size:9px;color:#d97706;font-weight:600">◐ ${esc(fmt(fine.paid))} paid${fineMethodTxt ? ` · ${fineMethodTxt}` : ''}</div>`
+              : `<div style="font-size:9px;color:#e11d48;font-weight:600">Unpaid</div>`);
       const statusTxt = paid ? '✓ Paid' : partial ? '◐ Partial' : overdue ? 'Overdue' : 'Upcoming';
       const statusColor = paid ? '#059669' : partial ? '#d97706' : overdue ? '#e11d48' : '#64748b';
       return `<tr>
@@ -406,7 +418,26 @@ export default function LoanStatementModal({
                                 </span>
                               : <span className="text-ink-muted">—</span>}
                           </td>
-                          <td className="num px-3 py-2 text-right text-rose-600">{fine && fine.total > 0 ? fmt(fine.total) : '—'}</td>
+                          <td className="px-3 py-2 text-right">
+                            {fine && fine.total > 0 ? (() => {
+                              const fineMethod = fine.paid > 0 ? paymentMethod(e) : '';
+                              const fineMethodTxt = fineMethod ? ` · ${fineMethod === 'UPI' ? '🟢 UPI' : '💵 Cash'}` : '';
+                              return (
+                                <div className="flex flex-col items-end leading-tight">
+                                  <span className="num text-rose-600">{fmt(fine.total)}</span>
+                                  {fine.remaining <= 0 ? (
+                                    <span className="text-[10px] font-semibold text-emerald-600">✓ Paid{fineMethodTxt}</span>
+                                  ) : fine.paid > 0 ? (
+                                    <span className="text-[10px] font-semibold text-amber-600">
+                                      ◐ <span className="num">{fmt(fine.paid)}</span> paid{fineMethodTxt}
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] font-semibold text-rose-500">Unpaid</span>
+                                  )}
+                                </div>
+                              );
+                            })() : <span className="text-ink-muted">—</span>}
+                          </td>
                           <td className="px-3 py-2 text-right">
                             <span className={
                               paid ? 'font-semibold text-emerald-600'
