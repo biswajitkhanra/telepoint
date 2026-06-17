@@ -26,6 +26,18 @@ export function paymentMethod(e: AnyEmi): string {
   return String(m).toUpperCase();
 }
 
+/**
+ * The effective "paid on" date for an EMI row. A fully settled EMI carries
+ * `paid_at`; a partially paid one only carries `partial_paid_at` (the reconciler
+ * deliberately leaves `paid_at` null until the EMI is cleared in full). Reading
+ * `paid_at` alone therefore left partial payments with a blank date even though
+ * money was collected on a known day — so we fall back to `partial_paid_at`.
+ * Returns null only when the EMI has no recorded payment at all.
+ */
+export function paidOnDate(e: AnyEmi): string | null {
+  return e.paid_at || e.partial_paid_at || null;
+}
+
 export interface FineRow { total: number; paid: number; remaining: number }
 
 export interface StatementTotals {
@@ -85,6 +97,7 @@ export function buildLoanStatementHtml(args: BuildStatementArgs): string {
     const partial = e.status === 'PARTIALLY_PAID';
     const overdue = !paid && new Date(e.due_date) < new Date();
     const method = paidAmt > 0 ? paymentMethod(e) : '';
+    const paidOn = paidOnDate(e);
     const methodCell = method
       ? `${method === 'UPI' ? '🟢 UPI' : '💵 Cash'}${method === 'UPI' && e.utr ? `<div style="font-size:9px;color:#64748b">UTR ${esc(e.utr)}</div>` : ''}`
       : '—';
@@ -107,7 +120,7 @@ export function buildLoanStatementHtml(args: BuildStatementArgs): string {
       <td style="padding:6px 10px;border-top:1px solid #e2e8f0;color:#475569">${format(new Date(e.due_date), 'd MMM yy')}</td>
       <td style="padding:6px 10px;border-top:1px solid #e2e8f0;text-align:right;font-variant-numeric:tabular-nums">${esc(fmt(e.amount))}</td>
       <td style="padding:6px 10px;border-top:1px solid #e2e8f0;text-align:right;color:#047857;font-variant-numeric:tabular-nums">${paidAmt > 0 ? esc(fmt(paidAmt)) : '—'}</td>
-      <td style="padding:6px 10px;border-top:1px solid #e2e8f0;color:#475569">${e.paid_at ? format(new Date(e.paid_at), 'd MMM yy') : '—'}</td>
+      <td style="padding:6px 10px;border-top:1px solid #e2e8f0;color:#475569">${paidOn ? format(new Date(paidOn), 'd MMM yy') : '—'}</td>
       <td style="padding:6px 10px;border-top:1px solid #e2e8f0;font-weight:600">${methodCell}</td>
       <td style="padding:6px 10px;border-top:1px solid #e2e8f0;text-align:right;font-variant-numeric:tabular-nums">${fineCell}</td>
       <td style="padding:6px 10px;border-top:1px solid #e2e8f0;text-align:right;font-weight:600;color:${statusColor}">${statusTxt}</td>
