@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { formatCurrency } from '@/lib/formatters';
 import { getPerEmiFineBreakdown } from '@/lib/fineCalc';
-import { buildLoanStatementHtml, ibbDirect, paymentMethod } from '@/lib/loanStatementHtml';
+import { buildLoanStatementHtml, ibbDirect, paymentMethod, paidOnDate } from '@/lib/loanStatementHtml';
 
 /**
  * Loan Statement — a formal, bank-style account statement for a single
@@ -275,13 +275,14 @@ export default function LoanStatementModal({
                       const overdue = !paid && new Date(e.due_date) < new Date();
                       const hasPayment = paidAmt > 0;
                       const method = hasPayment ? paymentMethod(e) : '';
+                      const paidOn = paidOnDate(e);
                       return (
                         <tr key={e.id} className={`border-t border-surface-3 ${i % 2 ? 'bg-surface-2/60' : 'bg-white'}`}>
                           <td className="px-3 py-2 font-semibold text-ink">{e.emi_no}</td>
                           <td className="px-3 py-2 text-ink-muted">{format(new Date(e.due_date), 'd MMM yy')}</td>
                           <td className="num px-3 py-2 text-right text-ink">{fmt(e.amount)}</td>
                           <td className="num px-3 py-2 text-right text-emerald-700">{paidAmt > 0 ? fmt(paidAmt) : '—'}</td>
-                          <td className="px-3 py-2 text-ink-muted">{e.paid_at ? format(new Date(e.paid_at), 'd MMM yy') : '—'}</td>
+                          <td className="px-3 py-2 text-ink-muted">{paidOn ? format(new Date(paidOn), 'd MMM yy') : '—'}</td>
                           <td className="px-3 py-2">
                             {method
                               ? <span className={`font-semibold ${method === 'UPI' ? 'text-emerald-700' : 'text-ink'}`}>
