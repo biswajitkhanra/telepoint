@@ -160,7 +160,7 @@ export default function LoanStatementModal({
         <td style="padding:6px 10px;border-top:1px solid #e2e8f0;text-align:right;color:#047857;font-variant-numeric:tabular-nums">${paidAmt > 0 ? esc(fmt(paidAmt)) : '—'}</td>
         <td style="padding:6px 10px;border-top:1px solid #e2e8f0;color:#475569">${e.paid_at ? format(new Date(e.paid_at), 'd MMM yy') : '—'}</td>
         <td style="padding:6px 10px;border-top:1px solid #e2e8f0;font-weight:600">${methodCell}</td>
-        <td style="padding:6px 10px;border-top:1px solid #e2e8f0;text-align:right;color:#e11d48;font-variant-numeric:tabular-nums">${fine && fine.total > 0 ? esc(fmt(fine.total)) : '—'}</td>
+        <td style="padding:6px 10px;border-top:1px solid #e2e8f0;text-align:right;font-variant-numeric:tabular-nums">${fineCell}</td>
         <td style="padding:6px 10px;border-top:1px solid #e2e8f0;text-align:right;font-weight:600;color:${statusColor}">${statusTxt}</td>
         <td style="padding:6px 10px;border-top:1px solid #e2e8f0;text-align:right;font-weight:600;font-variant-numeric:tabular-nums">${esc(fmt(running))}</td>
       </tr>`;
@@ -253,21 +253,37 @@ export default function LoanStatementModal({
 
     const iframe = document.createElement('iframe');
     iframe.setAttribute('aria-hidden', 'true');
+    iframe.setAttribute('tabindex', '-1');
     // Off-screen but FULLY rendered. Do NOT use display:none, visibility:hidden,
     // zero size or opacity:0 — any of those give the print engine no render tree
     // and the PDF comes out as blank white pages (the bug seen on Android).
     iframe.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;height:1123px;border:0;background:#fff;';
     document.body.appendChild(iframe);
 
-    const cleanup = () => { setTimeout(() => iframe.remove(), 1000); };
+    // Remove the iframe only AFTER the print pipeline is done. Mobile / WebView
+    // print services rasterise the PDF asynchronously, so pulling the iframe out
+    // on a short fixed timer (the old 1s) left them with no render tree → a fully
+    // blank PDF. We tear down on `afterprint`, with a long fallback so the node
+    // can never linger forever.
+    let removed = false;
+    const remove = () => {
+      if (removed) return;
+      removed = true;
+      setTimeout(() => iframe.remove(), 1500);
+    };
+
+    let printed = false;
     const doPrint = () => {
+      if (printed) return;
+      printed = true;
       const win = iframe.contentWindow;
-      if (!win) { cleanup(); return; }
+      if (!win) { remove(); return; }
+      win.onafterprint = remove;
+      setTimeout(remove, 60000); // safety net if afterprint never fires
       try {
         win.focus();
         win.print();
-      } catch { /* ignore — some WebViews defer to the host print dialog */ }
-      cleanup();
+      } catch { remove(); /* some WebViews defer to the host print dialog */ }
     };
 
     const doc = iframe.contentWindow?.document;
@@ -276,16 +292,17 @@ export default function LoanStatementModal({
     doc.write(html);
     doc.close();
 
-    // Wait for the borrower photo (cross-origin) before printing; fall back on a timer.
+    // Print only once the document has actually laid out. Wait for the borrower
+    // photo (cross-origin) when present; always fall back on timers so a slow or
+    // missing image — or a `load` event that never fires — can never leave the
+    // statement unprinted (or printed before it has painted → blank page).
     const img = doc.querySelector('img');
     if (img && photo && !img.complete) {
-      let done = false;
-      const fire = () => { if (!done) { done = true; doPrint(); } };
-      img.addEventListener('load', fire);
-      img.addEventListener('error', fire);
-      setTimeout(fire, 2500);
+      img.addEventListener('load', () => setTimeout(doPrint, 200));
+      img.addEventListener('error', () => setTimeout(doPrint, 200));
+      setTimeout(doPrint, 2500);
     } else {
-      setTimeout(doPrint, 250);
+      setTimeout(doPrint, 400);
     }
   };
 
