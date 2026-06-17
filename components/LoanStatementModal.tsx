@@ -6,24 +6,7 @@ import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { formatCurrency } from '@/lib/formatters';
 import { getPerEmiFineBreakdown } from '@/lib/fineCalc';
-
-/** Resolve an ImgBB share link to a direct image URL (mirrors the portal helper). */
-function ibbDirect(url?: string | null): string {
-  if (!url) return '';
-  if (/i\.ibb\.co|\.jpg|\.jpeg|\.png|\.webp/i.test(url)) return url;
-  if (url.includes('ibb.co/')) {
-    const id = url.split('ibb.co/')[1]?.split('/')[0];
-    if (id) return `https://i.ibb.co/${id}/img.jpg`;
-  }
-  return url;
-}
-
-/** The payment method for a settled/partial EMI. `mode` is authoritative;
- * when missing we derive it (a UTR implies UPI, otherwise Cash). */
-function paymentMethod(e: AnyEmi): string {
-  const m = e.mode || (e.utr ? 'UPI' : 'CASH');
-  return String(m).toUpperCase();
-}
+import { buildLoanStatementHtml, ibbDirect, paymentMethod } from '@/lib/loanStatementHtml';
 
 /**
  * Loan Statement — a formal, bank-style account statement for a single
@@ -109,201 +92,73 @@ export default function LoanStatementModal({
   const lastDue = sorted[sorted.length - 1]?.due_date;
 
   /**
-   * Build a fully self-contained statement document and print it from a
-   * hidden iframe. We deliberately do NOT print the on-screen modal: the app
-   * runs on a dark theme (and inside a WebView on the customer app), and
-   * printing the live DOM produced an all-black page. A standalone white
-   * document with inline styles guarantees an exact-colour PDF — letterhead,
-   * table bands, status chips and the borrower photo — everywhere.
+   * Download the statement as a PDF. We build a fully self-contained white
+   * document (see buildLoanStatementHtml) and print it from an off-screen
+   * iframe — never the live modal, which is dark-themed and printed all-black.
+   * The HTML lives in a pure, unit-tested helper so we can verify it is never
+   * blank without a browser.
    */
   const handleDownload = () => {
-    const esc = (v: unknown) =>
-      v === 0 ? '0' : (v === null || v === undefined || v === '')
-        ? '—'
-        : String(v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
+    const html = buildLoanStatementHtml({
+      customer, sorted, fineByEmi, totals,
+      grandPaid, grandRemaining, loanAmount, firstDue, lastDue, emiPaidOf,
+    });
 
-    const photo = ibbDirect(customer?.customer_photo_url);
-    const periodTxt = firstDue && lastDue
-      ? `Period: ${format(new Date(firstDue), 'd MMM yyyy')} — ${format(new Date(lastDue), 'd MMM yyyy')}`
-      : 'Full account history';
-
-    let running = totals.emiContract;
-    const rows = sorted.map((e) => {
-      const fine = fineByEmi.get(e.emi_no);
-      const paidAmt = emiPaidOf(e);
-      running = Math.max(0, running - paidAmt);
-      const paid = e.status === 'APPROVED';
-      const partial = e.status === 'PARTIALLY_PAID';
-      const overdue = !paid && new Date(e.due_date) < new Date();
-      const method = paidAmt > 0 ? paymentMethod(e) : '';
-      const methodCell = method
-        ? `${method === 'UPI' ? '🟢 UPI' : '💵 Cash'}${method === 'UPI' && e.utr ? `<div style="font-size:9px;color:#64748b">UTR ${esc(e.utr)}</div>` : ''}`
-        : '—';
-      // Fine cell shows the amount AND whether it has been paid (and how). A
-      // fine is collected with its EMI payment, so the method mirrors the EMI's.
-      const fineMethod = fine && fine.paid > 0 ? paymentMethod(e) : '';
-      const fineMethodTxt = fineMethod ? (fineMethod === 'UPI' ? '🟢 UPI' : '💵 Cash') : '';
-      const fineCell = !fine || fine.total <= 0
-        ? '—'
-        : `<div style="color:#e11d48">${esc(fmt(fine.total))}</div>` +
-          (fine.remaining <= 0
-            ? `<div style="font-size:9px;color:#059669;font-weight:600">✓ Paid${fineMethodTxt ? ` · ${fineMethodTxt}` : ''}</div>`
-            : fine.paid > 0
-              ? `<div style="font-size:9px;color:#d97706;font-weight:600">◐ ${esc(fmt(fine.paid))} paid${fineMethodTxt ? ` · ${fineMethodTxt}` : ''}</div>`
-              : `<div style="font-size:9px;color:#e11d48;font-weight:600">Unpaid</div>`);
-      const statusTxt = paid ? '✓ Paid' : partial ? '◐ Partial' : overdue ? 'Overdue' : 'Upcoming';
-      const statusColor = paid ? '#059669' : partial ? '#d97706' : overdue ? '#e11d48' : '#64748b';
-      return `<tr>
-        <td style="padding:6px 10px;border-top:1px solid #e2e8f0;font-weight:600">${esc(e.emi_no)}</td>
-        <td style="padding:6px 10px;border-top:1px solid #e2e8f0;color:#475569">${format(new Date(e.due_date), 'd MMM yy')}</td>
-        <td style="padding:6px 10px;border-top:1px solid #e2e8f0;text-align:right;font-variant-numeric:tabular-nums">${esc(fmt(e.amount))}</td>
-        <td style="padding:6px 10px;border-top:1px solid #e2e8f0;text-align:right;color:#047857;font-variant-numeric:tabular-nums">${paidAmt > 0 ? esc(fmt(paidAmt)) : '—'}</td>
-        <td style="padding:6px 10px;border-top:1px solid #e2e8f0;color:#475569">${e.paid_at ? format(new Date(e.paid_at), 'd MMM yy') : '—'}</td>
-        <td style="padding:6px 10px;border-top:1px solid #e2e8f0;font-weight:600">${methodCell}</td>
-        <td style="padding:6px 10px;border-top:1px solid #e2e8f0;text-align:right;font-variant-numeric:tabular-nums">${fineCell}</td>
-        <td style="padding:6px 10px;border-top:1px solid #e2e8f0;text-align:right;font-weight:600;color:${statusColor}">${statusTxt}</td>
-        <td style="padding:6px 10px;border-top:1px solid #e2e8f0;text-align:right;font-weight:600;font-variant-numeric:tabular-nums">${esc(fmt(running))}</td>
-      </tr>`;
-    }).join('');
-
-    const detail = (label: string, value: unknown) =>
-      `<div><div style="font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:#64748b">${label}</div><div style="font-weight:600;color:#0f172a">${esc(value)}</div></div>`;
-
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Loan Statement — ${esc(customer?.customer_name)}</title>
-<style>
-  *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  html,body{margin:0;padding:0;background:#fff;color:#0f172a;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
-  @page{size:A4;margin:10mm}
-  .wrap{max-width:780px;margin:0 auto}
-  table{border-collapse:collapse;width:100%}
-  thead tr{background:#1e293b;color:#fff}
-  th{padding:7px 10px;font-size:10px;font-weight:600}
-  td,th{font-size:11px}
-  tr{break-inside:avoid}
-  .card{border:1px solid #e2e8f0;border-radius:10px;padding:12px}
-</style></head>
-<body><div class="wrap">
-  <div style="display:flex;align-items:center;gap:14px;background:linear-gradient(120deg,#0c4a6e,#1e40af 55%,#4c1d95);padding:18px 22px;border-radius:12px;color:#fff">
-    <div style="width:58px;height:58px;border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;flex:0 0 auto">
-      ${photo ? `<img src="${esc(photo)}" alt="" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">` : esc(customer?.customer_name?.[0]?.toUpperCase() || '?')}
-    </div>
-    <div>
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.28em;opacity:.75">TelePoint EMI Finance</div>
-      <div style="font-size:19px;font-weight:700">Statement of Loan Account</div>
-      <div style="font-size:10px;opacity:.75">${esc(periodTxt)}</div>
-    </div>
-  </div>
-
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px 18px;border:1px solid #e2e8f0;background:#f8fafc;border-radius:10px;padding:14px;margin-top:16px">
-    ${detail('Account Holder', customer?.customer_name)}
-    ${detail('Loan A/C No.', customer?.id ? String(customer.id).slice(0, 8).toUpperCase() : '')}
-    ${detail('Mobile', customer?.mobile)}
-    ${detail('Device', customer?.model_no)}
-    ${detail('IMEI', customer?.imei)}
-    ${detail('Account Status', customer?.status)}
-    ${detail('Sanction Date', customer?.purchase_date ? format(new Date(customer.purchase_date), 'd MMM yyyy') : '')}
-    ${detail('Asset Value', fmt(customer?.purchase_value || 0))}
-    ${detail('Margin (Down Payment)', fmt(customer?.down_payment || 0))}
-    ${detail('Loan Amount', fmt(loanAmount))}
-    ${detail('Instalment (EMI)', fmt(customer?.emi_amount || 0))}
-    ${detail('Tenure', customer?.emi_tenure ? `${customer.emi_tenure} months` : '')}
-  </div>
-
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px">
-    <div class="card" style="background:#eef2ff;border-color:#c7d2fe"><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#4338ca">Total Billed</div><div style="font-size:16px;font-weight:800;color:#4338ca">${esc(fmt(totals.emiContract + totals.fineAccrued + totals.firstChargeAmt))}</div></div>
-    <div class="card" style="background:#ecfdf5;border-color:#a7f3d0"><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#047857">Total Paid</div><div style="font-size:16px;font-weight:800;color:#047857">${esc(fmt(grandPaid))}</div></div>
-    <div class="card" style="background:#fff1f2;border-color:#fecdd3"><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#be123c">Outstanding</div><div style="font-size:16px;font-weight:800;color:#be123c">${esc(fmt(grandRemaining))}</div></div>
-    <div class="card" style="background:#fffbeb;border-color:#fde68a"><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#b45309">EMIs Cleared</div><div style="font-size:16px;font-weight:800;color:#b45309">${totals.paidCount} / ${sorted.length}</div></div>
-  </div>
-
-  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#64748b;margin:18px 0 6px">Instalment Ledger</div>
-  <div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden">
-    <table>
-      <thead><tr>
-        <th style="text-align:left">#</th><th style="text-align:left">Due Date</th>
-        <th style="text-align:right">Instalment</th><th style="text-align:right">Paid</th>
-        <th style="text-align:left">Paid On</th><th style="text-align:left">Method</th>
-        <th style="text-align:right">Fine</th><th style="text-align:right">Status</th><th style="text-align:right">Balance O/S</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-      <tfoot><tr style="background:#f1f5f9;font-weight:700;border-top:2px solid #1e293b">
-        <td colspan="2" style="padding:7px 10px">TOTAL</td>
-        <td style="padding:7px 10px;text-align:right">${esc(fmt(totals.emiContract))}</td>
-        <td style="padding:7px 10px;text-align:right;color:#047857">${esc(fmt(totals.emiPaid))}</td>
-        <td colspan="2"></td>
-        <td style="padding:7px 10px;text-align:right;color:#e11d48">${esc(fmt(totals.fineAccrued))}</td>
-        <td></td>
-        <td style="padding:7px 10px;text-align:right">${esc(fmt(totals.emiRemaining))}</td>
-      </tr></tfoot>
-    </table>
-  </div>
-
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">
-    <div class="card" style="background:#ecfdf5;border-color:#6ee7b7"><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#047857">Total Amount Paid</div><div style="font-size:22px;font-weight:800;color:#047857">${esc(fmt(grandPaid))}</div></div>
-    <div class="card" style="background:#fff1f2;border-color:#fda4af"><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#be123c">Total Outstanding</div><div style="font-size:22px;font-weight:800;color:#be123c">${esc(fmt(grandRemaining))}</div></div>
-  </div>
-
-  <div style="border-top:1px dashed #cbd5e1;margin-top:18px;padding-top:12px;font-size:10px;color:#64748b">
-    <p style="margin:2px 0">• Fines accrue on overdue instalments as per the late-payment policy in force.</p>
-    <p style="margin:2px 0">• Please retain this statement for your records. Errors, if any, must be reported within 15 days.</p>
-    <p style="margin:2px 0;font-weight:600;color:#0f172a">This is a computer-generated statement and does not require a signature.</p>
-    <p style="text-align:center;margin-top:10px">Generated on ${format(new Date(), 'd MMM yyyy, h:mm a')} · TelePoint EMI Finance</p>
-  </div>
-</div></body></html>`;
+    // Feed the document to an off-screen iframe via a Blob URL and print it on
+    // the iframe's own `load` event. This is the reliable recipe:
+    //   • A blob: src guarantees the document is fully parsed, laid out AND
+    //     painted before `load` fires. Printing a `document.write`-d iframe on a
+    //     bare timer is the classic cause of a BLANK PDF in Chrome — print fires
+    //     before the frame has painted.
+    //   • Tear down on `afterprint` (with a long fallback) so the asynchronous
+    //     PDF rasteriser on mobile / WebView never loses its render tree.
+    //   • If the browser can't print (some WebViews where window.print is a
+    //     no-op or throws), fall back to opening the statement in a new tab so
+    //     it is never silently lost.
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
 
     const iframe = document.createElement('iframe');
     iframe.setAttribute('aria-hidden', 'true');
     iframe.setAttribute('tabindex', '-1');
-    // Off-screen but FULLY rendered. Do NOT use display:none, visibility:hidden,
-    // zero size or opacity:0 — any of those give the print engine no render tree
-    // and the PDF comes out as blank white pages (the bug seen on Android).
+    // Off-screen but FULLY rendered — never display:none / zero-size / opacity:0,
+    // which leave the print engine no render tree (blank pages).
     iframe.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;height:1123px;border:0;background:#fff;';
-    document.body.appendChild(iframe);
 
-    // Remove the iframe only AFTER the print pipeline is done. Mobile / WebView
-    // print services rasterise the PDF asynchronously, so pulling the iframe out
-    // on a short fixed timer (the old 1s) left them with no render tree → a fully
-    // blank PDF. We tear down on `afterprint`, with a long fallback so the node
-    // can never linger forever.
-    let removed = false;
-    const remove = () => {
-      if (removed) return;
-      removed = true;
-      setTimeout(() => iframe.remove(), 1500);
+    let settled = false;
+    const cleanup = () => {
+      if (settled) return;
+      settled = true;
+      setTimeout(() => { iframe.remove(); URL.revokeObjectURL(url); }, 1500);
+    };
+    const openFallback = () => {
+      if (settled) return;
+      settled = true;
+      window.open(url, '_blank', 'noopener');
+      setTimeout(() => { iframe.remove(); URL.revokeObjectURL(url); }, 60000);
     };
 
-    let printed = false;
-    const doPrint = () => {
-      if (printed) return;
-      printed = true;
+    let triggered = false;
+    const triggerPrint = () => {
+      if (triggered) return;
+      triggered = true;
       const win = iframe.contentWindow;
-      if (!win) { remove(); return; }
-      win.onafterprint = remove;
-      setTimeout(remove, 60000); // safety net if afterprint never fires
-      try {
-        win.focus();
-        win.print();
-      } catch { remove(); /* some WebViews defer to the host print dialog */ }
+      if (!win) { openFallback(); return; }
+      win.onafterprint = cleanup;
+      setTimeout(cleanup, 60000); // safety net if afterprint never fires
+      // A tick after load so layout/paint is fully settled before printing.
+      setTimeout(() => {
+        try { win.focus(); win.print(); }
+        catch { openFallback(); }
+      }, 300);
     };
 
-    const doc = iframe.contentWindow?.document;
-    if (!doc) { iframe.remove(); return; }
-    doc.open();
-    doc.write(html);
-    doc.close();
-
-    // Print only once the document has actually laid out. Wait for the borrower
-    // photo (cross-origin) when present; always fall back on timers so a slow or
-    // missing image — or a `load` event that never fires — can never leave the
-    // statement unprinted (or printed before it has painted → blank page).
-    const img = doc.querySelector('img');
-    if (img && photo && !img.complete) {
-      img.addEventListener('load', () => setTimeout(doPrint, 200));
-      img.addEventListener('error', () => setTimeout(doPrint, 200));
-      setTimeout(doPrint, 2500);
-    } else {
-      setTimeout(doPrint, 400);
-    }
+    iframe.onload = triggerPrint;
+    iframe.src = url;
+    document.body.appendChild(iframe);
+    // Fallback if `load` never fires (e.g. a blocked/hung borrower photo) so the
+    // statement can never be left unprinted.
+    setTimeout(triggerPrint, 3000);
   };
 
   const overlay = (
