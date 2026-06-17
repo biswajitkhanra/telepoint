@@ -132,6 +132,13 @@ export function getPerEmiFineBreakdown(
   emis: EMISchedule[],
   baseFine: number = BASE,
   weeklyIncrement: number = WEEKLY,
+  /**
+   * When true, EMIs whose fine has already been paid in full are still returned
+   * (with remaining = 0) instead of being dropped. The loan-statement ledger
+   * needs this so a settled fine shows as "✓ Paid" rather than disappearing;
+   * the "amount currently due" callers keep the default (false).
+   */
+  includeSettled: boolean = false,
 ) {
   const maxEmiNo = emis.length > 0 ? Math.max(...emis.map(e => e.emi_no)) : 0;
 
@@ -178,10 +185,14 @@ export function getPerEmiFineBreakdown(
     }
 
     const isOverdueUnpaid = ['UNPAID', 'PARTIALLY_PAID'].includes(emi.status) && new Date(emi.due_date) < new Date();
-    const hasFineUnpaid = (emi.fine_amount || 0) > 0 &&
-                          (emi.fine_paid_amount || 0) < (emi.fine_amount || 0);
-    // Late-collected EMIs keep their fine even once APPROVED.
-    if (!isOverdueUnpaid && !hasFineUnpaid && !isCollectedLate(emi)) continue;
+    const stored = emi.fine_amount || 0;
+    const paid = emi.fine_paid_amount || 0;
+    const hasFineUnpaid = stored > 0 && paid < stored;
+    const hasFinePaid = paid > 0;
+    // Late-collected EMIs keep their fine even once APPROVED. In ledger mode we
+    // additionally keep fines that are already settled (fine_paid_amount > 0) so
+    // the statement can show them as "✓ Paid" instead of a blank dash.
+    if (!isOverdueUnpaid && !hasFineUnpaid && !isCollectedLate(emi) && !(includeSettled && hasFinePaid)) continue;
 
     const due = new Date(emi.due_date);
     const today = new Date();
@@ -195,14 +206,22 @@ export function getPerEmiFineBreakdown(
     const isLast = emi.emi_no === maxEmiNo;
     const isLastEmiUnpaid = isLast && emi.status !== 'APPROVED';
 
-    const calc = calculateSingleEmiFine(emi.due_date, isLastEmiUnpaid, baseFine, weeklyIncrement);
-    const effective = Math.max(calc, emi.fine_amount || 0);
-    const paid = emi.fine_paid_amount || 0;
+    // A fine accrues only while it is still owed. This mirrors the server's
+    // recalc_customer_fines, which stops recomputing a fine once it is paid in
+    // full and freezes it at the stored amount. Without this guard the live
+    // day-count would re-inflate a settled fine and wrongly resurrect a balance.
+    const stillAccruing = isOverdueUnpaid || isCollectedLate(emi) || stored > paid;
+    const calc = stillAccruing
+      ? calculateSingleEmiFine(emi.due_date, isLastEmiUnpaid, baseFine, weeklyIncrement)
+      : 0;
+    const effective = Math.max(calc, stored, paid);
 
-    const baseFineTotal = isLastEmiUnpaid
-      ? Math.ceil(Math.max(1, days) / GRACE) * baseFine
-      : baseFine;
-    const weeklyFine = (!isLastEmiUnpaid && days > GRACE)
+    const baseFineTotal = !stillAccruing
+      ? effective
+      : isLastEmiUnpaid
+        ? Math.ceil(Math.max(1, days) / GRACE) * baseFine
+        : baseFine;
+    const weeklyFine = (stillAccruing && !isLastEmiUnpaid && days > GRACE)
       ? Math.floor((days - GRACE) / 7) * weeklyIncrement
       : 0;
 

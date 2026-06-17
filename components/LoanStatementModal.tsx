@@ -52,7 +52,9 @@ export default function LoanStatementModal({
 
   const fineByEmi = useMemo(() => {
     const map = new Map<number, { total: number; paid: number; remaining: number }>();
-    for (const r of getPerEmiFineBreakdown(sorted, baseFine, weeklyIncrement)) {
+    // includeSettled = true → the ledger also lists fines that are fully paid so
+    // they render as "✓ Paid" instead of silently dropping to a blank "—".
+    for (const r of getPerEmiFineBreakdown(sorted, baseFine, weeklyIncrement, true)) {
       map.set(r.emi_no, { total: r.totalFine, paid: r.paid, remaining: r.remaining });
     }
     return map;
