@@ -210,7 +210,15 @@ export function getPerEmiFineBreakdown(
     // recalc_customer_fines, which stops recomputing a fine once it is paid in
     // full and freezes it at the stored amount. Without this guard the live
     // day-count would re-inflate a settled fine and wrongly resurrect a balance.
-    const stillAccruing = isOverdueUnpaid || isCollectedLate(emi) || stored > paid;
+    //
+    // In ledger mode we additionally freeze a FULLY-PAID fine even on a
+    // late-collected EMI: its isCollectedLate flag would otherwise keep the fine
+    // growing forever, so a fine the customer has cleared would never read
+    // "✓ Paid" on the statement. (Default "amount due" mode is untouched, so the
+    // live due total still matches the server.)
+    const fineFullyPaid = paid > 0 && paid >= stored;
+    const stillAccruing = !(includeSettled && fineFullyPaid)
+      && (isOverdueUnpaid || isCollectedLate(emi) || stored > paid);
     const calc = stillAccruing
       ? calculateSingleEmiFine(emi.due_date, isLastEmiUnpaid, baseFine, weeklyIncrement)
       : 0;
