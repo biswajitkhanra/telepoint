@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { formatCurrency } from '@/lib/formatters';
 import { getPerEmiFineBreakdown } from '@/lib/fineCalc';
 import { buildLoanStatementHtml, ibbDirect, paymentMethod, paidOnDate } from '@/lib/loanStatementHtml';
-import { downloadElementAsPdf } from '@/lib/pdf';
+import { downloadHtmlAsPdf } from '@/lib/pdf';
 
 /**
  * Loan Statement — a formal, bank-style account statement for a single
@@ -46,8 +46,6 @@ export default function LoanStatementModal({
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  // The white statement panel we rasterise into the downloaded PDF.
-  const sheetRef = useRef<HTMLDivElement>(null);
   const [downloading, setDownloading] = useState(false);
 
   const sorted = useMemo(
@@ -101,26 +99,29 @@ export default function LoanStatementModal({
   const safeName = String(customer?.customer_name || 'customer').replace(/[^\w]+/g, '-');
 
   /**
-   * Download the statement as a REAL .pdf file. We rasterise the on-screen white
-   * panel (sheetRef) into a multi-page A4 PDF via lib/pdf — so the file looks
-   * exactly like what the user sees and downloads directly (no print dialog, no
-   * .html). The `.no-print` header buttons are skipped by the rasteriser.
+   * Download the statement as a REAL .pdf file. We render the purpose-built,
+   * fixed-780px-wide statement document (buildLoanStatementHtml) off-screen and
+   * rasterise THAT into a multi-page A4 PDF via lib/pdf.
+   *
+   * Why not capture the live modal panel: the panel is responsive, so on a phone
+   * it is only ~412px wide and its ledger table overflows — capturing it there
+   * produced a squashed statement blown up across several pages. The fixed-width
+   * document renders identically on every device and paginates cleanly.
    *
    * If rasterising ever fails (e.g. a library load hiccup), we fall back to the
-   * print-to-PDF pipeline on the self-contained buildLoanStatementHtml document
-   * so the statement is never lost.
+   * print-to-PDF pipeline on the same document so the statement is never lost.
    */
   const handleDownload = async () => {
     if (downloading) return;
     setDownloading(true);
+    const html = buildLoanStatementHtml({
+      customer, sorted, fineByEmi, totals,
+      grandPaid, grandRemaining, loanAmount, firstDue, lastDue, emiPaidOf,
+    });
     try {
-      if (sheetRef.current) {
-        await downloadElementAsPdf(sheetRef.current, `Loan-Statement-${safeName}.pdf`);
-        return;
-      }
-      throw new Error('statement panel not ready');
+      await downloadHtmlAsPdf(html, `Loan-Statement-${safeName}.pdf`);
     } catch {
-      printFallback();
+      printFallback(html);
     } finally {
       setDownloading(false);
     }
@@ -128,11 +129,7 @@ export default function LoanStatementModal({
 
   /** Fallback: open the self-contained statement in a new tab that self-prints
    *  (Save as PDF). Used only if client-side rasterisation is unavailable. */
-  const printFallback = () => {
-    const html = buildLoanStatementHtml({
-      customer, sorted, fineByEmi, totals,
-      grandPaid, grandRemaining, loanAmount, firstDue, lastDue, emiPaidOf,
-    });
+  const printFallback = (html: string) => {
     const printable = html.replace(
       '</body>',
       '<script>(function(){function p(){try{window.focus();window.print();}catch(e){}}' +
@@ -160,7 +157,6 @@ export default function LoanStatementModal({
       onClick={onClose}
     >
       <motion.div
-        ref={sheetRef}
         className="statement-sheet relative max-h-[94vh] w-full overflow-y-auto rounded-t-3xl bg-white shadow-modal sm:max-w-3xl sm:rounded-3xl"
         initial={{ y: 40, opacity: 0, scale: 0.98 }}
         animate={{ y: 0, opacity: 1, scale: 1 }}
