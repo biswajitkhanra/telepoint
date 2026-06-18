@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { formatCurrency } from '@/lib/formatters';
 import { getPerEmiFineBreakdown } from '@/lib/fineCalc';
 import { buildLoanStatementHtml, ibbDirect, paymentMethod, paidOnDate } from '@/lib/loanStatementHtml';
+import { downloadElementAsPdf } from '@/lib/pdf';
 
 /**
  * Loan Statement — a formal, bank-style account statement for a single
@@ -44,6 +45,10 @@ export default function LoanStatementModal({
   // through a portal to <body> guarantees a full-viewport overlay everywhere.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+
+  // The white statement panel we rasterise into the downloaded PDF.
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const [downloading, setDownloading] = useState(false);
 
   const sorted = useMemo(
     () => [...emis].sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()),
@@ -93,55 +98,56 @@ export default function LoanStatementModal({
   const firstDue = sorted[0]?.due_date;
   const lastDue = sorted[sorted.length - 1]?.due_date;
 
+  const safeName = String(customer?.customer_name || 'customer').replace(/[^\w]+/g, '-');
+
   /**
-   * Download / print the statement as a PDF. We build a fully self-contained
-   * white document (buildLoanStatementHtml — a pure, unit-tested helper) and
-   * open it in a real new tab, where an injected script triggers the browser's
-   * Print → "Save as PDF" dialog once the page has painted.
+   * Download the statement as a REAL .pdf file. We rasterise the on-screen white
+   * panel (sheetRef) into a multi-page A4 PDF via lib/pdf — so the file looks
+   * exactly like what the user sees and downloads directly (no print dialog, no
+   * .html). The `.no-print` header buttons are skipped by the rasteriser.
    *
-   * Why a visible tab rather than a hidden print-iframe: the iframe approach
-   * silently failed for some users (no dialog, or a blank page). A real tab
-   * always shows the complete statement — if the print dialog is dismissed or
-   * unavailable (some WebViews), the user can still read it and print/share
-   * manually. If pop-ups are blocked we fall back to saving it as a file so the
-   * statement is never lost.
+   * If rasterising ever fails (e.g. a library load hiccup), we fall back to the
+   * print-to-PDF pipeline on the self-contained buildLoanStatementHtml document
+   * so the statement is never lost.
    */
-  const handleDownload = () => {
+  const handleDownload = async () => {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      if (sheetRef.current) {
+        await downloadElementAsPdf(sheetRef.current, `Loan-Statement-${safeName}.pdf`);
+        return;
+      }
+      throw new Error('statement panel not ready');
+    } catch {
+      printFallback();
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  /** Fallback: open the self-contained statement in a new tab that self-prints
+   *  (Save as PDF). Used only if client-side rasterisation is unavailable. */
+  const printFallback = () => {
     const html = buildLoanStatementHtml({
       customer, sorted, fineByEmi, totals,
       grandPaid, grandRemaining, loanAmount, firstDue, lastDue, emiPaidOf,
     });
-
-    // Inject a self-print trigger: fire the print dialog ~400ms after load (so
-    // layout + the borrower photo have painted — printing too early is the
-    // classic cause of a blank PDF), then close the tab once printing is done.
     const printable = html.replace(
       '</body>',
       '<script>(function(){function p(){try{window.focus();window.print();}catch(e){}}' +
-      "window.addEventListener('load',function(){setTimeout(p,400);});" +
-      'window.onafterprint=function(){setTimeout(function(){try{window.close();}catch(e){}},300);};})();' +
-      '</script></body>',
+      "window.addEventListener('load',function(){setTimeout(p,400);});})();</script></body>",
     );
-
-    const blob = new Blob([printable], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-
+    const url = URL.createObjectURL(new Blob([printable], { type: 'text/html' }));
     const win = window.open(url, '_blank');
-    if (win) {
-      win.focus();
-      setTimeout(() => URL.revokeObjectURL(url), 120000);
-      return;
+    if (!win) {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Loan-Statement-${safeName}.html`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
     }
-
-    // Pop-up blocked → save the statement as a file. It opens in any browser and
-    // prints itself, so "Download PDF" always produces something usable.
-    const safeName = String(customer?.customer_name || 'customer').replace(/[^\w]+/g, '-');
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Loan-Statement-${safeName}.html`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 120000);
   };
 
@@ -154,6 +160,7 @@ export default function LoanStatementModal({
       onClick={onClose}
     >
       <motion.div
+        ref={sheetRef}
         className="statement-sheet relative max-h-[94vh] w-full overflow-y-auto rounded-t-3xl bg-white shadow-modal sm:max-w-3xl sm:rounded-3xl"
         initial={{ y: 40, opacity: 0, scale: 0.98 }}
         animate={{ y: 0, opacity: 1, scale: 1 }}
@@ -194,9 +201,10 @@ export default function LoanStatementModal({
           <div className="no-print flex items-center gap-2">
             <button
               onClick={handleDownload}
-              className="rounded-lg bg-white/15 px-3 py-2 text-xs font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
+              disabled={downloading}
+              className="rounded-lg bg-white/15 px-3 py-2 text-xs font-semibold text-white backdrop-blur transition-colors hover:bg-white/25 disabled:opacity-60"
             >
-              ⬇ Download PDF
+              {downloading ? '⏳ Preparing…' : '⬇ Download PDF'}
             </button>
             <button onClick={onClose} aria-label="Close" className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/15 text-white hover:bg-white/25">
               ✕

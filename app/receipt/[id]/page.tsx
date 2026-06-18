@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import { notFound } from 'next/navigation';
 import PrintButton from '@/components/PrintButton';
+import DownloadPdfButton from '@/components/DownloadPdfButton';
 
 function fmt(n: number) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(n);
@@ -52,14 +53,12 @@ export default async function ReceiptPage({ params }: { params: { id: string } }
         {/* Print / action buttons */}
         <div id="no-print" style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
           <PrintButton />
-          {/* Download receipt via API — works on mobile too */}
-          <a
-            href={`/api/receipt/${params.id}`}
-            download={`receipt-${params.id.slice(0, 8)}.html`}
-            style={{ padding: '0.625rem 1.25rem', background: '#1d4ed8', color: 'white', border: 'none', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none' }}
-          >
-            ⬇️ Download Receipt
-          </a>
+          {/* Download the receipt as a real PDF file (rasterised client-side). */}
+          <DownloadPdfButton
+            targetId="receipt-card"
+            filename={`receipt-${params.id.slice(0, 8)}.pdf`}
+            label="⬇️ Download PDF"
+          />
           <a
             href={`https://wa.me/?text=${encodeURIComponent(
               [
@@ -85,7 +84,7 @@ export default async function ReceiptPage({ params }: { params: { id: string } }
         </div>
 
         {/* Receipt card */}
-        <div style={{ background: 'white', borderRadius: '1.5rem', overflow: 'hidden', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', border: '1px solid #e2e8f0' }}>
+        <div id="receipt-card" style={{ background: 'white', borderRadius: '1.5rem', overflow: 'hidden', boxShadow: '0 8px 40px rgba(0,0,0,0.12)', border: '1px solid #e2e8f0' }}>
 
           {/* Brand header */}
           <div style={{ background: 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)', padding: '1.75rem 2rem', textAlign: 'center' }}>
