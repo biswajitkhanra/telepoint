@@ -94,11 +94,17 @@ export default function LoanStatementModal({
   const lastDue = sorted[sorted.length - 1]?.due_date;
 
   /**
-   * Download the statement as a PDF. We build a fully self-contained white
-   * document (see buildLoanStatementHtml) and print it from an off-screen
-   * iframe — never the live modal, which is dark-themed and printed all-black.
-   * The HTML lives in a pure, unit-tested helper so we can verify it is never
-   * blank without a browser.
+   * Download / print the statement as a PDF. We build a fully self-contained
+   * white document (buildLoanStatementHtml — a pure, unit-tested helper) and
+   * open it in a real new tab, where an injected script triggers the browser's
+   * Print → "Save as PDF" dialog once the page has painted.
+   *
+   * Why a visible tab rather than a hidden print-iframe: the iframe approach
+   * silently failed for some users (no dialog, or a blank page). A real tab
+   * always shows the complete statement — if the print dialog is dismissed or
+   * unavailable (some WebViews), the user can still read it and print/share
+   * manually. If pop-ups are blocked we fall back to saving it as a file so the
+   * statement is never lost.
    */
   const handleDownload = () => {
     const html = buildLoanStatementHtml({
@@ -106,61 +112,37 @@ export default function LoanStatementModal({
       grandPaid, grandRemaining, loanAmount, firstDue, lastDue, emiPaidOf,
     });
 
-    // Feed the document to an off-screen iframe via a Blob URL and print it on
-    // the iframe's own `load` event. This is the reliable recipe:
-    //   • A blob: src guarantees the document is fully parsed, laid out AND
-    //     painted before `load` fires. Printing a `document.write`-d iframe on a
-    //     bare timer is the classic cause of a BLANK PDF in Chrome — print fires
-    //     before the frame has painted.
-    //   • Tear down on `afterprint` (with a long fallback) so the asynchronous
-    //     PDF rasteriser on mobile / WebView never loses its render tree.
-    //   • If the browser can't print (some WebViews where window.print is a
-    //     no-op or throws), fall back to opening the statement in a new tab so
-    //     it is never silently lost.
-    const blob = new Blob([html], { type: 'text/html' });
+    // Inject a self-print trigger: fire the print dialog ~400ms after load (so
+    // layout + the borrower photo have painted — printing too early is the
+    // classic cause of a blank PDF), then close the tab once printing is done.
+    const printable = html.replace(
+      '</body>',
+      '<script>(function(){function p(){try{window.focus();window.print();}catch(e){}}' +
+      "window.addEventListener('load',function(){setTimeout(p,400);});" +
+      'window.onafterprint=function(){setTimeout(function(){try{window.close();}catch(e){}},300);};})();' +
+      '</script></body>',
+    );
+
+    const blob = new Blob([printable], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
 
-    const iframe = document.createElement('iframe');
-    iframe.setAttribute('aria-hidden', 'true');
-    iframe.setAttribute('tabindex', '-1');
-    // Off-screen but FULLY rendered — never display:none / zero-size / opacity:0,
-    // which leave the print engine no render tree (blank pages).
-    iframe.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;height:1123px;border:0;background:#fff;';
+    const win = window.open(url, '_blank');
+    if (win) {
+      win.focus();
+      setTimeout(() => URL.revokeObjectURL(url), 120000);
+      return;
+    }
 
-    let settled = false;
-    const cleanup = () => {
-      if (settled) return;
-      settled = true;
-      setTimeout(() => { iframe.remove(); URL.revokeObjectURL(url); }, 1500);
-    };
-    const openFallback = () => {
-      if (settled) return;
-      settled = true;
-      window.open(url, '_blank', 'noopener');
-      setTimeout(() => { iframe.remove(); URL.revokeObjectURL(url); }, 60000);
-    };
-
-    let triggered = false;
-    const triggerPrint = () => {
-      if (triggered) return;
-      triggered = true;
-      const win = iframe.contentWindow;
-      if (!win) { openFallback(); return; }
-      win.onafterprint = cleanup;
-      setTimeout(cleanup, 60000); // safety net if afterprint never fires
-      // A tick after load so layout/paint is fully settled before printing.
-      setTimeout(() => {
-        try { win.focus(); win.print(); }
-        catch { openFallback(); }
-      }, 300);
-    };
-
-    iframe.onload = triggerPrint;
-    iframe.src = url;
-    document.body.appendChild(iframe);
-    // Fallback if `load` never fires (e.g. a blocked/hung borrower photo) so the
-    // statement can never be left unprinted.
-    setTimeout(triggerPrint, 3000);
+    // Pop-up blocked → save the statement as a file. It opens in any browser and
+    // prints itself, so "Download PDF" always produces something usable.
+    const safeName = String(customer?.customer_name || 'customer').replace(/[^\w]+/g, '-');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Loan-Statement-${safeName}.html`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 120000);
   };
 
   const overlay = (

@@ -131,6 +131,15 @@ export function buildLoanStatementHtml(args: BuildStatementArgs): string {
   const detail = (label: string, value: unknown) =>
     `<div><div style="font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:#64748b">${label}</div><div style="font-weight:600;color:#0f172a">${esc(value)}</div></div>`;
 
+  // Charge-wise breakup card (mirrors the modal's SummaryCard) so the PDF
+  // carries the same paid/remaining split per charge head as the on-screen view.
+  const chargeCard = (title: string, paid: number, remaining: number) =>
+    `<div class="card" style="background:#f8fafc">
+      <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#64748b">${title}</div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-top:6px"><span style="color:#64748b">Paid</span><span style="color:#047857;font-weight:600">${esc(fmt(paid))}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-top:2px"><span style="color:#64748b">Remaining</span><span style="color:#be123c;font-weight:600">${esc(fmt(remaining))}</span></div>
+    </div>`;
+
   return `<!doctype html><html><head><meta charset="utf-8"><title>Loan Statement — ${esc(customer?.customer_name)}</title>
 <style>
   *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -198,6 +207,13 @@ export function buildLoanStatementHtml(args: BuildStatementArgs): string {
         <td style="padding:7px 10px;text-align:right">${esc(fmt(totals.emiRemaining))}</td>
       </tr></tfoot>
     </table>
+  </div>
+
+  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#64748b;margin:18px 0 6px">Charge-wise Breakup</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+    ${chargeCard('EMI Principal', totals.emiPaid, totals.emiRemaining)}
+    ${chargeCard('Late Payment Fine', totals.finePaid, totals.fineRemaining)}
+    ${chargeCard('1st EMI Charge', totals.firstChargePaid, totals.firstChargeRemaining)}
   </div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">
