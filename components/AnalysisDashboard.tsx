@@ -12,20 +12,14 @@ import { SPRING, cardRise, staggerContainer, fadeUp } from '@/lib/motion';
  *
  * Compares the selected month against the SAME month one year earlier
  * (e.g. June 2026 vs June 2025) across loan disbursal, collection, customer
- * growth and bounce risk, and ranks ALL partner retailers by leads generated
- * (new customers added) and EMI collected.
- *
- * Dates: every figure is anchored to the data's OWN time/date — purchase date
- * for new loans, and each EMI's collection date (collection_requested_at,
- * falling back to paid_at, then due_date) for money received — never to the
- * portal upload / approval timestamp. This keeps history imported from the
- * Google sheet in its real month instead of bunching it into the upload day.
+ * growth and bounce risk, and ranks partner retailers by leads generated and
+ * EMI collected.
  *
  * Data path: tries the optimized `get_emi_analysis(p_month, p_year)` RPC
- * first (see migrations/023_analysis_collection_by_date.sql). If that function
- * is not deployed yet it falls back to client-side aggregation over the
- * customers / emi_schedule / retailers tables, so the dashboard works out of
- * the box.
+ * first (see migrations/018_analysis_dashboard.sql). If that function is not
+ * deployed yet it falls back to client-side aggregation over the existing
+ * customers / emi_schedule / payment_requests / retailers tables, so the
+ * dashboard works out of the box.
  */
 
 const MONTHS = [
@@ -35,10 +29,10 @@ const MONTHS = [
 
 interface PeriodMetrics {
   loanGiven: number;    // Loan disbursed for plans started this month (disburse_amount, else value − down payment)
-  collected: number;    // EMI + fines + charges actually collected this month (by collection date, not portal-approval date)
+  collected: number;    // EMI + fines + charges actually collected this month
   customers: number;    // Unique customers who opted into a plan this month
   dueEmis: number;      // EMI installments scheduled to fall due this month (bounce denominator)
-  bouncedEmis: number;  // Of those due, how many were NOT collected on schedule (default / bounce)
+  bouncedEmis: number;  // Of those due, how many are still unpaid (default / bounce)
 }
 
 interface LeaderRow {
@@ -77,33 +71,6 @@ function loanOf(c: { disburse_amount?: number | null; purchase_value?: number | 
   return Math.max(0, Number(c.purchase_value || 0) - Number(c.down_payment || 0));
 }
 
-type EmiRow = {
-  customer_id?: string; due_date?: string; status?: string;
-  amount?: number; partial_paid_amount?: number; fine_paid_amount?: number;
-  paid_at?: string | null; collection_requested_at?: string | null;
-};
-
-/**
- * The date money for this EMI was actually collected — NOT the portal-approval
- * (upload) date. Anchors to when collection was first initiated, falling back
- * to the paid date, then the scheduled due date. This is what keeps imported
- * historical data in its real month instead of bunching it into the upload day.
- */
-function collectionDateOf(e: EmiRow): string | undefined {
-  return e.collection_requested_at || e.paid_at || e.due_date || undefined;
-}
-
-/** True when an EMI is treated as collected on schedule (never a bounce). */
-function paidOnSchedule(e: EmiRow, customerStatus: string | undefined): boolean {
-  return e.status === 'APPROVED' || customerStatus === 'COMPLETE';
-}
-
-/** Principal rupees collected on this EMI (full when paid/closed, else the partial). */
-function emiPrincipalCollected(e: EmiRow, customerStatus: string | undefined): number {
-  if (paidOnSchedule(e, customerStatus)) return Number(e.amount || 0);
-  return Number(e.partial_paid_amount || 0);
-}
-
 function bounceRate(p: PeriodMetrics): number {
   return p.dueEmis > 0 ? (p.bouncedEmis / p.dueEmis) * 100 : 0;
 }
@@ -133,14 +100,11 @@ export default function AnalysisDashboard({
       }
 
       // 2) Fallback: aggregate the raw tables in the browser.
-      // Collection + bounce are derived from emi_schedule (anchored to each
-      // EMI's OWN dates), never from payment_requests.approved_at — old data
-      // imported from the Google sheet has no payment_requests, so an approval
-      // (upload) date would bunch every historical rupee into the upload month.
-      const [{ data: customers }, { data: emis }, { data: retailers }] =
+      const [{ data: customers }, { data: emis }, { data: payments }, { data: retailers }] =
         await Promise.all([
-          supabase.from('customers').select('id, retailer_id, status, purchase_value, down_payment, disburse_amount, purchase_date, created_at, first_emi_charge_amount, first_emi_charge_paid_at'),
-          supabase.from('emi_schedule').select('customer_id, due_date, status, amount, partial_paid_amount, fine_paid_amount, paid_at, collection_requested_at'),
+          supabase.from('customers').select('id, retailer_id, status, purchase_value, down_payment, disburse_amount, purchase_date, created_at'),
+          supabase.from('emi_schedule').select('customer_id, due_date, status'),
+          supabase.from('payment_requests').select('customer_id, retailer_id, total_amount, status, approved_at'),
           supabase.from('retailers').select('id, name'),
         ]);
 
@@ -152,86 +116,57 @@ export default function AnalysisDashboard({
         id?: string; retailer_id?: string; status?: string;
         purchase_date?: string; created_at?: string;
         purchase_value?: number; down_payment?: number; disburse_amount?: number;
-        first_emi_charge_amount?: number; first_emi_charge_paid_at?: string | null;
       };
-
-      const customerRows = (customers || []) as CustomerRow[];
-      const emiRows = (emis || []) as EmiRow[];
 
       // Count both active (RUNNING) and finished (COMPLETE) loans; exclude
       // SETTLED early-closures and NPA write-offs from the business figures.
       const COUNTED = new Set(['RUNNING', 'COMPLETE']);
-      const statusOf = new Map<string, string>();
-      const retailerOf = new Map<string, string>();
-      const countedCustomerIds = new Set<string>();
-      for (const c of customerRows) {
-        if (!c.id) continue;
-        statusOf.set(c.id, c.status || '');
-        if (c.retailer_id) retailerOf.set(c.id, c.retailer_id);
-        if (COUNTED.has(c.status || '')) countedCustomerIds.add(c.id);
-      }
+      const countedCustomerIds = new Set<string>(
+        ((customers || []) as CustomerRow[])
+          .filter((c) => c.id && COUNTED.has(c.status || ''))
+          .map((c) => c.id as string),
+      );
 
       const period = (y: number): PeriodMetrics => {
         const p: PeriodMetrics = { ...EMPTY_PERIOD };
-        for (const c of customerRows) {
+        for (const c of (customers || []) as CustomerRow[]) {
           if (COUNTED.has(c.status || '') && inMonth(c.purchase_date || c.created_at, y, month)) {
             p.loanGiven += loanOf(c);
             p.customers += 1;
           }
-          // 1st-EMI charge counts as collection in the month it was paid.
-          if (COUNTED.has(c.status || '') && c.first_emi_charge_paid_at && inMonth(c.first_emi_charge_paid_at, y, month)) {
-            p.collected += Number(c.first_emi_charge_amount || 0);
+        }
+        for (const e of (emis || []) as Array<{ customer_id?: string; due_date?: string; status?: string }>) {
+          if (e.customer_id && countedCustomerIds.has(e.customer_id) && inMonth(e.due_date, y, month)) {
+            p.dueEmis += 1;
+            if (e.status !== 'APPROVED') p.bouncedEmis += 1;
           }
         }
-        for (const e of emiRows) {
-          if (!e.customer_id || !countedCustomerIds.has(e.customer_id)) continue;
-          const st = statusOf.get(e.customer_id);
-          // Collection — attributed to the month the money actually came in.
-          const principal = emiPrincipalCollected(e, st);
-          const fine = Number(e.fine_paid_amount || 0);
-          if ((principal > 0 || fine > 0) && inMonth(collectionDateOf(e), y, month)) {
-            p.collected += principal + fine;
-          }
-          // Bounce — installments due this month not collected on schedule.
-          if (inMonth(e.due_date, y, month)) {
-            p.dueEmis += 1;
-            if (!paidOnSchedule(e, st)) p.bouncedEmis += 1;
+        for (const pay of (payments || []) as Array<{ customer_id?: string; status?: string; approved_at?: string; total_amount?: number }>) {
+          if (pay.customer_id && countedCustomerIds.has(pay.customer_id) && pay.status === 'APPROVED' && inMonth(pay.approved_at, y, month)) {
+            p.collected += Number(pay.total_amount || 0);
           }
         }
         return p;
       };
 
-      // Leaderboards reflect the selected month of the CURRENT year and list
-      // EVERY participating retailer (not just the top few).
-      // Lead board = new customers added this month.
+      // Leaderboards reflect the selected month of the CURRENT year.
       const leadMap = new Map<string, number>();
-      for (const c of customerRows) {
+      for (const c of (customers || []) as CustomerRow[]) {
         if (c.retailer_id && COUNTED.has(c.status || '') && inMonth(c.purchase_date || c.created_at, year, month)) {
           leadMap.set(c.retailer_id, (leadMap.get(c.retailer_id) || 0) + 1);
         }
       }
-      // Collection board = rupees collected this month, by collection date.
       const collMap = new Map<string, number>();
-      for (const e of emiRows) {
-        if (!e.customer_id || !countedCustomerIds.has(e.customer_id)) continue;
-        const rid = retailerOf.get(e.customer_id);
-        if (!rid) continue;
-        const st = statusOf.get(e.customer_id);
-        const value = emiPrincipalCollected(e, st) + Number(e.fine_paid_amount || 0);
-        if (value > 0 && inMonth(collectionDateOf(e), year, month)) {
-          collMap.set(rid, (collMap.get(rid) || 0) + value);
-        }
-      }
-      for (const c of customerRows) {
-        if (c.retailer_id && COUNTED.has(c.status || '') && c.first_emi_charge_paid_at && inMonth(c.first_emi_charge_paid_at, year, month)) {
-          collMap.set(c.retailer_id, (collMap.get(c.retailer_id) || 0) + Number(c.first_emi_charge_amount || 0));
+      for (const pay of (payments || []) as Array<{ customer_id?: string; retailer_id?: string; status?: string; approved_at?: string; total_amount?: number }>) {
+        if (pay.retailer_id && pay.customer_id && countedCustomerIds.has(pay.customer_id) && pay.status === 'APPROVED' && inMonth(pay.approved_at, year, month)) {
+          collMap.set(pay.retailer_id, (collMap.get(pay.retailer_id) || 0) + Number(pay.total_amount || 0));
         }
       }
       const toBoard = (m: Map<string, number>): LeaderRow[] =>
         [...m.entries()]
           .map(([retailerId, value]) => ({ retailerId, name: retailerName.get(retailerId) || 'Unknown shop', value }))
-          .filter((r) => r.value > 0)
-          .sort((a, b) => b.value - a.value);
+          .sort((a, b) => b.value - a.value)
+          .slice(0, 5);
 
       setData({
         thisYear: period(year),
