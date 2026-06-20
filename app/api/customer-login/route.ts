@@ -7,8 +7,19 @@ export async function POST(req: NextRequest) {
 
   const serviceClient = createServiceClient();
 
-  // Direct load by customer_id (from multi-loan selection)
+  // Direct load by customer_id (from multi-loan selection). This MUST still
+  // prove ownership: the multi-loan list only ever contains loans that matched
+  // the Aadhaar/mobile the customer just entered, so we re-verify that same
+  // credential against the selected record. Without this check the endpoint
+  // (which is public, by design, for customer self-service) would hand full
+  // PII to anyone who knows/guesses a customer_id — an IDOR.
   if (customer_id) {
+    const idAadhaar = (aadhaar ?? '').replace(/\D/g, '');
+    const idMobile = (mobile ?? '').replace(/\D/g, '');
+    if (!idAadhaar && !idMobile) {
+      return NextResponse.json({ error: 'Verification required. Please log in again.' }, { status: 401 });
+    }
+
     const { data: customer } = await serviceClient
       .from('customers')
       .select(`
@@ -25,6 +36,13 @@ export async function POST(req: NextRequest) {
 
     if (!customer) {
       return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
+    }
+
+    // Credential must match the selected loan (digits-only, format-agnostic).
+    const aadhaarMatch = idAadhaar !== '' && String(customer.aadhaar ?? '').replace(/\D/g, '') === idAadhaar;
+    const mobileMatch = idMobile !== '' && String(customer.mobile ?? '').replace(/\D/g, '') === idMobile;
+    if (!aadhaarMatch && !mobileMatch) {
+      return NextResponse.json({ error: 'Verification failed. Please log in again.' }, { status: 401 });
     }
 
     const { data: emis } = await serviceClient

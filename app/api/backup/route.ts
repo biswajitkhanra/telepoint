@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { timingSafeEqual } from 'crypto';
 import { createServiceClient } from '@/lib/supabase/server';
 import { fetchAllPaged } from '@/lib/dbFetch';
 
@@ -32,6 +33,14 @@ const TABLES: Record<string, string> = {
   audit_log:             'id',
 };
 
+/** Constant-time string equality — avoids leaking the token via timing. */
+function safeEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  if (ab.length !== bb.length) return false;
+  return timingSafeEqual(ab, bb);
+}
+
 function authorize(req: NextRequest): boolean {
   const expected = process.env.BACKUP_TOKEN;
   if (!expected) return false; // fail-closed when unconfigured
@@ -41,8 +50,7 @@ function authorize(req: NextRequest): boolean {
     : '';
   const queryToken = req.nextUrl.searchParams.get('token') || '';
   const provided = bearer || queryToken;
-  // Constant-ish comparison (length check first); tokens are high-entropy.
-  return provided.length > 0 && provided === expected;
+  return provided.length > 0 && safeEqual(provided, expected);
 }
 
 export async function GET(req: NextRequest) {

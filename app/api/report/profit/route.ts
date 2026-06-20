@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/server';
+import { requireSuperAdmin } from '@/lib/apiAuth';
+// Whole-portfolio profit across ALL retailers — super-admin only.
 export async function GET(req: NextRequest) {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await requireSuperAdmin();
+  if ('error' in auth) return auth.error;
   const svc = createServiceClient();
   const m = parseInt(req.nextUrl.searchParams.get('month') || String(new Date().getMonth()+1));
   const y = parseInt(req.nextUrl.searchParams.get('year') || String(new Date().getFullYear()));

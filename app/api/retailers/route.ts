@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServiceClient, createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/server';
+import { requireSuperAdmin } from '@/lib/apiAuth';
+
+// Retailer account management is super-admin only: these handlers create auth
+// users, reset login passwords, toggle access and delete accounts. Previously
+// POST/PATCH only checked "is signed in" (so any retailer could mint accounts
+// or reset another retailer's password) and DELETE had no check at all.
 
 export async function POST(req: NextRequest) {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+  const auth = await requireSuperAdmin();
+  if ('error' in auth) return auth.error;
+  const { user } = auth;
 
   const body = await req.json();
   const { name, username, password, retail_pin, mobile } = body;
@@ -57,9 +63,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+  const auth = await requireSuperAdmin();
+  if ('error' in auth) return auth.error;
 
   const body = await req.json();
   const { id, name, password, retail_pin, is_active, mobile } = body;
@@ -99,6 +104,9 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const auth = await requireSuperAdmin();
+  if ('error' in auth) return auth.error;
+
   const serviceClient = createServiceClient();
   const { searchParams } = new URL(req.url);
   const id = searchParams.get('id');

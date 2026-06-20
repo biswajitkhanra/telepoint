@@ -173,7 +173,9 @@ export default function CustomerPortal() {
       const res = await fetch('/api/customer-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customer_id: customerId }),
+        // Re-send the credential the customer logged in with so the server can
+        // verify ownership of the selected loan (prevents customer_id IDOR).
+        body: JSON.stringify({ customer_id: customerId, aadhaar: aadhaar || undefined, mobile: mobile || undefined }),
       });
       const data = await readJsonSafe<{ error?: string; customer?: unknown; emis?: unknown[]; breakdown?: unknown; multi?: boolean; customers?: unknown[]; broadcasts?: unknown[] }>(res) || {};
       if (!res.ok) { toast.error(data.error); return; }

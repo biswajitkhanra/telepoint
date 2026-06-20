@@ -1,6 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 
+// HTML-escape any value interpolated into the receipt markup. Customer names,
+// UTR references and retailer names are operator-supplied free text; without
+// escaping, a crafted value (e.g. a name containing <script>) would execute in
+// the browser of whoever opens the receipt (stored XSS). Escaping renders the
+// exact same text, inertly.
+function esc(v: unknown): string {
+  return String(v ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function fmt(n: number) {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
@@ -116,8 +130,8 @@ export async function GET(
   const firstEmiCharge = Number(request.first_emi_charge_amount ?? 0);
   const totalAmount = Number(request.total_amount ?? 0);
 
-  // Customer photo — handle IBB and direct URLs
-  const photoUrl = ibbDirect(customer?.customer_photo_url ?? '');
+  // Customer photo — handle IBB and direct URLs (escaped for the src attribute).
+  const photoUrl = esc(ibbDirect(customer?.customer_photo_url ?? ''));
   const photoHtml = photoUrl
     ? `<img src="${photoUrl}" alt="Customer Photo" style="width:80px;height:80px;border-radius:12px;object-fit:cover;border:2px solid #e2e8f0;display:block;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
        <div style="display:none;width:80px;height:80px;border-radius:12px;background:#f1f5f9;border:2px solid #e2e8f0;align-items:center;justify-content:center;color:#94a3b8;font-size:0.7rem;text-align:center;">No<br>Photo</div>`
@@ -176,9 +190,9 @@ export async function GET(
       <div class="customer-row">
         ${photoHtml}
         <div>
-          <p style="font-weight:700;font-size:0.95rem;">${customer?.customer_name ?? '—'}</p>
-          <p style="font-size:0.78rem;color:#64748b;margin-top:0.2rem;">${retailer?.name ?? '—'}</p>
-          ${retailer?.mobile ? `<p style="font-size:0.72rem;color:#94a3b8;font-family:monospace;">${retailer.mobile}</p>` : ''}
+          <p style="font-weight:700;font-size:0.95rem;">${esc(customer?.customer_name ?? '—')}</p>
+          <p style="font-size:0.78rem;color:#64748b;margin-top:0.2rem;">${esc(retailer?.name ?? '—')}</p>
+          ${retailer?.mobile ? `<p style="font-size:0.72rem;color:#94a3b8;font-family:monospace;">${esc(retailer.mobile)}</p>` : ''}
         </div>
       </div>
 
@@ -192,7 +206,7 @@ export async function GET(
 
       <div class="section-title">Transaction</div>
       <div class="kv"><span class="kv-label">Payment Mode</span><span class="kv-value bold" style="color:${request.mode === 'UPI' ? '#1d4ed8' : '#16a34a'};">${request.mode}</span></div>
-      ${request.utr ? `<div class="kv"><span class="kv-label">UTR / Reference</span><span class="kv-value mono" style="font-size:0.72rem;">${request.utr}</span></div>` : ''}
+      ${request.utr ? `<div class="kv"><span class="kv-label">UTR / Reference</span><span class="kv-value mono" style="font-size:0.72rem;">${esc(request.utr)}</span></div>` : ''}
       <div class="kv"><span class="kv-label">Date & Time</span><span class="kv-value mono" style="font-size:0.72rem;">${fmtDate(request.created_at)}</span></div>
       <div class="kv"><span class="kv-label">Status</span><span class="kv-value bold" style="color:${statusColor};">${statusLabel}</span></div>
       ${request.approved_at ? `<div class="kv"><span class="kv-label">Approved</span><span class="kv-value mono" style="font-size:0.72rem;">${fmtDate(request.approved_at)}</span></div>` : ''}
@@ -202,7 +216,7 @@ export async function GET(
         : `<div class="next-emi" style="background:#eff6ff;border-color:#93c5fd;"><p style="color:#1d4ed8;">✅ No Further EMI Due</p><span style="color:#1e40af;">All EMIs completed</span></div>`
       }
 
-      ${request.rejection_reason ? `<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:0.6rem;padding:0.6rem 0.75rem;margin-top:0.75rem;"><p style="font-size:0.65rem;color:#991b1b;font-weight:700;text-transform:uppercase;margin-bottom:0.2rem;">Rejection Reason</p><p style="font-size:0.8rem;color:#991b1b;">${request.rejection_reason}</p></div>` : ''}
+      ${request.rejection_reason ? `<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:0.6rem;padding:0.6rem 0.75rem;margin-top:0.75rem;"><p style="font-size:0.65rem;color:#991b1b;font-weight:700;text-transform:uppercase;margin-bottom:0.2rem;">Rejection Reason</p><p style="font-size:0.8rem;color:#991b1b;">${esc(request.rejection_reason)}</p></div>` : ''}
 
       <div class="footer">
         <p>TelePoint EMI Portal · Thank you</p>

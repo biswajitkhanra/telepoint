@@ -1,5 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/apiAuth';
+
+// HTML-escape operator-supplied text before embedding it in the letter markup
+// (prevents stored XSS via a crafted customer / retailer name).
+function esc(v: unknown): string {
+  return String(v ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 function fmt(n: number) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(n);
@@ -13,6 +25,12 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  // Authn + tenant authz: super admins may view any letter; a retailer may
+  // view only their own customers' letters. Prevents cross-tenant PII access.
+  const auth = await requireUser();
+  if ('error' in auth) return auth.error;
+  const { user, role } = auth;
+
   const svc = createServiceClient();
   const { data: customer } = await svc
     .from('customers')
@@ -24,11 +42,22 @@ export async function GET(
     return new NextResponse('Settlement letter not available', { status: 404 });
   }
 
+  if (role !== 'super_admin') {
+    const { data: r } = await svc
+      .from('retailers')
+      .select('id')
+      .eq('auth_user_id', user.id)
+      .single();
+    if (!r || r.id !== customer.retailer_id) {
+      return new NextResponse('Forbidden', { status: 403 });
+    }
+  }
+
   const retailer = customer.retailer as { name?: string; mobile?: string } | null;
 
   const html = `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Settlement Letter - ${customer.customer_name}</title>
+<title>Settlement Letter - ${esc(customer.customer_name)}</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   body{font-family:Georgia,serif;background:#f8fafc;padding:2rem 1rem;color:#1e293b}
@@ -59,12 +88,12 @@ export async function GET(
 
     <p style="font-size:.85rem;color:#64748b;margin-bottom:1rem">Date: ${fmtDate(customer.settlement_date || customer.completion_date || new Date().toISOString())}</p>
 
-    <div class="kv"><span>Customer Name</span><span>${customer.customer_name}</span></div>
-    ${customer.father_name ? `<div class="kv"><span>Father / C/O</span><span>${customer.father_name}</span></div>` : ''}
-    <div class="kv"><span>Mobile</span><span>${customer.mobile}</span></div>
-    <div class="kv"><span>IMEI</span><span style="font-family:monospace;font-size:.8rem">${customer.imei}</span></div>
-    ${customer.model_no ? `<div class="kv"><span>Device</span><span>${customer.model_no}</span></div>` : ''}
-    <div class="kv"><span>Retailer</span><span>${retailer?.name || '—'}</span></div>
+    <div class="kv"><span>Customer Name</span><span>${esc(customer.customer_name)}</span></div>
+    ${customer.father_name ? `<div class="kv"><span>Father / C/O</span><span>${esc(customer.father_name)}</span></div>` : ''}
+    <div class="kv"><span>Mobile</span><span>${esc(customer.mobile)}</span></div>
+    <div class="kv"><span>IMEI</span><span style="font-family:monospace;font-size:.8rem">${esc(customer.imei)}</span></div>
+    ${customer.model_no ? `<div class="kv"><span>Device</span><span>${esc(customer.model_no)}</span></div>` : ''}
+    <div class="kv"><span>Retailer</span><span>${esc(retailer?.name || '—')}</span></div>
 
     <div class="divider"></div>
 
