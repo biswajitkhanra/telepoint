@@ -1,12 +1,17 @@
 # TelePoint database backup
 
-There are two ways to mirror the portal database for safekeeping. **The
-GitHub Actions method below is the recommended, working default** — it has no
-Google account, no Apps Script, and no daily quota to hit. The older Google
-Sheets method is kept further down as an optional alternative.
+There are three ways to keep a safe copy of the portal database. **Pick the one
+that matches what you want:**
 
-Both read from the same secured endpoint, `GET /api/backup` (code in
-`app/api/backup/route.ts`).
+| You want… | Use |
+|-----------|-----|
+| A copy **emailed to your inbox every day** (all customers, all details) | **Method 3** below |
+| A versioned copy committed into this repo every 12 h | Method 1 (GitHub Actions) |
+| A live mirror inside a Google Sheet | Method 2 (Google Sheets) |
+
+All three read from the same secured endpoint, `GET /api/backup` (code in
+`app/api/backup/route.ts`), gated by the `BACKUP_TOKEN` secret — set that once
+(see Method 1, step 1) and any of the methods will work.
 
 ---
 
@@ -161,3 +166,52 @@ client) and is documented as a follow-up — ask and it can be added.
 The same security notes from Method 1 apply: the endpoint is fail-closed, the
 `BACKUP_TOKEN` is a password (here it lives in the Sheet's Script properties),
 and the `Authorization: Bearer` header is preferred over `?token=`.
+
+---
+
+# Method 3 (recommended for you): daily email to your inbox
+
+A small Google Apps Script pulls every table from `/api/backup` once a day,
+packs them as CSV files into a single dated `.zip`, and **emails it to you** —
+with `customers.csv` (all customers, every column) attached separately so you
+can open it without unzipping. It sends to any address, including
+Hotmail/Outlook, and needs no email provider or server change.
+
+```
+Portal DB ──/api/backup──▶ Apps Script (daily trigger) ──▶ 📧 your inbox (.zip + customers.csv)
+```
+
+File: `backup/telepoint-email-backup.gs`.
+
+## Setup (one time, ~2 minutes)
+
+1. Make sure the server `BACKUP_TOKEN` is set (Method 1, step 1).
+2. Go to <https://script.google.com> → **New project** (or open the Apps Script
+   project of your backup Sheet and add a new file).
+3. Paste in the whole of `backup/telepoint-email-backup.gs`.
+4. **Project Settings (gear) → Script properties → Add**, three properties:
+   | Property | Value |
+   |----------|-------|
+   | `PORTAL_URL` | `https://your-portal.vercel.app` |
+   | `BACKUP_TOKEN` | the same secret set on the server |
+   | `BACKUP_EMAIL` | `kamfrens62@hotmail.com` (or wherever you want it) |
+5. Select the function **`setupDailyEmailTrigger`** → **Run**, and approve the
+   one-time authorization prompt. This installs the daily trigger **and sends
+   one email immediately** so you can confirm it arrives.
+
+## How it behaves
+
+- **Frequency:** once a day, ~07:00 (script timezone). Change `atHour(7)` in
+  `setupDailyEmailTrigger` to move it; run that function again to apply.
+- **All details:** every column of every whitelisted table, all customers, all
+  history — exactly what `/api/backup` serves.
+- **Two attachments:** `telepoint-backup-YYYY-MM-DD.zip` (all tables as CSV) and
+  `customers-YYYY-MM-DD.csv` (quick open).
+- **Quota-safe:** one email/day is well within Google's free daily mail limit,
+  and the script takes a lock so a manual run can't collide with the timed one.
+- **Stop / run now:** run `removeDailyEmailTrigger` to stop; run
+  `emailDailyBackup` any time for an on-demand copy.
+
+Security notes from Method 1 apply: the endpoint is fail-closed, `BACKUP_TOKEN`
+is a password (here it lives in the Script properties), and the script uses the
+`Authorization: Bearer` header (not the `?token=` query form).
