@@ -12,7 +12,6 @@ import NavBar from '@/components/NavBar';
 import SearchInput from '@/components/SearchInput';
 import CustomerDetailPanel from '@/components/CustomerDetailPanel';
 import CustomerPaymentSummary from '@/components/CustomerPaymentSummary';
-import RetailerPaymentSummary from '@/components/RetailerPaymentSummary';
 import EMIScheduleTable from '@/components/EMIScheduleTable';
 import DueBreakdownPanel from '@/components/DueBreakdownPanel';
 import SmartAlertPopup from '@/components/SmartAlertPopup';
@@ -350,16 +349,12 @@ export default function RetailerDashboard() {
           </div>
         </motion.div>
 
-        {/* Consolidated retailer payment summary — top of the page */}
-        {retailer && (
-          <div className="mb-6">
-            <RetailerPaymentSummary
-              retailerId={retailer.id}
-              retailerName={retailer.name}
-              baseFine={fineSettings.default_fine_amount}
-              weeklyIncrement={fineSettings.weekly_fine_increment}
-              hideLoanAmount
-            />
+        {/* The collection summary + business metrics now live on the dedicated
+            Dashboard tab (/retailer/dashboard). A quick link keeps it one tap away. */}
+        {retailer && !selectedCustomer && (
+          <div className="mb-6 flex flex-wrap gap-2">
+            <Link href="/retailer/dashboard" className="btn-secondary text-sm">📊 Business Dashboard</Link>
+            <Link href="/retailer/reports" className="btn-ghost text-sm">📑 Reports</Link>
           </div>
         )}
 
