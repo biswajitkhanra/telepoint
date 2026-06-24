@@ -5,7 +5,22 @@ import { motion } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import { formatCurrency } from '@/lib/formatters';
 import CountUp from '@/components/motion/CountUp';
-import { SPRING, cardRise, staggerContainer, fadeUp } from '@/lib/motion';
+import { SPRING, SPRING_BOUNCY, cardRise, staggerContainer, fadeUp } from '@/lib/motion';
+import type { BreakdownRow } from '@/app/api/admin/top-products/route';
+
+// Each ranked sector gets its OWN vivid colour (gradient bar + chip).
+const SECTOR_COLORS = [
+  { bar: 'from-violet-500 to-fuchsia-500', dot: 'bg-violet-500', text: 'text-violet-700' },
+  { bar: 'from-sky-500 to-cyan-400', dot: 'bg-sky-500', text: 'text-sky-700' },
+  { bar: 'from-emerald-500 to-teal-400', dot: 'bg-emerald-500', text: 'text-emerald-700' },
+  { bar: 'from-amber-500 to-orange-400', dot: 'bg-amber-500', text: 'text-amber-700' },
+  { bar: 'from-rose-500 to-pink-500', dot: 'bg-rose-500', text: 'text-rose-700' },
+  { bar: 'from-indigo-500 to-blue-500', dot: 'bg-indigo-500', text: 'text-indigo-700' },
+  { bar: 'from-teal-500 to-emerald-400', dot: 'bg-teal-500', text: 'text-teal-700' },
+  { bar: 'from-fuchsia-500 to-purple-500', dot: 'bg-fuchsia-500', text: 'text-fuchsia-700' },
+];
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
 
 /**
  * Analysis — Year-over-Year EMI business intelligence dashboard.
@@ -88,6 +103,12 @@ export default function AnalysisDashboard({
   const [data, setData] = useState<AnalysisData | null>(null);
   const [loading, setLoading] = useState(true);
   const [volumeMetric, setVolumeMetric] = useState<VolumeMetric>('customers');
+
+  // Top Selling Brands / Products — month-till-date for the selected month,
+  // across the WHOLE portfolio (every retailer), computed server-side.
+  const [top, setTop] = useState<{ brands: BreakdownRow[]; products: BreakdownRow[] } | null>(null);
+  const [topLoading, setTopLoading] = useState(true);
+  const [topTab, setTopTab] = useState<'products' | 'brands'>('products');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -181,6 +202,34 @@ export default function AnalysisDashboard({
 
   useEffect(() => { load(); }, [load]);
 
+  // Top Selling Brands / Products — month-till-date for the selected month.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setTopLoading(true);
+      try {
+        const from = `${year}-${pad2(month)}-01`;
+        const nowY = now.getFullYear();
+        const nowM = now.getMonth() + 1;
+        const isCurrent = year === nowY && month === nowM;
+        const lastDay = new Date(year, month, 0).getDate();
+        const to = isCurrent
+          ? `${nowY}-${pad2(nowM)}-${pad2(now.getDate())}`
+          : `${year}-${pad2(month)}-${pad2(lastDay)}`;
+        const res = await fetch(`/api/admin/top-products?from=${from}&to=${to}`, { cache: 'no-store' });
+        if (!res.ok) { if (!cancelled) setTop(null); return; }
+        const d = await res.json();
+        if (!cancelled) setTop({ brands: d.brands ?? [], products: d.products ?? [] });
+      } catch {
+        if (!cancelled) setTop(null);
+      } finally {
+        if (!cancelled) setTopLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [month, year]);
+
   const thisY = data?.thisYear ?? EMPTY_PERIOD;
   const lastY = data?.lastYear ?? EMPTY_PERIOD;
 
@@ -206,7 +255,14 @@ export default function AnalysisDashboard({
       {/* Header + period controls */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-bold text-ink">Analysis</h1>
+          <h1 className="font-display text-3xl font-extrabold flex items-center gap-2">
+            <span className="bg-gradient-to-r from-violet-600 via-fuchsia-500 to-amber-500 bg-clip-text text-transparent">Analysis</span>
+            <motion.span
+              animate={{ rotate: [0, 14, -8, 14, 0] }}
+              transition={{ duration: 1.6, repeat: Infinity, repeatDelay: 3 }}
+              className="inline-block origin-bottom"
+            >📊</motion.span>
+          </h1>
           <p className="text-ink-muted text-sm mt-1">
             Year-over-Year view — {MONTHS[month - 1]} {year} vs {MONTHS[month - 1]} {year - 1}
           </p>
@@ -246,9 +302,9 @@ export default function AnalysisDashboard({
 
       {/* YoY charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Financial: Loan Given vs Got */}
-        <motion.div className="card p-6" variants={cardRise} initial="hidden" whileInView="show" viewport={{ once: true, margin: '-40px' }}>
-          <p className="section-header">💰 Loan Given vs Got (Collected)</p>
+        {/* Financial: Loan Given vs Got — EMERALD sector */}
+        <motion.div className="card p-6 border-t-4 border-emerald-400" variants={cardRise} initial="hidden" whileInView="show" viewport={{ once: true, margin: '-40px' }}>
+          <p className="section-header text-emerald-700">💰 Loan Given vs Got (Collected)</p>
           <GroupedBars
             groups={[
               { label: 'Loan Given', last: lastY.loanGiven, current: thisY.loanGiven },
@@ -260,10 +316,10 @@ export default function AnalysisDashboard({
           />
         </motion.div>
 
-        {/* Volume / toggleable metric */}
-        <motion.div className="card p-6" variants={cardRise} initial="hidden" whileInView="show" viewport={{ once: true, margin: '-40px' }}>
+        {/* Volume / toggleable metric — SKY sector */}
+        <motion.div className="card p-6 border-t-4 border-sky-400" variants={cardRise} initial="hidden" whileInView="show" viewport={{ once: true, margin: '-40px' }}>
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <p className="section-header mb-0">📊 {volumeChart.label}</p>
+            <p className="section-header mb-0 text-sky-700">📈 {volumeChart.label}</p>
             <div className="flex flex-wrap gap-1">
               {([
                 ['customers', 'Customers'],
@@ -312,6 +368,88 @@ export default function AnalysisDashboard({
           format={formatCurrency}
         />
       </div>
+
+      {/* ── Top Selling Brands & Products — month-till-date, rainbow ───────── */}
+      <motion.div
+        className="rounded-3xl overflow-hidden border border-violet-200 bg-white shadow-card"
+        variants={cardRise} initial="hidden" whileInView="show" viewport={{ once: true, margin: '-40px' }}
+      >
+        <div className="bg-gradient-to-r from-violet-600 via-fuchsia-500 to-rose-500 px-5 py-4 sheen-track flex items-center justify-between">
+          <div>
+            <p className="font-display text-lg font-bold text-white flex items-center gap-2">🏅 Top Selling — Month till Date</p>
+            <p className="text-xs text-white/85">{MONTHS[month - 1]} {year} · whole network</p>
+          </div>
+        </div>
+
+        <div className="px-5 pt-3 flex gap-5 border-b border-violet-100">
+          {([['products', '📱 Top Products'], ['brands', '🏷 Top Brands']] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setTopTab(key)}
+              className={`relative pb-2.5 text-sm font-semibold transition-colors ${topTab === key ? 'text-violet-700' : 'text-ink-muted hover:text-ink'}`}
+            >
+              {label}
+              {topTab === key && (
+                <motion.span layoutId="top-underline" className="absolute left-0 right-0 -bottom-px h-0.5 rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500" transition={SPRING} />
+              )}
+            </button>
+          ))}
+        </div>
+
+        <div className="px-5 py-4">
+          {topLoading ? (
+            <div className="space-y-3 py-2">{[0, 1, 2, 3].map(i => <div key={i} className="skeleton h-7 w-full rounded-lg" />)}</div>
+          ) : (
+            <RainbowRanking
+              rows={topTab === 'products' ? (top?.products ?? []) : (top?.brands ?? [])}
+              metric={topTab === 'brands' ? 'amount' : 'count'}
+            />
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ── Rainbow ranked list — every entry its own colour, bouncy slide-in ────────
+function RainbowRanking({ rows, metric }: { rows: BreakdownRow[]; metric: 'amount' | 'count' }) {
+  if (rows.length === 0) {
+    return <p className="text-sm text-ink-muted py-8 text-center">No devices sold in this period yet.</p>;
+  }
+  const max = Math.max(1, ...rows.map(r => (metric === 'amount' ? r.amount : r.count)));
+  return (
+    <motion.div className="space-y-3.5" variants={staggerContainer(0.07, 0.04)} initial="hidden" animate="show">
+      {rows.map((r, i) => {
+        const v = metric === 'amount' ? r.amount : r.count;
+        const pct = Math.max(5, (v / max) * 100);
+        const c = SECTOR_COLORS[i % SECTOR_COLORS.length];
+        return (
+          <motion.div
+            key={r.name}
+            variants={{ hidden: { opacity: 0, x: -12 }, show: { opacity: 1, x: 0, transition: SPRING_BOUNCY } }}
+            className="flex items-center gap-3"
+          >
+            <span className={`w-6 h-6 rounded-lg ${c.dot} text-white text-xs font-bold flex items-center justify-center shrink-0 shadow-sm`}>{i + 1}</span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <p className="text-sm font-semibold text-ink truncate">{r.name}</p>
+                <p className={`num text-xs font-bold ${c.text} whitespace-nowrap`}>
+                  {metric === 'amount' ? formatCurrency(r.amount) : `${r.count} sold`}
+                  {metric === 'amount' && <span className="text-ink-muted font-normal"> · {r.count}</span>}
+                </p>
+              </div>
+              <div className="h-2.5 rounded-full bg-surface-3 overflow-hidden">
+                <motion.div
+                  className={`h-full rounded-full bg-gradient-to-r ${c.bar}`}
+                  initial={{ width: 0 }}
+                  animate={{ width: `${pct}%` }}
+                  transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.08 * i }}
+                />
+              </div>
+            </div>
+          </motion.div>
+        );
+      })}
     </motion.div>
   );
 }
@@ -375,16 +513,16 @@ function GroupedBars({
         {groups.map((g) => (
           <div key={g.label} className="flex-1 flex flex-col items-center justify-end gap-2 max-w-[180px]">
             <div className="flex items-end justify-center gap-3 w-full h-full">
-              <Bar value={g.last} max={max} fmt={fmt} className="bg-slate-400" />
-              <Bar value={g.current} max={max} fmt={fmt} className="bg-brand-500" />
+              <Bar value={g.last} max={max} fmt={fmt} className="bg-gradient-to-t from-slate-400 to-slate-300" />
+              <Bar value={g.current} max={max} fmt={fmt} className="bg-gradient-to-t from-violet-600 via-fuchsia-500 to-amber-400" />
             </div>
             <p className="text-xs font-semibold text-ink-muted text-center">{g.label}</p>
           </div>
         ))}
       </div>
       <div className="flex items-center justify-center gap-4 mt-4 text-[11px] text-ink-muted">
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-slate-400" /> {lastLabel}</span>
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-brand-500" /> {thisLabel}</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-gradient-to-t from-slate-400 to-slate-300" /> {lastLabel}</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-gradient-to-t from-violet-600 to-amber-400" /> {thisLabel}</span>
       </div>
     </div>
   );
@@ -447,7 +585,7 @@ function Leaderboard({
                 </div>
                 <div className="mt-1 h-1.5 rounded-full bg-surface-3 overflow-hidden">
                   <motion.div
-                    className={`h-full rounded-full ${i === 0 ? 'bg-brand-500' : 'bg-brand-500/50'}`}
+                    className={`h-full rounded-full bg-gradient-to-r ${SECTOR_COLORS[i % SECTOR_COLORS.length].bar}`}
                     initial={{ width: 0 }}
                     animate={{ width: `${top > 0 ? Math.max(4, (r.value / top) * 100) : 0}%` }}
                     transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.15 + i * 0.06 }}
