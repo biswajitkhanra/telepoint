@@ -23,7 +23,7 @@ import { brandOf, categoryOf } from '@/lib/brand';
 //
 // Graphical Overview (over loans started in range):
 //   • Top Performing Brands  — brand = FIRST word of the device model ("Redmi 5A" → "Redmi")
-//   • Best Selling Phone     — the full device model line
+//   • Best Selling Category  — the full device model line
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const dynamic = 'force-dynamic';
