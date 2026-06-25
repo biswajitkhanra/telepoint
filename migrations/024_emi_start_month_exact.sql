@@ -1,21 +1,21 @@
 -- ============================================================
--- Migration 024 — EMI start month is honoured EXACTLY
+-- Migration 024 - EMI start month is honoured EXACTLY
 -- ============================================================
 -- BUG: When a retailer/admin selected a specific first-EMI month
 -- (customers.emi_start_date), the schedule generator still added an
--- extra month — e.g. selecting July produced a first EMI in August.
--- This happened because the loop ran `start_date + i months` with i
+-- extra month -- e.g. selecting July produced a first EMI in August.
+-- This happened because the loop ran "start_date + i months" with i
 -- beginning at 1, so the chosen month was always pushed forward by one.
 --
 -- FIX: Treat emi_start_date as the EXACT month the FIRST EMI falls in.
 -- Start the loop at offset 0 so EMI #1 lands in the selected month, and
 -- only apply the legacy "+1 month after purchase" default when no start
--- month was chosen. Both schema lineages (`generate_emi_schedule` and the
--- `fn_generate_emi_schedule` trigger) are redefined so the fix holds no
+-- month was chosen. Both schema lineages (generate_emi_schedule and the
+-- fn_generate_emi_schedule trigger) are redefined so the fix holds no
 -- matter how a given database was provisioned.
 -- ============================================================
 
--- ── Lineage A: generate_emi_schedule(p_customer_id) ─────────
+-- Lineage A: generate_emi_schedule(p_customer_id)
 CREATE OR REPLACE FUNCTION generate_emi_schedule(p_customer_id UUID)
 RETURNS VOID AS $$
 DECLARE
@@ -30,7 +30,7 @@ BEGIN
 
   DELETE FROM emi_schedule WHERE customer_id = p_customer_id;
 
-  -- Honour the chosen start month EXACTLY — no automatic +1 shift.
+  -- Honour the chosen start month EXACTLY - no automatic +1 shift.
   -- Default (no month chosen) = the month after the purchase month.
   IF v_customer.emi_start_date IS NOT NULL THEN
     v_base_month := DATE_TRUNC('month', v_customer.emi_start_date)::DATE;
@@ -66,7 +66,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- ── Lineage B: fn_generate_emi_schedule() trigger function ──
+-- Lineage B: fn_generate_emi_schedule() trigger function
 CREATE OR REPLACE FUNCTION fn_generate_emi_schedule()
 RETURNS TRIGGER AS $$
 DECLARE
