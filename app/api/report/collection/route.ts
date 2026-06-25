@@ -1,5 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { fetchAllByIds, fetchAllPaged } from '@/lib/dbFetch';
+import { toISTDateString } from '@/lib/ist';
+
+// Retailer Collection summary CSV.
+//
+// Money is attributed to the month it was ACTUALLY collected — each EMI's own
+// collection date (collection_requested_at → paid_at → due_date) — NOT the
+// portal approval/upload date. History imported from the Google sheet has no
+// payment_requests, so the old approved_at basis showed ₹0 for every past
+// month and bunched everything into the upload day. We read emi_schedule
+// directly instead, so historical months report their real figures.
+
+type CustomerRow = {
+  id: string;
+  status: string;
+  first_emi_charge_amount: number | null;
+  first_emi_charge_paid_at: string | null;
+};
+
+type EmiRow = {
+  customer_id: string;
+  status: string;
+  amount: number | null;
+  partial_paid_amount: number | null;
+  fine_paid_amount: number | null;
+  paid_at: string | null;
+  collection_requested_at: string | null;
+  due_date: string;
+};
 
 export async function GET(req: NextRequest) {
   const supabase = createClient();
@@ -14,11 +43,11 @@ export async function GET(req: NextRequest) {
   const svc = createServiceClient();
   const m = parseInt(req.nextUrl.searchParams.get('month') || String(new Date().getMonth() + 1));
   const y = parseInt(req.nextUrl.searchParams.get('year') || String(new Date().getFullYear()));
+  const monthStr = `${y}-${String(m).padStart(2, '0')}`; // IST "YYYY-MM"
 
-  // IST-aware month boundaries (UTC+5:30)
-  const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
-  const monthStartUTC = new Date(Date.UTC(y, m - 1, 1) - IST_OFFSET_MS);
-  const monthEndUTC   = new Date(Date.UTC(y, m, 0, 23, 59, 59, 999) - IST_OFFSET_MS);
+  // The IST month an EMI's collection lands in (real collection date, not upload).
+  const collMonthOf = (e: EmiRow) =>
+    toISTDateString(e.collection_requested_at || e.paid_at || e.due_date).slice(0, 7);
 
   // Scope: admin sees all retailers; retailer sees only self
   let retailerScope: { id: string; name: string }[] = [];
@@ -33,21 +62,56 @@ export async function GET(req: NextRequest) {
 
   const rows: string[][] = [['Retailer', 'Total EMI', 'Total Fine', 'Total 1st Charge', 'Total Collection', 'Customers']];
   for (const r of retailerScope) {
-    const { data: payments } = await svc
-      .from('payment_requests')
-      .select('total_emi_amount, fine_amount, first_emi_charge_amount, total_amount, customer_id')
-      .eq('retailer_id', r.id)
-      .eq('status', 'APPROVED')
-      .gte('approved_at', monthStartUTC.toISOString())
-      .lte('approved_at', monthEndUTC.toISOString());
+    // Count active (RUNNING) + finished (COMPLETE) books; a COMPLETE customer's
+    // EMIs are paid by definition even if an imported row still says UNPAID.
+    const customers = await fetchAllPaged<CustomerRow>((from, to) =>
+      svc
+        .from('customers')
+        .select('id, status, first_emi_charge_amount, first_emi_charge_paid_at')
+        .eq('retailer_id', r.id)
+        .in('status', ['RUNNING', 'COMPLETE'])
+        .order('id')
+        .range(from, to) as unknown as PromiseLike<{ data: CustomerRow[] | null; error: { message: string } | null }>,
+    );
+    if (!customers.length) continue;
 
-    const p = payments || [];
-    const emi    = p.reduce((s, x) => s + (Number(x.total_emi_amount) || 0), 0);
-    const fine   = p.reduce((s, x) => s + (Number(x.fine_amount) || 0), 0);
-    const charge = p.reduce((s, x) => s + (Number(x.first_emi_charge_amount) || 0), 0);
-    const tot    = p.reduce((s, x) => s + (Number(x.total_amount) || 0), 0);
-    const custs  = new Set(p.map(x => x.customer_id)).size;
-    if (tot > 0) rows.push([r.name, String(emi), String(fine), String(charge), String(tot), String(custs)]);
+    const statusOf = new Map(customers.map(c => [c.id, c.status]));
+    const custIds = customers.map(c => c.id);
+
+    const emis = await fetchAllByIds<EmiRow>(custIds, (chunk, from, to) =>
+      svc
+        .from('emi_schedule')
+        .select('customer_id, status, amount, partial_paid_amount, fine_paid_amount, paid_at, collection_requested_at, due_date')
+        .in('customer_id', chunk)
+        .order('customer_id')
+        .order('emi_no')
+        .range(from, to) as unknown as PromiseLike<{ data: EmiRow[] | null; error: { message: string } | null }>,
+    );
+
+    let emi = 0, fine = 0, charge = 0;
+    const custSet = new Set<string>();
+
+    for (const e of emis) {
+      const st = statusOf.get(e.customer_id);
+      const principal = (e.status === 'APPROVED' || st === 'COMPLETE')
+        ? Number(e.amount || 0)
+        : Number(e.partial_paid_amount || 0);
+      const f = Number(e.fine_paid_amount || 0);
+      if ((principal > 0 || f > 0) && collMonthOf(e) === monthStr) {
+        emi += principal;
+        fine += f;
+        custSet.add(e.customer_id);
+      }
+    }
+    for (const c of customers) {
+      if (c.first_emi_charge_paid_at && toISTDateString(c.first_emi_charge_paid_at).slice(0, 7) === monthStr) {
+        charge += Number(c.first_emi_charge_amount || 0);
+        custSet.add(c.id);
+      }
+    }
+
+    const tot = emi + fine + charge;
+    if (tot > 0) rows.push([r.name, String(emi), String(fine), String(charge), String(tot), String(custSet.size)]);
   }
 
   const csv = rows.map(r => r.join(',')).join('\r\n');
