@@ -82,6 +82,11 @@ export default function AdminDashboard() {
   const [reportYear, setReportYear] = useState(new Date().getFullYear());
   const [collectionRetailerId, setCollectionRetailerId] = useState('');
 
+  // Month-wise Payment Collection Report (approved payments) — own filters
+  const [pcMonth, setPcMonth] = useState(new Date().getMonth() + 1);
+  const [pcYear, setPcYear] = useState(new Date().getFullYear());
+  const [pcRetailerId, setPcRetailerId] = useState('');
+
   // Broadcast message state
   const [broadcastRetailerId, setBroadcastRetailerId] = useState('');
   const [broadcastMessage, setBroadcastMessage] = useState('');
@@ -981,6 +986,54 @@ export default function AdminDashboard() {
                     className="btn-primary"
                   >
                     📥 Download Collection Sheet
+                  </a>
+                </div>
+              </div>
+
+              {/* Month-wise Payment Collection Report — actual approved payments */}
+              <div className="card p-5 mb-6 border-l-4 border-emerald-500 bg-gradient-to-br from-emerald-50 to-white">
+                <p className="section-header text-emerald-700">💰 Month-wise Payment Collection Report</p>
+                <p className="text-xs text-ink-muted mb-4">
+                  One row per approved payment collected in the chosen month — EMI, fine &amp; 1st-EMI-charge breakup,
+                  total collected, payment date/time, method and UPI UTR. Filter by retailer or leave as "All".
+                </p>
+                <div className="flex flex-wrap items-end gap-3">
+                  <div>
+                    <label className="label">Retailer</label>
+                    <select
+                      value={pcRetailerId}
+                      onChange={e => setPcRetailerId(e.target.value)}
+                      className="input w-48"
+                    >
+                      <option value="">All Retailers</option>
+                      {retailers.map(r => (
+                        <option key={r.id} value={r.id}>{r.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">Month</label>
+                    <select value={pcMonth} onChange={e => setPcMonth(Number(e.target.value))} className="input w-36">
+                      {['January','February','March','April','May','June','July','August','September','October','November','December'].map((m,i) => (
+                        <option key={i} value={i+1}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">Year</label>
+                    <select value={pcYear} onChange={e => setPcYear(Number(e.target.value))} className="input w-28">
+                      {[2024,2025,2026,2027].map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                  </div>
+                  <a
+                    href={
+                      '/api/report/payment-collection?month=' + pcMonth + '&year=' + pcYear +
+                      (pcRetailerId ? '&retailer_id=' + pcRetailerId : '')
+                    }
+                    download
+                    className="btn-primary"
+                  >
+                    📥 Download Payment Report
                   </a>
                 </div>
               </div>

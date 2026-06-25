@@ -288,9 +288,15 @@ DECLARE
   v_month_start DATE;
   v_last_day    DATE;
 BEGIN
-  -- Calculate start date from emi_start_date or purchase_date
-  v_start_date := COALESCE(NEW.emi_start_date, NEW.purchase_date);
-  v_due_day    := COALESCE(NEW.emi_due_day, EXTRACT(DAY FROM v_start_date)::INT);
+  -- The chosen first-EMI month (emi_start_date) is honoured EXACTLY — the first
+  -- EMI lands in that month with no automatic +1 shift. When none is chosen,
+  -- default to the month after the purchase month.
+  IF NEW.emi_start_date IS NOT NULL THEN
+    v_start_date := DATE_TRUNC('month', NEW.emi_start_date)::DATE;
+  ELSE
+    v_start_date := (DATE_TRUNC('month', NEW.purchase_date) + INTERVAL '1 month')::DATE;
+  END IF;
+  v_due_day    := COALESCE(NEW.emi_due_day, EXTRACT(DAY FROM NEW.purchase_date)::INT);
 
   -- Only regenerate on INSERT or tenure/amount change
   IF TG_OP = 'UPDATE' THEN
@@ -304,8 +310,8 @@ BEGIN
     WHERE customer_id = NEW.id AND status = 'UNPAID';
   END IF;
 
-  FOR v_i IN 1..NEW.emi_tenure LOOP
-    -- Calculate due date: first EMI = start_date + 1 month adjusted to due_day
+  FOR v_i IN 0..(NEW.emi_tenure - 1) LOOP
+    -- First EMI (v_i = 0) lands in the base month itself.
     v_month_start := DATE_TRUNC('month', (v_start_date + (v_i || ' months')::INTERVAL))::DATE;
     -- Last calendar day of that month (handles Feb / 30-day months)
     v_last_day    := (v_month_start + INTERVAL '1 month - 1 day')::DATE;
@@ -315,7 +321,7 @@ BEGIN
 
     -- Only insert if this EMI doesn't already exist
     INSERT INTO emi_schedule (customer_id, emi_no, due_date, amount)
-    VALUES (NEW.id, v_i, v_due_date, NEW.emi_amount)
+    VALUES (NEW.id, v_i + 1, v_due_date, NEW.emi_amount)
     ON CONFLICT (customer_id, emi_no) DO NOTHING;
   END LOOP;
 
