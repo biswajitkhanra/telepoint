@@ -161,26 +161,29 @@ export default function RetailerDashboardPage() {
           >›</motion.button>
         </motion.div>
 
-        {/* ── Total Disbursed Amount — GOLD hero sector ─────────────────────── */}
+        {/* ── Two disbursement sections ────────────────────────────────────── */}
         <motion.div
-          className="relative rounded-3xl overflow-hidden mb-6 shadow-card-hover"
-          variants={cardRise} initial="hidden" whileInView="show" viewport={{ once: true, margin: '-40px' }}
-          whileHover={{ scale: 1.01 }}
+          className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6"
+          variants={staggerContainer(0.12, 0.05)} initial="hidden" whileInView="show" viewport={{ once: true, margin: '-40px' }}
         >
-          {/* animated panning gradient backdrop */}
-          <motion.div
-            aria-hidden
-            className="absolute inset-0 bg-[linear-gradient(110deg,#f59e0b,#f43f5e,#d946ef,#f59e0b)] bg-[length:200%_100%]"
-            animate={{ backgroundPosition: ['0% 50%', '200% 50%'] }}
-            transition={{ duration: 6, repeat: Infinity, ease: 'linear' }}
+          {/* 1) Total Disbursement = full phone value (financed over the tenure) */}
+          <DisbursementHero
+            gradient="linear-gradient(110deg,#f59e0b,#f43f5e,#d946ef,#f59e0b)"
+            kicker="📱 Total Disbursement"
+            value={data?.phoneValue ?? 0}
+            note="Full phone value · TELEPOINT finances it over the tenure"
+            chipLabel="Down payment"
+            chipValue={formatCurrency(data?.downPayment ?? 0)}
           />
-          <div className="relative px-5 py-6 text-center sheen-track">
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/85">💰 Total Disbursed Amount</p>
-            <p className="num text-4xl sm:text-5xl font-extrabold text-white mt-1 drop-shadow-sm">
-              <CountUp value={data?.totalDisbursed ?? 0} format={formatCurrency} duration={1} />
-            </p>
-            <p className="text-[11px] text-white/80 mt-1 font-num">{prettyDate(from)} – {prettyDate(to)}</p>
-          </div>
+          {/* 2) Retailer Payout = phone value − down payment (paid within days) */}
+          <DisbursementHero
+            gradient="linear-gradient(110deg,#059669,#0d9488,#0ea5e9,#059669)"
+            kicker="⚡ Retailer Payout"
+            value={data?.netDisbursed ?? 0}
+            note="Phone value − down payment · credited to you within days"
+            chipLabel="Loans"
+            chipValue={String(data?.disbursedCount ?? 0)}
+          />
         </motion.div>
 
         {/* ── KPI tiles — each its OWN colour (Logins removed) ──────────────── */}
@@ -278,6 +281,40 @@ export default function RetailerDashboardPage() {
 
       <BottomNav role="retailer" />
     </div>
+  );
+}
+
+// ── Disbursement hero — animated panning gradient, value count-up, info chip ─
+function DisbursementHero({ gradient, kicker, value, note, chipLabel, chipValue }: {
+  gradient: string; kicker: string; value: number; note: string; chipLabel: string; chipValue: string;
+}) {
+  return (
+    <motion.div
+      variants={cardRise}
+      whileHover={{ scale: 1.015, y: -3 }}
+      transition={SPRING}
+      className="relative rounded-3xl overflow-hidden shadow-card-hover"
+    >
+      <motion.div
+        aria-hidden
+        className="absolute inset-0 bg-[length:200%_100%]"
+        style={{ backgroundImage: gradient }}
+        animate={{ backgroundPosition: ['0% 50%', '200% 50%'] }}
+        transition={{ duration: 6, repeat: Infinity, ease: 'linear' }}
+      />
+      <div className="relative px-5 py-6 sheen-track">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/90">{kicker}</p>
+          <span className="text-[10px] font-bold text-white bg-white/20 backdrop-blur-sm rounded-full px-2.5 py-1 ring-1 ring-white/30 whitespace-nowrap">
+            {chipLabel}: <span className="num">{chipValue}</span>
+          </span>
+        </div>
+        <p className="num text-3xl sm:text-4xl font-extrabold text-white mt-2 drop-shadow-sm">
+          <CountUp value={value} format={formatCurrency} duration={1} />
+        </p>
+        <p className="text-[11px] text-white/85 mt-1.5 leading-snug">{note}</p>
+      </div>
+    </motion.div>
   );
 }
 

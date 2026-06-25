@@ -287,6 +287,8 @@ export default function AnalysisDashboard({
         </div>
       </div>
 
+      <SectionDivider grad="from-emerald-500 to-teal-500" text="Year-over-Year Snapshot" />
+
       {/* Aspect comparison cards */}
       <motion.div
         className="grid grid-cols-2 lg:grid-cols-4 gap-3"
@@ -299,6 +301,8 @@ export default function AnalysisDashboard({
         <StatCard label="New Customers" prev={lastY.customers} cur={thisY.customers} format={(v) => String(Math.round(v))} theme="blue" />
         <StatCard label="Bounce Rate" prev={bounceRate(lastY)} cur={bounceRate(thisY)} format={(v) => `${v.toFixed(1)}%`} theme="rose" invert />
       </motion.div>
+
+      <SectionDivider grad="from-sky-500 to-violet-500" text="Trend Charts" />
 
       {/* YoY charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -353,6 +357,8 @@ export default function AnalysisDashboard({
         </motion.div>
       </div>
 
+      <SectionDivider grad="from-amber-500 to-rose-500" text="Retailer Leaderboards" />
+
       {/* Retailer leaderboards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Leaderboard
@@ -368,6 +374,8 @@ export default function AnalysisDashboard({
           format={formatCurrency}
         />
       </div>
+
+      <SectionDivider grad="from-violet-500 to-fuchsia-500" text="Top Selling — Month till Date" />
 
       {/* ── Top Selling Brands & Products — month-till-date, rainbow ───────── */}
       <motion.div
@@ -455,6 +463,22 @@ function RainbowRanking({ rows, metric }: { rows: BreakdownRow[]; metric: 'amoun
 }
 
 // ── presentational pieces ────────────────────────────────────────────────────
+
+function SectionDivider({ grad, text }: { grad: string; text: string }) {
+  return (
+    <motion.div
+      className="flex items-center gap-2.5 pt-1"
+      initial={{ opacity: 0, x: -12 }}
+      whileInView={{ opacity: 1, x: 0 }}
+      viewport={{ once: true, margin: '-60px' }}
+      transition={SPRING}
+    >
+      <span className={`w-2 h-6 rounded-full bg-gradient-to-b ${grad}`} />
+      <p className="text-sm font-bold uppercase tracking-widest text-ink">{text}</p>
+      <span className="flex-1 h-px bg-gradient-to-r from-surface-4 to-transparent" />
+    </motion.div>
+  );
+}
 
 function DeltaBadge({ prev, cur, invert = false }: { prev: number; cur: number; invert?: boolean }) {
   if (prev === 0 && cur === 0) return <span className="text-[10px] text-ink-muted">—</span>;

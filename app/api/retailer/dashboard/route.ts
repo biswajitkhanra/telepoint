@@ -58,6 +58,13 @@ export interface BreakdownRow {
 export interface RetailerDashboard {
   from: string;
   to: string;
+  /** Total Disbursement = full phone value (purchase_value) financed for the tenure. */
+  phoneValue: number;
+  /** Down payment the customer paid up front. */
+  downPayment: number;
+  /** Retailer Payout = phone value − down payment (credited to the retailer within days). */
+  netDisbursed: number;
+  /** Back-compat alias for netDisbursed. */
   totalDisbursed: number;
   disbursedCount: number;
   approvedCount: number;
@@ -158,7 +165,9 @@ export async function GET(req: NextRequest) {
   // ── Loans started in range → disbursed totals + brand/category breakdowns ──
   const brandMap = new Map<string, BreakdownRow>();
   const catMap = new Map<string, BreakdownRow>();
-  let totalDisbursed = 0;
+  let phoneValue = 0;     // Σ full phone value (Total Disbursement)
+  let downPayment = 0;    // Σ customer down payment
+  let netDisbursed = 0;   // Σ (phone value − down payment) → Retailer Payout
   let disbursedCount = 0;
   let abndCount = 0;
 
@@ -168,8 +177,12 @@ export async function GET(req: NextRequest) {
 
     // Loan lifecycle starts on purchase_date (fallback created_at).
     if (!inRange(c.purchase_date || c.created_at)) continue;
+    const pv = Number(c.purchase_value || 0);
+    const dp = Number(c.down_payment || 0);
     const loan = loanOf(c);
-    totalDisbursed += loan;
+    phoneValue += pv;
+    downPayment += dp;
+    netDisbursed += Math.max(0, pv - dp);
     disbursedCount += 1;
 
     const b = brandOf(c.model_no);
@@ -186,7 +199,10 @@ export async function GET(req: NextRequest) {
 
   const result: RetailerDashboard = {
     from, to,
-    totalDisbursed,
+    phoneValue,
+    downPayment,
+    netDisbursed,
+    totalDisbursed: netDisbursed,
     disbursedCount,
     approvedCount,
     collectedAmount,
