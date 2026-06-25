@@ -171,7 +171,7 @@ export default function RetailerDashboardPage() {
             gradient="linear-gradient(110deg,#f59e0b,#f43f5e,#d946ef,#f59e0b)"
             kicker="📱 Total Disbursement"
             value={data?.phoneValue ?? 0}
-            note="Full phone value · TELEPOINT finances it over the tenure"
+            note="Full phone value · TELEPOINT finances "
             chipLabel="Down payment"
             chipValue={formatCurrency(data?.downPayment ?? 0)}
           />
@@ -180,7 +180,7 @@ export default function RetailerDashboardPage() {
             gradient="linear-gradient(110deg,#059669,#0d9488,#0ea5e9,#059669)"
             kicker="⚡ Retailer Payout"
             value={data?.netDisbursed ?? 0}
-            note="Phone value − down payment · credited to you within days"
+            note="Phone value − down payment · "
             chipLabel="Loans"
             chipValue={String(data?.disbursedCount ?? 0)}
           />
