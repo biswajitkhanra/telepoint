@@ -218,7 +218,7 @@ export default function RetailerDashboardPage() {
             <p className="text-xs text-white/80">Month till Date</p>
           </div>
           <div className="px-5 pt-3 flex gap-5 border-b border-violet-100">
-            {([['category', 'Best Selling Phone'], ['brand', 'Top Performing Brands']] as const).map(([key, label]) => (
+            {([['category', 'Best Selling Category'], ['brand', 'Top Performing Brands']] as const).map(([key, label]) => (
               <button
                 key={key}
                 onClick={() => setOverviewTab(key)}
