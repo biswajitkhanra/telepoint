@@ -123,12 +123,20 @@ export default function RetailerReportsPage() {
           <button onClick={load} className="btn-ghost text-xs px-3 py-2 ml-auto">{loading ? 'Loading…' : '↻ Refresh'}</button>
         </motion.div>
 
-        {/* Summary tiles — each its OWN colour */}
-        <motion.div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6" variants={staggerContainer(0.08, 0.05)} initial="hidden" animate="show">
-          <SummaryStat grad="from-amber-500 to-orange-500" label="Total Disbursed" value={formatCurrency(data?.totalDisbursed ?? 0)} />
-          <SummaryStat grad="from-sky-500 to-indigo-500" label="Loans Disbursed" value={String(data?.disbursedCount ?? 0)} />
-          <SummaryStat grad="from-emerald-500 to-teal-500" label="Collected" value={formatCurrency(data?.collectedAmount ?? 0)} />
-          <SummaryStat grad="from-rose-500 to-pink-500" label="Fine Collected" value={formatCurrency(data?.fineCollected ?? 0)} />
+        {/* Loan Disbursement sub-section */}
+        <SectionLabel grad="from-amber-500 to-rose-500" text="Loan Disbursement" />
+        <motion.div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6" variants={staggerContainer(0.08, 0.05)} initial="hidden" animate="show">
+          <SummaryStat grad="from-amber-500 to-orange-500" label="Total Disbursement" value={formatCurrency(data?.phoneValue ?? 0)} note="Full phone value (financed)" />
+          <SummaryStat grad="from-fuchsia-500 to-pink-500" label="Down Payment" value={formatCurrency(data?.downPayment ?? 0)} note="Paid up front by customers" />
+          <SummaryStat grad="from-emerald-500 to-teal-500" label="Retailer Payout" value={formatCurrency(data?.netDisbursed ?? 0)} note="Value − down payment · to you" />
+        </motion.div>
+
+        {/* Collections sub-section */}
+        <SectionLabel grad="from-sky-500 to-indigo-500" text="Collections" />
+        <motion.div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6" variants={staggerContainer(0.08, 0.05)} initial="hidden" animate="show">
+          <SummaryStat grad="from-sky-500 to-indigo-500" label="Loans Disbursed" value={String(data?.disbursedCount ?? 0)} note="New loans this period" />
+          <SummaryStat grad="from-violet-500 to-purple-500" label="Collected" value={formatCurrency(data?.collectedAmount ?? 0)} note="EMI + fine + 1st charge" />
+          <SummaryStat grad="from-rose-500 to-pink-500" label="Fine Collected" value={formatCurrency(data?.fineCollected ?? 0)} note="Late-payment fines" />
         </motion.div>
 
         {/* Downloads — VIOLET sector */}
@@ -194,7 +202,20 @@ export default function RetailerReportsPage() {
   );
 }
 
-function SummaryStat({ grad, label, value }: { grad: string; label: string; value: string }) {
+function SectionLabel({ grad, text }: { grad: string; text: string }) {
+  return (
+    <motion.div
+      className="flex items-center gap-2 mb-2.5"
+      initial={{ opacity: 0, x: -10 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={SPRING}
+    >
+      <span className={`w-1.5 h-5 rounded-full bg-gradient-to-b ${grad}`} />
+      <p className="text-xs font-bold uppercase tracking-widest text-ink">{text}</p>
+      <span className="flex-1 h-px bg-gradient-to-r from-surface-4 to-transparent" />
+    </motion.div>
+  );
+}
+
+function SummaryStat({ grad, label, value, note }: { grad: string; label: string; value: string; note?: string }) {
   return (
     <motion.div
       variants={cardRise}
@@ -204,6 +225,7 @@ function SummaryStat({ grad, label, value }: { grad: string; label: string; valu
     >
       <p className="text-[10px] font-bold uppercase tracking-widest text-white/85">{label}</p>
       <p className="num text-xl font-extrabold text-white mt-1 drop-shadow-sm">{value}</p>
+      {note && <p className="text-[10px] text-white/80 mt-0.5 leading-tight">{note}</p>}
     </motion.div>
   );
 }
