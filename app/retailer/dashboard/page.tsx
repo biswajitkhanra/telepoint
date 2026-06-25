@@ -61,8 +61,40 @@ export default function RetailerDashboardPage() {
   const [data, setData] = useState<RetailerDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [overviewTab, setOverviewTab] = useState<'category' | 'brand'>('category');
+  const [downloading, setDownloading] = useState<'month' | 'mtd' | null>(null);
 
   const { from, to } = useMemo(() => monthRange(year, month), [year, month]);
+
+  // Download customer details for THIS retailer only (the API scopes to the
+  // logged-in retailer). "month" = the whole selected month; "mtd" = the current
+  // month from the 1st up to today.
+  async function downloadCustomers(scope: 'month' | 'mtd') {
+    setDownloading(scope);
+    try {
+      let f: string, t: string;
+      if (scope === 'mtd') {
+        f = `${ty}-${pad(tm)}-01`;
+        t = today;
+      } else {
+        f = `${year}-${pad(month)}-01`;
+        const lastDay = new Date(year, month, 0).getDate();
+        t = `${year}-${pad(month)}-${pad(lastDay)}`;
+      }
+      const res = await fetch(`/api/retailer/report?type=customers&from=${f}&to=${t}`, { cache: 'no-store' });
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const dispo = res.headers.get('Content-Disposition') || '';
+      const match = dispo.match(/filename="?([^"]+)"?/);
+      const filename = match?.[1] || `customer_details_${f}_to_${t}.csv`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloading(null);
+    }
+  }
 
   // Don't let the user walk past the current month.
   const atCurrent = year === ty && month === tm;
@@ -273,8 +305,46 @@ export default function RetailerDashboardPage() {
           </motion.div>
         )}
 
+        {/* ── Customer detail downloads — only this retailer's customers ─────── */}
+        <motion.div
+          className="rounded-3xl overflow-hidden border border-violet-200 bg-white shadow-card mb-6"
+          variants={cardRise} initial="hidden" whileInView="show" viewport={{ once: true, margin: '-40px' }}
+        >
+          <div className="bg-gradient-to-r from-violet-600 to-fuchsia-500 px-5 py-3 sheen-track">
+            <p className="text-sm font-bold text-white flex items-center gap-2">⬇ Download Customer Details (CSV)</p>
+            <p className="text-xs text-white/80">Only your shop&apos;s customers are included</p>
+          </div>
+          <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <motion.button
+              onClick={() => downloadCustomers('month')}
+              disabled={downloading !== null}
+              whileHover={{ y: -3 }} whileTap={{ scale: 0.98 }}
+              className="text-left rounded-2xl border border-violet-200 bg-violet-50 hover:bg-violet-100 transition-colors p-4 disabled:opacity-60"
+            >
+              <p className="text-sm font-bold text-ink flex items-center gap-2">
+                Selected Month Customer Details <span className="text-lg">{downloading === 'month' ? '…' : '⬇'}</span>
+              </p>
+              <p className="text-[11px] text-ink-muted mt-1">
+                Every customer for {MONTHS_SHORT[month - 1]}&nbsp;{year} (1st – last day).
+              </p>
+            </motion.button>
+            <motion.button
+              onClick={() => downloadCustomers('mtd')}
+              disabled={downloading !== null}
+              whileHover={{ y: -3 }} whileTap={{ scale: 0.98 }}
+              className="text-left rounded-2xl border border-fuchsia-200 bg-fuchsia-50 hover:bg-fuchsia-100 transition-colors p-4 disabled:opacity-60"
+            >
+              <p className="text-sm font-bold text-ink flex items-center gap-2">
+                Month-to-Date Customer Details <span className="text-lg">{downloading === 'mtd' ? '…' : '⬇'}</span>
+              </p>
+              <p className="text-[11px] text-ink-muted mt-1">
+                This month so far — 1st {MONTHS_SHORT[tm - 1]} up to today.
+              </p>
+            </motion.button>
+          </div>
+        </motion.div>
+
         <div className="flex flex-wrap gap-2">
-          <Link href="/retailer/reports" className="btn-secondary text-sm">📑 Open Reports</Link>
           <Link href="/retailer" className="btn-ghost text-sm">← Back to Collection</Link>
         </div>
       </div>

@@ -90,7 +90,6 @@ export default function NavBar({ role, pendingCount = 0 }: NavBarProps) {
             <>
               <NavItem href="/retailer" exact>Home</NavItem>
               <NavItem href="/retailer/dashboard" exact>Dashboard</NavItem>
-              <NavItem href="/retailer/reports" exact>Reports</NavItem>
             </>
           )}
         </nav>

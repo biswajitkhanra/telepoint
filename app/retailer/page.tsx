@@ -349,14 +349,9 @@ export default function RetailerDashboard() {
           </div>
         </motion.div>
 
-        {/* The collection summary + business metrics now live on the dedicated
-            Dashboard tab (/retailer/dashboard). A quick link keeps it one tap away. */}
-        {retailer && !selectedCustomer && (
-          <div className="mb-6 flex flex-wrap gap-2">
-            <Link href="/retailer/dashboard" className="btn-secondary text-sm">📊 Business Dashboard</Link>
-            <Link href="/retailer/reports" className="btn-ghost text-sm">📑 Reports</Link>
-          </div>
-        )}
+        {/* Collection summary + business metrics live on the dedicated Dashboard
+            tab — reachable from the top/bottom navigation, so no duplicate inline
+            buttons here. */}
 
         {/* Broadcast Message Popups */}
         {broadcastPopups.filter(b => !dismissedBroadcasts.has(b.id)).map(b => (

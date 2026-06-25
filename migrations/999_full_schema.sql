@@ -225,31 +225,34 @@ $$ LANGUAGE sql SECURITY DEFINER STABLE;
 CREATE OR REPLACE FUNCTION generate_emi_schedule(p_customer_id UUID)
 RETURNS VOID AS $$
 DECLARE
-  v_customer RECORD;
-  v_due_date DATE;
-  i          INT;
+  v_customer    RECORD;
+  v_base_month  DATE;   -- first day of the month the FIRST EMI falls in
+  v_month_start DATE;
+  v_last_day    DATE;
+  v_due_date    DATE;
+  i             INT;
 BEGIN
   SELECT * INTO v_customer FROM customers WHERE id = p_customer_id;
 
   DELETE FROM emi_schedule WHERE customer_id = p_customer_id;
 
-  FOR i IN 1..v_customer.emi_tenure LOOP
-    v_due_date :=
-      DATE_TRUNC('month', v_customer.purchase_date + (i || ' months')::INTERVAL)
-      + (v_customer.emi_due_day - 1) * INTERVAL '1 day';
+  -- The chosen first-EMI month (emi_start_date) is honoured EXACTLY — no
+  -- automatic +1 shift. When none is chosen, default to the month after
+  -- the purchase month.
+  IF v_customer.emi_start_date IS NOT NULL THEN
+    v_base_month := DATE_TRUNC('month', v_customer.emi_start_date)::DATE;
+  ELSE
+    v_base_month := (DATE_TRUNC('month', v_customer.purchase_date) + INTERVAL '1 month')::DATE;
+  END IF;
 
-    -- Clamp to end of month if emi_due_day > days in that month
-    IF v_due_date > (
-      DATE_TRUNC('month', v_customer.purchase_date + (i || ' months')::INTERVAL)
-      + INTERVAL '1 month - 1 day'
-    ) THEN
-      v_due_date :=
-        DATE_TRUNC('month', v_customer.purchase_date + (i || ' months')::INTERVAL)
-        + INTERVAL '1 month - 1 day';
-    END IF;
+  FOR i IN 0..(v_customer.emi_tenure - 1) LOOP
+    v_month_start := (v_base_month + (i || ' months')::INTERVAL)::DATE;
+    v_last_day    := (v_month_start + INTERVAL '1 month - 1 day')::DATE;
+    -- Clamp emi_due_day to end of month if it overflows (e.g. day 30 in Feb).
+    v_due_date    := LEAST(v_month_start + (v_customer.emi_due_day - 1), v_last_day);
 
     INSERT INTO emi_schedule (customer_id, emi_no, due_date, amount)
-    VALUES (p_customer_id, i, v_due_date, v_customer.emi_amount);
+    VALUES (p_customer_id, i + 1, v_due_date, v_customer.emi_amount);
   END LOOP;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -276,7 +279,8 @@ BEGIN
   IF OLD.emi_tenure    != NEW.emi_tenure    OR
      OLD.emi_amount    != NEW.emi_amount    OR
      OLD.purchase_date != NEW.purchase_date OR
-     OLD.emi_due_day   != NEW.emi_due_day
+     OLD.emi_due_day   != NEW.emi_due_day   OR
+     COALESCE(OLD.emi_start_date::TEXT, '') != COALESCE(NEW.emi_start_date::TEXT, '')
   THEN
     PERFORM generate_emi_schedule(NEW.id);
   END IF;
