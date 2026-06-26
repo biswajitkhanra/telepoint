@@ -23,15 +23,19 @@
  * plenty for a safety mirror.
  */
 
-// Tables to mirror. Each becomes a tab with the same name.
+// Tables to mirror. Each becomes a tab with the same name. This is the full
+// set of portal tables, so the sheet holds a complete copy of all data.
 var TABLES = [
+  'profiles',
   'retailers',
   'customers',
   'emi_schedule',
   'payment_requests',
   'payment_request_items',
   'fine_settings',
+  'fine_history',
   'broadcast_messages',
+  'customer_app_tokens',
   'audit_log',
 ];
 

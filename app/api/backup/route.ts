@@ -20,15 +20,20 @@ import { fetchAllPaged } from '@/lib/dbFetch';
 export const dynamic = 'force-dynamic';
 
 // Whitelist of exportable tables → the column used for stable ordering. Only
-// these tables are ever readable through this endpoint.
+// these tables are ever readable through this endpoint. This list is the full
+// set of portal tables, so a backup is a complete copy of every record —
+// customers, retailers, EMIs, payments, fines, broadcasts, logins and logs.
 const TABLES: Record<string, string> = {
+  profiles:              'user_id', // admin / retailer login accounts (role map)
   retailers:             'id',
   customers:             'id',
   emi_schedule:          'id',
   payment_requests:      'id',
   payment_request_items: 'id',
   fine_settings:         'id',
+  fine_history:          'id',       // every fine ever charged / paid / waived
   broadcast_messages:    'id',
+  customer_app_tokens:   'id',       // customer-app login tokens
   audit_log:             'id',
 };
 
