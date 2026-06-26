@@ -8,6 +8,9 @@ Sheets method is kept further down as an optional alternative.
 Both read from the same secured endpoint, `GET /api/backup` (code in
 `app/api/backup/route.ts`).
 
+There is also a **one-click full backup** inside the portal itself — see
+Method 3 at the bottom — for an instant on-demand snapshot with no setup.
+
 ---
 
 # Method 1 (recommended): GitHub Actions → repo
@@ -58,10 +61,12 @@ Portal DB  ──/api/backup──▶  GitHub Action (12-hour cron)  ──▶  
   past state from git (`git show <commit>:backups/latest/customers.csv`).
 - **All details:** every column of every whitelisted table is written. `jsonb`
   / array columns are stored as JSON text in the CSV and as real JSON in `.json`.
-- **Tables mirrored:** `retailers`, `customers`, `emi_schedule`,
-  `payment_requests`, `payment_request_items`, `fine_settings`,
-  `broadcast_messages`, `audit_log`. To add/remove tables, edit the whitelist
-  in `app/api/backup/route.ts` — the script picks up the manifest automatically.
+- **Tables mirrored (every portal table):** `profiles`, `retailers`,
+  `customers`, `emi_schedule`, `payment_requests`, `payment_request_items`,
+  `fine_settings`, `fine_history`, `broadcast_messages`, `customer_app_tokens`,
+  `audit_log`. This is the complete set, so a backup is a full copy of all
+  portal data. To add/remove tables, edit the whitelist in
+  `app/api/backup/route.ts` — the script picks up the manifest automatically.
 
 ## Verify
 
@@ -137,10 +142,11 @@ Method 1 — set that first if you haven't.
   reflected — no stale leftovers.
 - **All details:** every column of every whitelisted table is written. `jsonb`
   / array columns are stored as JSON text.
-- **Tables mirrored:** `retailers`, `customers`, `emi_schedule`,
-  `payment_requests`, `payment_request_items`, `fine_settings`,
-  `broadcast_messages`, `audit_log`. To add/remove tables, edit the `TABLES`
-  array in the script **and** the whitelist in `app/api/backup/route.ts`.
+- **Tables mirrored (every portal table):** `profiles`, `retailers`,
+  `customers`, `emi_schedule`, `payment_requests`, `payment_request_items`,
+  `fine_settings`, `fine_history`, `broadcast_messages`, `customer_app_tokens`,
+  `audit_log`. To add/remove tables, edit the `TABLES` array in the script
+  **and** the whitelist in `app/api/backup/route.ts`.
 
 ## Stop / change syncing
 
@@ -161,3 +167,22 @@ client) and is documented as a follow-up — ask and it can be added.
 The same security notes from Method 1 apply: the endpoint is fail-closed, the
 `BACKUP_TOKEN` is a password (here it lives in the Sheet's Script properties),
 and the `Authorization: Bearer` header is preferred over `?token=`.
+
+---
+
+# Method 3: One-click full backup inside the portal
+
+For an **instant, on-demand** snapshot with zero setup, sign in as the
+super-admin and open **Reports → Backup — Everything → Download Full Backup**.
+
+This downloads a single `telepoint-full-backup-<timestamp>.json` file containing
+every row of every table — the complete portal in one file. Keep it somewhere
+safe (cloud drive, USB, email to yourself). It's the same complete data set as
+the automatic GitHub backup, just on demand and bundled into one file.
+
+- **Endpoint:** `GET /api/admin/full-backup` (code in
+  `app/api/admin/full-backup/route.ts`).
+- **Auth:** must be signed in as `super_admin`; everyone else gets `403`. No
+  `BACKUP_TOKEN` needed — it uses your normal admin login.
+- **Use it for:** grabbing a snapshot right before a risky change, or keeping a
+  personal offline copy between the automatic 12-hour runs.

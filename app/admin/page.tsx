@@ -1076,6 +1076,26 @@ export default function AdminDashboard() {
               </div>
             </div>
 
+            {/* Full portal backup */}
+            <div className="card p-6 border-l-4 border-teal-500 bg-gradient-to-br from-teal-50 to-white">
+              <p className="section-header text-teal-700">Backup — Everything</p>
+              <p className="text-xs text-ink-muted mb-4">
+                A <strong>complete copy of the whole portal</strong> in one file — every customer, retailer,
+                EMI, payment, fine, broadcast, login and audit record. Keep it somewhere safe.
+                Your data is also backed up <strong>automatically every 12 hours</strong>; this button is for an
+                instant on-demand snapshot.
+              </p>
+              <a
+                href="/api/admin/full-backup"
+                className="px-4 py-3 rounded-xl border border-teal-500 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold transition-all inline-flex items-center gap-2 shadow-sm"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
+                </svg>
+                🛟 Download Full Backup (all data)
+              </a>
+            </div>
+
             {/* EMI Filters */}
             <div className="card p-6 border-l-4 border-amber-500 bg-gradient-to-br from-amber-50 to-white">
               <div className="flex items-center justify-between mb-4">
