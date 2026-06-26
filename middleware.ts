@@ -10,8 +10,16 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // API routes that don't need session check
-  if (pathname.startsWith('/api/customer-login')) {
+  // API routes that don't need a Supabase session — they do their own auth.
+  // /api/backup is the database backup feed: it authenticates with the
+  // BACKUP_TOKEN secret (Authorization: Bearer / ?token=), not a login cookie,
+  // so it must skip the session check below — otherwise the unauthenticated
+  // backup job gets redirected to the HTML /login page and the GitHub Action /
+  // Google Sheet sees "<!DOCTYPE …" instead of JSON.
+  if (
+    pathname.startsWith('/api/customer-login') ||
+    pathname.startsWith('/api/backup')
+  ) {
     return NextResponse.next();
   }
 
