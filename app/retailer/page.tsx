@@ -319,7 +319,7 @@ export default function RetailerDashboard() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24">
         {/* Welcome Banner */}
         <motion.div
-          className="card p-5 mb-8 flex items-center justify-between sheen-track border-l-4 border-brand-500 bg-gradient-to-r from-amber-50 via-white to-sky-50"
+          className="card p-5 mb-8 flex items-center justify-between sheen-track border-l-4 border-brand-500 bg-gradient-to-r from-blue-50 via-white to-indigo-50"
           initial={{ opacity: 0, y: -16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={SPRING}

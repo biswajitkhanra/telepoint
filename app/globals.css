@@ -9,15 +9,15 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; overflow-x: hidd
 body {
   background: #f8fafc; color: #1e293b;
   font-family: 'Inter', 'Noto Sans Bengali', 'Noto Sans Devanagari', system-ui, sans-serif; line-height: 1.5;
-  overflow-x: hidden; /* Prevent horizontal scroll on mobile */
+  overflow-x: hidden;
   -webkit-tap-highlight-color: transparent;
 }
 
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: #f1f5f9; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #eab308; }
-::selection { background: rgba(234,179,8,0.2); }
+::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
+::selection { background: rgba(59,130,246,0.18); }
 
 .font-display { font-family: inherit; letter-spacing: -0.02em; }
 
@@ -39,8 +39,7 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 /* ── Component layer ─────────────────────────────────────── */
 @layer components {
 
-  /* Cards — a whisper-soft gradient keeps surfaces lively while text stays
-     on near-white for full legibility. */
+  /* Cards */
   .card { @apply rounded-2xl shadow-card border border-surface-4 bg-gradient-to-br from-white to-surface-2; }
   .card-hover {
     @apply card cursor-pointer;
@@ -49,15 +48,12 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
   .card-hover:hover { transform: translateY(-3px); @apply shadow-card-hover; }
   .card-hover:active { transform: translateY(-1px) scale(.995); }
 
-  /* Buttons — all have minimum touch target + tactile spring feedback.
-     Hover lifts, press compresses, release springs back. Transform is handled
-     in raw CSS (not Tailwind's active:scale) so the spring easing + hover lift
-     compose cleanly. */
+  /* Buttons — all have minimum touch target + tactile spring feedback. */
   .btn {
     @apply inline-flex items-center justify-center gap-2 font-semibold rounded-xl
            text-sm
            disabled:opacity-50 disabled:cursor-not-allowed;
-    min-height: 44px; /* Touch target */
+    min-height: 44px;
     transition: transform .18s cubic-bezier(.34,1.56,.64,1),
                 box-shadow .2s ease, background-color .15s ease,
                 color .15s ease, border-color .15s ease, opacity .15s ease;
@@ -65,15 +61,13 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
   }
   .btn:hover:not(:disabled) { transform: translateY(-2px); }
   .btn:active:not(:disabled) { transform: translateY(0) scale(.94); transition-duration: .08s; }
-  /* Eye-catching gradient buttons. Primary uses a bright gold→amber gradient
-     with near-black text so the label stays crisply legible (text visibility
-     is the priority); success/danger use saturated gradients with white text
-     for maximum contrast. */
+
+  /* Primary — vibrant blue gradient with crisp white text */
   .btn-primary {
-    @apply btn px-5 py-2.5 text-slate-900 font-bold shadow-md shadow-amber-500/30
-           bg-gradient-to-br from-amber-300 via-yellow-400 to-amber-500
-           hover:from-amber-400 hover:via-amber-400 hover:to-amber-600
-           hover:shadow-lg hover:shadow-amber-500/45;
+    @apply btn px-5 py-2.5 text-white font-bold shadow-md shadow-blue-500/30
+           bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600
+           hover:from-blue-600 hover:via-blue-600 hover:to-indigo-700
+           hover:shadow-lg hover:shadow-blue-500/45;
   }
   .btn-secondary {
     @apply btn px-5 py-2.5 text-ink border border-surface-4 shadow-sm
@@ -98,10 +92,10 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
     @apply w-full rounded-xl border border-surface-4 bg-white px-4 py-2.5 text-sm text-ink
            placeholder-ink-muted/50 transition-all duration-200
            focus:outline-none focus:border-brand-400 focus:ring-4 focus:ring-brand-400/25;
-    min-height: 44px; /* Touch-friendly */
+    min-height: 44px;
     font-size: 16px; /* Prevents iOS zoom on focus */
   }
-  .input:focus { box-shadow: 0 0 0 4px rgba(250,204,21,0.18), 0 2px 8px rgba(234,179,8,0.12); }
+  .input:focus { box-shadow: 0 0 0 4px rgba(59,130,246,0.15), 0 2px 8px rgba(37,99,235,0.10); }
   .label { @apply block text-xs font-semibold text-ink-muted uppercase tracking-wide mb-1.5; }
 
   /* Badges — soft gradient pills with bold, high-contrast text */
@@ -136,24 +130,21 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
   .tbl th { @apply text-left text-xs font-bold text-ink-muted uppercase tracking-wide py-3 px-4 border-b border-surface-4 bg-gradient-to-b from-surface-2 to-surface-3; }
   .tbl td { @apply py-3 px-4 border-b border-surface-3 text-ink; }
   .tbl tr:last-child td { @apply border-0; }
-  /* Zebra striping for easier row scanning, with a warm brand-tinted hover. */
   .tbl tbody tr:nth-child(even) td { @apply bg-surface-2/60; }
   .tbl tbody tr { transition: background-color .15s ease; }
   .tbl tbody tr:hover td { @apply bg-brand-50; }
 
   .divider { @apply h-px bg-surface-4 my-6; }
 
+  /* Nav links — blue active indicator instead of amber */
   .nav-link { @apply flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-3 transition-colors; min-height: 44px; }
-  .nav-link-active { @apply nav-link font-bold text-slate-900 shadow-sm shadow-amber-500/30 bg-gradient-to-r from-amber-200 to-yellow-300 hover:from-amber-300 hover:to-yellow-400 hover:text-slate-900; }
+  .nav-link-active { @apply nav-link font-bold text-blue-700 shadow-sm shadow-blue-500/20 bg-gradient-to-r from-blue-50 to-indigo-100 hover:from-blue-100 hover:to-indigo-200 hover:text-blue-800; }
 
+  /* Stat cards — now with blue-tinted brand gradient */
   .stat-card { @apply card p-5 bg-gradient-to-br from-white via-brand-50/40 to-brand-100/70; transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s ease; }
   .stat-card:hover { transform: translateY(-2px); @apply shadow-card-hover; }
-  /* Numbers use a clean-zero SANS stack with tabular figures for ledger-style
-     column alignment. We deliberately avoid `font-mono` / bare `monospace`
-     here: common system mono fallbacks (Consolas, SF Mono, DejaVu Sans Mono)
-     draw a slashed or dotted "0" that reads as a cut / struck-through zero.
-     Every font below renders a plain, fully-visible zero. `zero 0` disables
-     any slashed-zero opentype feature as a further safeguard. */
+
+  /* Tabular numeric display — clean zero, no slashed/dotted 0 */
   .num {
     font-family: 'DM Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     font-variant-numeric: tabular-nums lining-nums;
@@ -178,7 +169,7 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 .animate-scale-in { animation: scaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
 .animate-fade-in { animation: fadeIn 0.3s ease; }
 
-/* Ambient motion utilities — keep the UI feeling alive at rest */
+/* Ambient motion utilities */
 @keyframes floaty   { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
 @keyframes breathe  { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.08); opacity: .85; } }
 @keyframes gradientPan { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
@@ -187,16 +178,12 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 .animate-float   { animation: floaty 3s ease-in-out infinite; }
 .animate-breathe { animation: breathe 2.2s ease-in-out infinite; }
 
-/* Animated gradient text/fills */
 .gradient-pan {
   background-size: 200% 200%;
   animation: gradientPan 4s ease infinite alternate;
 }
 
-/* ── Cyber-Luxe: moving multi-stop gradient text ─────────────
-   Every word in the Mastermind line cycles smoothly through deep
-   reds → violet → electric blue. Movement is slow + smooth so the
-   text stays crystal-clear and fully readable at all times. */
+/* Animated gradient text — cycles through brand violet → electric blue */
 @keyframes luxePan { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
 .luxe-word {
   background-image: linear-gradient(
@@ -210,7 +197,6 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
   -webkit-text-fill-color: transparent;
   color: transparent;
   animation: luxePan 5.5s linear infinite;
-  /* Keep glyphs legible against the dark void even mid-gradient. */
   filter: drop-shadow(0 1px 6px rgba(99, 102, 241, 0.45));
   font-weight: 800;
 }
@@ -218,8 +204,7 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
   .luxe-word { animation: none; background-position: 0 50%; }
 }
 
-/* Reusable gradient text helpers — eye-catching, yet kept bold + with a soft
-   shadow so glyphs stay crisp and readable against light surfaces. */
+/* Reusable gradient text helpers */
 .text-gradient-gold {
   background-image: linear-gradient(100deg, #b45309 0%, #d97706 35%, #ca8a04 70%, #92400e 100%);
   -webkit-background-clip: text; background-clip: text;
@@ -227,7 +212,7 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
   font-weight: 800;
 }
 .text-gradient-brand {
-  background-image: linear-gradient(100deg, #7c3aed 0%, #4f46e5 30%, #2563eb 60%, #0ea5e9 100%);
+  background-image: linear-gradient(100deg, #2563eb 0%, #4f46e5 30%, #7c3aed 60%, #9333ea 100%);
   -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent; color: transparent;
   font-weight: 800;
@@ -239,7 +224,7 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
   font-weight: 800;
 }
 
-/* Reusable glassmorphic panel — backdrop-blur over the dark gradient void. */
+/* Glassmorphic panel */
 .glass-luxe {
   background: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(18px) saturate(140%);
@@ -248,35 +233,32 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
   box-shadow: 0 8px 40px rgba(8, 11, 30, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
-/* Progress / meter bars that grow in from the left on first paint */
+/* Progress bars that grow in from left */
 .bar-grow { transform-origin: left center; animation: growBar .9s cubic-bezier(0.16,1,0.3,1) both; }
 
-/* ── Festive single-customer card ────────────────────────────
-   When one customer record is opened it gets a colourful, animated
-   top ribbon plus a softly shifting celebratory aura, so a single
-   result feels lively and playful — not flat. */
+/* Festive single-customer card */
 @keyframes festiveRibbon { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
 @keyframes festiveAura {
-  0%, 100% { box-shadow: 0 12px 44px -14px rgba(99,102,241,0.45); }
-  33%      { box-shadow: 0 12px 44px -14px rgba(244,63,94,0.42); }
-  66%      { box-shadow: 0 12px 44px -14px rgba(16,185,129,0.42); }
+  0%, 100% { box-shadow: 0 12px 44px -14px rgba(59,130,246,0.45); }
+  33%      { box-shadow: 0 12px 44px -14px rgba(168,85,247,0.42); }
+  66%      { box-shadow: 0 12px 44px -14px rgba(20,184,166,0.42); }
 }
 .card-festive { position: relative; isolation: isolate; animation: festiveAura 7s ease-in-out infinite; }
 .card-festive::before {
   content: ''; position: absolute; top: 0; left: 0; right: 0; height: 5px; z-index: 3;
-  background: linear-gradient(90deg,#f43f5e,#f59e0b,#22c55e,#3b82f6,#a855f7,#ec4899,#f43f5e);
+  background: linear-gradient(90deg,#3b82f6,#8b5cf6,#14b8a6,#22c55e,#a855f7,#ec4899,#3b82f6);
   background-size: 300% 100%;
   animation: festiveRibbon 6s linear infinite;
 }
 
-/* Rainbow progress fill — colourful and gently shifting */
+/* Rainbow progress fill */
 .progress-festive {
-  background: linear-gradient(90deg,#22c55e,#3b82f6,#a855f7,#f43f5e,#f59e0b,#22c55e);
+  background: linear-gradient(90deg,#3b82f6,#8b5cf6,#14b8a6,#22c55e,#a855f7,#3b82f6);
   background-size: 250% 100%;
   animation: festiveRibbon 5s linear infinite;
 }
 
-/* Tiny confetti dots that drift up once when the card mounts */
+/* Confetti dots */
 @keyframes confettiFloat {
   0%   { transform: translateY(0) scale(0.6); opacity: 0; }
   15%  { opacity: 1; }
@@ -295,7 +277,7 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
   .confetti-pop > i { animation: none; }
 }
 
-/* Sweeping sheen overlay (e.g. across CTA buttons / headers) */
+/* Sweeping sheen overlay */
 .sheen-track { position: relative; overflow: hidden; }
 .sheen-track::after {
   content: ''; position: absolute; inset: 0;
@@ -306,13 +288,14 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 }
 
 /* ── Layout ──────────────────────────────────────────────── */
+/* Updated page background — cool blue/indigo/purple base with colorful blooms */
 .page-bg {
   background:
-    radial-gradient(1100px 560px at -8% -18%, rgba(244,114,182,0.38) 0%, transparent 58%),
-    radial-gradient(1000px 600px at 108% -12%, rgba(56,189,248,0.42) 0%, transparent 58%),
-    radial-gradient(900px 620px at 50% 122%, rgba(167,139,250,0.45) 0%, transparent 60%),
-    radial-gradient(720px 480px at 92% 112%, rgba(163,230,53,0.26) 0%, transparent 55%),
-    linear-gradient(135deg, #fff7ed 0%, #eef6ff 45%, #f7f0ff 100%);
+    radial-gradient(1100px 560px at -8% -18%, rgba(168,85,247,0.22) 0%, transparent 58%),
+    radial-gradient(1000px 600px at 108% -12%, rgba(56,189,248,0.30) 0%, transparent 58%),
+    radial-gradient(900px 620px at 50% 122%, rgba(99,102,241,0.28) 0%, transparent 60%),
+    radial-gradient(720px 480px at 92% 112%, rgba(20,184,166,0.20) 0%, transparent 55%),
+    linear-gradient(135deg, #f0f9ff 0%, #eff6ff 45%, #f5f3ff 100%);
   background-size: 160% 160%, 160% 160%, 160% 160%, 160% 160%, 100% 100%;
   animation: pageAura 18s ease-in-out infinite alternate;
   min-height: 100vh;
@@ -325,7 +308,7 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
   .page-bg { animation: none; }
 }
 
-/* Section accent palette — distinct colour per area */
+/* Section accent palette */
 .section-emerald { @apply border-l-4 border-emerald-500 bg-gradient-to-br from-emerald-50 to-white; }
 .section-indigo  { @apply border-l-4 border-indigo-500  bg-gradient-to-br from-indigo-50  to-white; }
 .section-amber   { @apply border-l-4 border-amber-500   bg-gradient-to-br from-amber-50   to-white; }
@@ -335,25 +318,19 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 
 /* ── Mobile-First Responsive ─────────────────────────────── */
 @media (max-width: 640px) {
-  /* Touch targets */
   button, a[role="button"], select { min-height: 44px; }
 
-  /* Table → compact on mobile */
   .tbl td, .tbl th,
   .data-table td, .data-table th { padding: 0.4rem 0.5rem; font-size: 0.7rem; }
 
-  /* Fix horizontal overflow globally */
   .card { overflow-x: hidden; }
   main { overflow-x: hidden; }
 
-  /* Stack grids on mobile */
   .grid-cols-2, .grid-cols-3, .grid-cols-4 { grid-template-columns: 1fr !important; }
   .sm\:grid-cols-2 { grid-template-columns: 1fr !important; }
 
-  /* Responsive max widths */
   .max-w-6xl, .max-w-5xl, .max-w-4xl { max-width: 100% !important; padding-left: 1rem; padding-right: 1rem; }
 
-  /* Bottom nav safe area */
   .pb-safe { padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px)); }
 }
 
@@ -391,10 +368,7 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 /* Safe area for bottom nav */
 .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
 
-/* ── High-quality image rendering ────────────────────────────
-   Photos & document scans must never look softened: keep browser-native
-   high-quality scaling, pin thumbnails to their own GPU layer so ancestor
-   transforms/filters can't rasterise them blurry mid-animation. */
+/* High-quality image rendering */
 .img-crisp {
   image-rendering: -webkit-optimize-contrast;
   backface-visibility: hidden;
@@ -408,9 +382,7 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
   background-size: 200% 100%; animation: shimmer 1.5s ease-in-out infinite; border-radius: 8px;
 }
 
-/* ── Gooey jelly feel ────────────────────────────────────────
-   Every actionable control squashes & stretches like jelly on press.
-   Pure CSS so it applies app-wide without per-component wiring. */
+/* Gooey jelly feel on active controls */
 @keyframes jellyPop {
   0%   { transform: scale3d(1, 1, 1); }
   30%  { transform: scale3d(1.08, 0.82, 1); }
@@ -430,7 +402,6 @@ select:active,
 input[type='checkbox']:active {
   animation: jellyPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
-/* Jelly wobble for hoverable cards/tiles */
 .jelly-hover { transition: transform 0.45s cubic-bezier(0.34, 1.8, 0.5, 1); }
 .jelly-hover:hover { transform: scale(1.03); }
 .jelly-hover:active { animation: jellyPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
@@ -439,10 +410,6 @@ input[type='checkbox']:active {
 @media print {
   .no-print { display: none !important; }
   body { background: white; }
-  /* The loan statement "Download PDF" prints a self-contained white document
-     from a hidden iframe (see LoanStatementModal), so colours and the photo
-     render exactly without the dark app theme bleeding in. The rules below
-     are only a fallback for a manual Ctrl+P with the modal open. */
   body:has(.statement-sheet) * { visibility: hidden; }
   .statement-sheet, .statement-sheet * {
     visibility: visible;
@@ -459,9 +426,7 @@ input[type='checkbox']:active {
   .statement-sheet tr { break-inside: avoid; }
 }
 
-/* Accessibility — honour users who prefer reduced motion. Framer Motion is
-   also told (MotionConfig reducedMotion="user") to soften transform/opacity
-   animations, so these users get a calm, near-static experience. */
+/* Accessibility — honour users who prefer reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.001ms !important;
@@ -475,21 +440,21 @@ input[type='checkbox']:active {
 .gradient-bg { @apply page-bg; }
 .grid-overlay { background-image: none; }
 .gold-line { @apply divider; }
-.badge-running { @apply badge bg-success-light text-success border border-success-border; }
+.badge-running  { @apply badge bg-success-light text-success border border-success-border; }
 .badge-complete { @apply badge bg-info-light text-info border border-info-border; }
-.badge-pending { @apply badge bg-warning-light text-warning border border-warning-border; }
+.badge-pending  { @apply badge bg-warning-light text-warning border border-warning-border; }
 .badge-approved { @apply badge bg-info-light text-info border border-info-border; }
 .badge-rejected { @apply badge bg-danger-light text-danger border border-danger-border; }
-.badge-unpaid { @apply badge bg-surface-3 text-ink-muted border border-surface-4; }
+.badge-unpaid   { @apply badge bg-surface-3 text-ink-muted border border-surface-4; }
 .alert-gold { @apply alert-warning; }
-.alert-red { @apply alert-danger; }
+.alert-red  { @apply alert-danger; }
 .alert-blue { @apply alert-info; }
-.form-label { @apply label; }
-.form-input { @apply input; }
+.form-label  { @apply label; }
+.form-input  { @apply input; }
 .section-header { @apply form-section; }
-.font-num { @apply num; }
-.glass-card { @apply card; }
-.data-table { @apply tbl; }
+.font-num    { @apply num; }
+.glass-card  { @apply card; }
+.data-table  { @apply tbl; }
 .text-ink-200, .text-ink-300 { @apply text-ink; }
 .text-ink-400, .text-ink-500 { @apply text-ink-muted; }
 .text-ink-600 { @apply text-ink-muted opacity-70; }

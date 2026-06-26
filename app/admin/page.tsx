@@ -1727,7 +1727,7 @@ function MetricDashboard({
     : 0;
 
   return (
-    <div className="card p-6 border-l-4 border-brand-500 bg-gradient-to-br from-amber-50 via-white to-fuchsia-50">
+    <div className="card p-6 border-l-4 border-brand-500 bg-gradient-to-br from-blue-50 via-white to-indigo-50">
       <div className="flex items-center justify-between mb-4">
         <div>
           <p className="section-header mb-0">

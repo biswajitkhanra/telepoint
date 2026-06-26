@@ -11,7 +11,7 @@ import { motion } from 'framer-motion';
  */
 
 const SHELF_TINTS = [
-  'from-amber-500/25 to-amber-500/5 border-amber-500/40',
+  'from-blue-500/25 to-blue-500/5 border-blue-500/40',
   'from-sky-500/25 to-sky-500/5 border-sky-500/40',
   'from-violet-500/25 to-violet-500/5 border-violet-500/40',
 ];
@@ -70,9 +70,9 @@ export default function ShelfSearch() {
       aria-busy="true"
       aria-live="polite"
     >
-      <div className="card mt-2 border-l-4 border-amber-500 bg-gradient-to-r from-amber-50 via-white to-violet-50 px-4 pb-4 pt-3">
+      <div className="card mt-2 border-l-4 border-brand-400 bg-gradient-to-r from-blue-50 via-white to-violet-50 px-4 pb-4 pt-3">
         <div className="mb-2 flex items-center justify-between">
-          <p className="text-xs font-bold uppercase tracking-widest text-amber-700">
+          <p className="text-xs font-bold uppercase tracking-widest text-brand-700">
             🔎 Searching the record shelves…
           </p>
           <motion.span
