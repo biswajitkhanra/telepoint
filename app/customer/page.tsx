@@ -1,7 +1,7 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Customer, EMISchedule, DueBreakdown } from '@/lib/types';
 import { format, differenceInDays } from 'date-fns';
@@ -192,6 +192,49 @@ export default function CustomerPortal() {
       setLoadingLoan(false);
     }
   }
+
+  // Re-fetch the logged-in customer's live data. Works for BOTH login paths:
+  // app-token sessions refresh via the token, Aadhaar/mobile sessions via the
+  // customer id already in the session. `silent` (auto-refresh) skips toasts.
+  const sessionCustomerId: string | undefined = session?.customer?.id;
+  const refreshData = useCallback(async (silent = false) => {
+    try {
+      const token = localStorage.getItem(TOKEN_KEY);
+      let data: { customer?: unknown; emis?: unknown[]; breakdown?: unknown; broadcasts?: unknown[] } | null = null;
+      if (token) {
+        const res = await fetch('/api/customer-app-token?token=' + token, { cache: 'no-store' });
+        data = await readJsonSafe(res);
+      } else if (sessionCustomerId) {
+        const res = await fetch('/api/customer-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ customer_id: sessionCustomerId }),
+        });
+        if (res.ok) data = await readJsonSafe(res);
+      }
+      if (data?.customer) {
+        const ns: CustomerSession = { customer: data.customer, emis: data.emis || [], breakdown: data.breakdown || null };
+        setSession(ns);
+        localStorage.setItem(SESSION_KEY, JSON.stringify(ns));
+        if (data.broadcasts?.length) setBroadcastMessages((data.broadcasts || []) as typeof broadcastMessages);
+        if (!silent) toast.success('Data refreshed');
+      } else if (!silent) {
+        toast.error('Refresh failed');
+      }
+    } catch {
+      if (!silent) toast.error('Refresh failed');
+    }
+  }, [sessionCustomerId]);
+
+  // Auto-refresh the account data every 2 minutes while logged in, so dues,
+  // fines and payment statuses stay live without the customer doing anything.
+  const refreshRef = useRef(refreshData);
+  refreshRef.current = refreshData;
+  useEffect(() => {
+    if (!sessionCustomerId) return;
+    const timer = setInterval(() => { refreshRef.current(true); }, 2 * 60 * 1000);
+    return () => clearInterval(timer);
+  }, [sessionCustomerId]);
 
   function handleLogout() {
     setSession(null);
@@ -512,22 +555,7 @@ export default function CustomerPortal() {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-slate-400 hidden sm:block">{customer?.customer_name}</span>
-            <button onClick={async () => {
-              const t = localStorage.getItem(TOKEN_KEY);
-              if (t) {
-                try {
-                  const r = await fetch('/api/customer-app-token?token=' + t);
-                  const d = await r.json();
-                  if (d.customer) {
-                    const ns = { customer: d.customer, emis: d.emis || [], breakdown: d.breakdown || null };
-                    setSession(ns);
-                    localStorage.setItem(SESSION_KEY, JSON.stringify(ns));
-                    if (d.broadcasts?.length) setBroadcastMessages(d.broadcasts);
-                    toast.success('Data refreshed');
-                  }
-                } catch { toast.error('Refresh failed'); }
-              }
-            }} className="text-xs text-jade-400 hover:text-jade-500 transition-colors border border-white/[0.08] px-3 py-1.5 rounded-lg mr-2">
+            <button onClick={() => refreshData()} className="text-xs text-jade-400 hover:text-jade-500 transition-colors border border-white/[0.08] px-3 py-1.5 rounded-lg mr-2">
               🔄 Refresh
             </button>
             <button onClick={() => { setSession(null); localStorage.removeItem(SESSION_KEY); localStorage.removeItem(TOKEN_KEY); }} className="text-xs text-slate-500 hover:text-brand-400 transition-colors border border-white/[0.08] px-3 py-1.5 rounded-lg">
