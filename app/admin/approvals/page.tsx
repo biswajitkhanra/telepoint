@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import { PaymentRequest } from '@/lib/types';
 import NavBar from '@/components/NavBar';
+import BottomNav from '@/components/BottomNav';
 import SearchInput from '@/components/SearchInput';
 import SuccessBurst from '@/components/motion/SuccessBurst';
 import toast from 'react-hot-toast';
@@ -274,9 +275,14 @@ export default function ApprovalsPage() {
 
   // ── Render ────────────────────────────────────────────────────────────────
 
+  const pendingNavCount = useMemo(
+    () => (requests ?? []).filter(r => r.status === 'PENDING').length,
+    [requests],
+  );
+
   return (
     <div className="min-h-screen page-bg">
-      <NavBar role="admin" userName="TELEPOINT" />
+      <NavBar role="admin" userName="TELEPOINT" pendingCount={pendingNavCount} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
@@ -682,6 +688,9 @@ export default function ApprovalsPage() {
         </motion.div>
       )}
       </AnimatePresence>
+
+      {/* Mobile: keep Home & Approvals reachable from this page too */}
+      <BottomNav role="admin" pendingCount={pendingNavCount} />
     </div>
   );
 }
