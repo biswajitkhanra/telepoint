@@ -71,18 +71,19 @@ export async function GET() {
 
   const svc = createServiceClient();
 
-  const { data: retailers, error: rErr } = await svc
-    .from('retailers').select('id, name, is_active').order('name');
+  // Retailer list and customer scan are independent — run them in parallel.
+  const [{ data: retailers, error: rErr }, customers] = await Promise.all([
+    svc.from('retailers').select('id, name, is_active').order('name'),
+    fetchAllPaged<CustomerRow>((from, to) =>
+      svc
+        .from('customers')
+        .select('id, retailer_id, status, purchase_value, down_payment, settlement_amount, settlement_date, completion_date, first_emi_charge_amount, first_emi_charge_paid_at')
+        .in('status', [...COUNTED_STATUSES])
+        .order('id')
+        .range(from, to) as unknown as PromiseLike<{ data: CustomerRow[] | null; error: { message: string } | null }>,
+    ),
+  ]);
   if (rErr) return NextResponse.json({ error: rErr.message }, { status: 500 });
-
-  const customers = await fetchAllPaged<CustomerRow>((from, to) =>
-    svc
-      .from('customers')
-      .select('id, retailer_id, status, purchase_value, down_payment, settlement_amount, settlement_date, completion_date, first_emi_charge_amount, first_emi_charge_paid_at')
-      .in('status', [...COUNTED_STATUSES])
-      .order('id')
-      .range(from, to) as unknown as PromiseLike<{ data: CustomerRow[] | null; error: { message: string } | null }>,
-  );
 
   const emiList = customers.length
     ? await fetchAllByIds<EmiRow>(customers.map(c => c.id), (chunk, from, to) =>
