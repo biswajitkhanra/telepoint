@@ -1953,64 +1953,105 @@ function MetricDashboard({
 
             {/* Expected loss — live risk, not year-bucketed. Tap to see WHICH
                 customers make up the figure; tap a customer to open their file. */}
-            <div className="mt-3 rounded-xl border border-amber-500/40 bg-amber-500/10">
-              <button onClick={toggleExpectedLoss} className="flex w-full flex-wrap items-center justify-between gap-3 p-3 text-left">
+            <div className="mt-3 overflow-hidden rounded-2xl border-2 border-amber-300 bg-gradient-to-br from-amber-50 via-white to-orange-50 shadow-sm">
+              <motion.button
+                onClick={toggleExpectedLoss}
+                whileTap={{ scale: 0.99 }}
+                className="flex w-full flex-wrap items-center justify-between gap-3 p-3.5 text-left"
+              >
                 <div className="flex items-center gap-2.5">
-                  <span className="text-xl">⚠️</span>
+                  <motion.span
+                    className="text-2xl"
+                    animate={{ rotate: [0, -8, 8, 0] }}
+                    transition={{ duration: 1.4, repeat: Infinity, repeatDelay: 2.6 }}
+                  >⚠️</motion.span>
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700">Expected Loss (live)</p>
+                    <p className="text-[11px] font-extrabold uppercase tracking-widest text-amber-700">Expected Loss (live)</p>
                     <p className="text-[11px] text-ink-muted">Running customers with EMI due for more than 3 months · EMI due only, fines &amp; charges excluded</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-6">
+                <div className="flex items-center gap-4 sm:gap-6">
                   <div className="text-right">
-                    <p className="text-[10px] uppercase tracking-wide text-ink-muted">Accounts</p>
-                    <CountUp value={m.expectedLossCount} className="num block text-lg font-extrabold text-amber-700" />
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">Accounts</p>
+                    <CountUp value={m.expectedLossCount} className="num block text-xl font-extrabold text-amber-700" />
                   </div>
                   <div className="text-right">
-                    <p className="text-[10px] uppercase tracking-wide text-ink-muted">EMI Due</p>
-                    <CountUp value={m.expectedLossEmiDue} format={fmt} className="num block text-lg font-extrabold text-amber-700" />
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">EMI Due</p>
+                    <CountUp value={m.expectedLossEmiDue} format={fmt} className="num block text-xl font-extrabold text-amber-700" />
                   </div>
-                  <span className="text-amber-700 text-xs font-bold">{showExpectedLoss ? '▲ Hide' : '▼ Show customers'}</span>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-400 bg-gradient-to-r from-amber-100 to-orange-100 px-3 py-1.5 text-xs font-extrabold text-amber-800 shadow-sm">
+                    <motion.span animate={{ rotate: showExpectedLoss ? 180 : 0 }} transition={SPRING} className="inline-block">▼</motion.span>
+                    {showExpectedLoss ? 'Hide' : 'Show customers'}
+                  </span>
                 </div>
-              </button>
-              {showExpectedLoss && (
-                <div className="border-t border-amber-500/30 px-3 pb-3">
-                  {elLoading ? (
-                    <p className="py-3 text-center text-xs text-ink-muted">Loading customers…</p>
-                  ) : !elRows || elRows.length === 0 ? (
-                    <p className="py-3 text-center text-xs text-ink-muted">No expected-loss customers right now. 🎉</p>
-                  ) : (
-                    <div className="mt-2 overflow-x-auto rounded-lg border border-amber-500/30 bg-white/70">
-                      <table className="data-table text-xs">
-                        <thead>
-                          <tr><th>Customer</th><th>Mobile</th><th>Retailer</th><th>Oldest Unpaid EMI</th><th className="text-right">Overdue</th><th className="text-right">EMI Due</th></tr>
-                        </thead>
-                        <tbody>
-                          {elRows.map(r => (
-                            <tr
-                              key={r.customerId}
-                              onClick={() => onOpenCustomer?.(r.customerId)}
-                              className="cursor-pointer hover:bg-amber-50"
-                            >
-                              <td>
-                                <p className="font-medium text-ink">{r.name}</p>
-                                {r.imei && <p className="num text-[10px] text-ink-muted">{r.imei}</p>}
-                              </td>
-                              <td className="num text-ink-muted">{r.mobile || '—'}</td>
-                              <td className="text-ink-muted">{r.retailerName}</td>
-                              <td className="num text-danger">{r.oldestDueDate ? format(new Date(r.oldestDueDate), 'd MMM yyyy') : '—'}</td>
-                              <td className="num text-right font-semibold text-danger">{r.daysOverdue}d</td>
-                              <td className="num text-right font-bold text-amber-700">{fmt(r.emiDue)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                      <p className="px-3 py-2 text-[10px] text-ink-muted">Tap a customer to open their full file in Search.</p>
+              </motion.button>
+              <AnimatePresence initial={false}>
+                {showExpectedLoss && (
+                  <motion.div
+                    key="el-list"
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                    className="overflow-hidden"
+                  >
+                    <div className="border-t-2 border-amber-200 px-3 pb-3 pt-3">
+                      {elLoading ? (
+                        <div className="space-y-2 py-1">{[0, 1, 2].map(i => <div key={i} className="skeleton h-14 w-full rounded-xl" />)}</div>
+                      ) : !elRows || elRows.length === 0 ? (
+                        <p className="py-4 text-center text-sm font-semibold text-emerald-700">🎉 No expected-loss customers right now — the running book is healthy!</p>
+                      ) : (
+                        <motion.div
+                          className="space-y-2"
+                          variants={staggerContainer(0.05, 0.02)} initial="hidden" animate="show"
+                        >
+                          {elRows.map((r, i) => {
+                            const severe = r.daysOverdue >= 180;
+                            return (
+                              <motion.button
+                                key={r.customerId}
+                                variants={rowItem}
+                                whileHover={{ y: -2, scale: 1.005, transition: SPRING }}
+                                whileTap={{ scale: 0.99 }}
+                                onClick={() => onOpenCustomer?.(r.customerId)}
+                                className="flex w-full flex-wrap items-center gap-3 rounded-xl border-2 border-amber-200 bg-white p-3 text-left shadow-sm hover:border-amber-400 hover:shadow-md transition-colors"
+                              >
+                                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-extrabold text-white shadow-sm ${severe ? 'bg-gradient-to-br from-rose-500 to-red-600' : 'bg-gradient-to-br from-amber-500 to-orange-500'}`}>
+                                  {i + 1}
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-sm font-bold text-ink">{r.name}</p>
+                                  <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-ink-muted">
+                                    {r.mobile && <span className="num">📞 {r.mobile}</span>}
+                                    <span>🏪 {r.retailerName}</span>
+                                    {r.imei && <span className="num hidden sm:inline">IMEI {r.imei}</span>}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2.5">
+                                  <span className={`inline-flex flex-col items-center rounded-lg border px-2 py-1 ${severe ? 'border-rose-300 bg-gradient-to-b from-rose-50 to-red-100' : 'border-amber-300 bg-gradient-to-b from-amber-50 to-yellow-100'}`}>
+                                    <span className={`num text-xs font-extrabold ${severe ? 'text-rose-700' : 'text-amber-700'}`}>{r.daysOverdue}d overdue</span>
+                                    <span className="num text-[9px] text-ink-muted">
+                                      since {r.oldestDueDate ? format(new Date(r.oldestDueDate), 'd MMM yy') : '—'}
+                                    </span>
+                                  </span>
+                                  <span className="text-right">
+                                    <span className="block text-[9px] font-bold uppercase tracking-wide text-ink-muted">EMI Due</span>
+                                    <span className="num block text-base font-extrabold text-rose-600">{fmt(r.emiDue)}</span>
+                                  </span>
+                                </div>
+                              </motion.button>
+                            );
+                          })}
+                          <p className="flex items-center gap-1.5 px-1 pt-1 text-[11px] text-ink-muted">
+                            <span className="h-1.5 w-1.5 animate-breathe rounded-full bg-amber-500" />
+                            Tap a customer to open their full file in Search · red rank = overdue 6+ months
+                          </p>
+                        </motion.div>
+                      )}
                     </div>
-                  )}
-                </div>
-              )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* All years — clickable profit vs loss bars */}
