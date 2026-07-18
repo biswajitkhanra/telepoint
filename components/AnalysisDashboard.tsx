@@ -551,134 +551,250 @@ function RetailerRecoverySummary({
   const accountsOf = (r: { runningCount: number; npaCount: number; settledCount: number }) =>
     r.runningCount + r.npaCount + r.settledCount;
   // Positive = still to recover (deficit); negative = already recovered extra.
+  // Rendered as bold colour-coded pills so the state is readable at a glance.
   const DeficitCell = ({ value }: { value: number }) =>
     value > 0
-      ? <span className="text-red-600">{formatCurrency(value)}</span>
-      : <span className="text-emerald-600">+{formatCurrency(Math.abs(value))} surplus</span>;
+      ? (
+        <span className="num inline-flex items-center gap-1 rounded-full border border-rose-300 bg-gradient-to-r from-rose-50 to-red-100 px-2.5 py-1 text-xs font-extrabold text-rose-700 shadow-sm">
+          ▼ {formatCurrency(value)}
+        </span>
+      )
+      : (
+        <span className="num inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-gradient-to-r from-emerald-50 to-green-100 px-2.5 py-1 text-xs font-extrabold text-emerald-700 shadow-sm">
+          ▲ +{formatCurrency(Math.abs(value))} surplus
+        </span>
+      );
 
   return (
     <motion.div
-      className="card p-6 border-t-4 border-teal-400"
+      className="rounded-3xl overflow-hidden border border-teal-200 bg-white shadow-card"
       variants={cardRise} initial="hidden" whileInView="show" viewport={{ once: true, margin: '-40px' }}
     >
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-        <div>
-          <p className="section-header mb-0 text-teal-700">🏪 Retailer-wise Recovery Summary</p>
-          <p className="text-[11px] text-ink-muted mt-0.5">
-            Running + NPA + Settled loans — loan given vs collected (EMI + Fine + 1st EMI charge), and the deficit still to recover or the surplus already recovered
-          </p>
+      {/* Vivid gradient header with sweeping sheen */}
+      <div className="bg-gradient-to-r from-teal-500 via-emerald-500 to-cyan-500 px-5 py-4 sheen-track">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <p className="font-display text-lg font-bold text-white flex items-center gap-2 drop-shadow-sm">
+              <motion.span
+                animate={{ rotate: [0, -10, 10, 0] }}
+                transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 3.5 }}
+                className="inline-block origin-bottom"
+              >🏪</motion.span>
+              Retailer-wise Recovery Summary
+            </p>
+            <p className="text-xs text-white/90 mt-0.5">
+              Running + NPA + Settled loans · Loan Given vs Collected (EMI + Fine + 1st EMI charge)
+            </p>
+          </div>
+          <select
+            value={selectedId}
+            onChange={e => onSelect(e.target.value)}
+            className="rounded-xl border-2 border-white/60 bg-white px-4 py-2.5 text-sm font-semibold text-ink shadow-md focus:outline-none focus:ring-4 focus:ring-white/40"
+            aria-label="Retailer"
+          >
+            <option value="">🌐 All Retailers</option>
+            {rows.map(r => <option key={r.retailerId} value={r.retailerId}>{r.name}</option>)}
+          </select>
         </div>
-        <select
-          value={selectedId}
-          onChange={e => onSelect(e.target.value)}
-          className="form-input !py-2 !w-auto"
-          aria-label="Retailer"
-        >
-          <option value="">All Retailers</option>
-          {rows.map(r => <option key={r.retailerId} value={r.retailerId}>{r.name}</option>)}
-        </select>
       </div>
 
-      {loading ? (
-        <div className="space-y-3 py-2">{[0, 1, 2].map(i => <div key={i} className="skeleton h-8 w-full rounded-lg" />)}</div>
-      ) : rows.length === 0 ? (
-        <p className="text-sm text-ink-muted py-6 text-center">No retailers with running, NPA or settled loans yet.</p>
-      ) : selected ? (
-        (() => {
-          const pct = recoveryPct(selected.loanGiven, selected.totalCollected);
-          const cleared = selected.deficit <= 0;
-          return (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-                <SummaryTile label="Loan Given (Invested)" value={selected.loanGiven} tone="border-emerald-500/40 bg-emerald-500/10 text-emerald-700" />
-                <SummaryTile label="EMI Collected" value={selected.emiCollected} tone="border-teal-500/40 bg-teal-500/10 text-teal-700" />
-                <SummaryTile label="Fine Collected" value={selected.fineCollected} tone="border-rose-500/40 bg-rose-500/10 text-rose-700" />
-                <SummaryTile label="1st EMI Charge Collected" value={selected.firstChargeCollected} tone="border-amber-500/40 bg-amber-500/10 text-amber-700" />
-                <SummaryTile label="Total Collected" value={selected.totalCollected} tone="border-violet-500/40 bg-violet-500/10 text-violet-700" sub="EMI + Fine + 1st EMI charge" />
-                <SummaryTile
-                  label={cleared ? 'Recovered — Surplus' : 'Deficit (Still to Recover)'}
-                  value={Math.abs(selected.deficit)}
-                  tone={cleared ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700' : 'border-red-500/40 bg-red-500/10 text-red-700'}
-                  sub="Loan Given − Total Collected"
-                />
-              </div>
-              <div>
-                <div className="flex items-center justify-between text-[11px] text-ink-muted mb-1">
-                  <span>
-                    {accountsOf(selected)} account{accountsOf(selected) === 1 ? '' : 's'} — {selected.runningCount} running
-                    {selected.npaCount > 0 && <> · {selected.npaCount} NPA</>}
-                    {selected.settledCount > 0 && <> · {selected.settledCount} settled</>}
-                  </span>
-                  <span className="num font-semibold text-ink">{pct}% of invested amount recovered</span>
-                </div>
-                <div className="h-2.5 rounded-full bg-surface-3 overflow-hidden">
-                  <motion.div
-                    className={`h-full rounded-full bg-gradient-to-r ${cleared ? 'from-emerald-500 to-teal-400' : 'from-teal-500 to-cyan-400'}`}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${pct}%` }}
-                    transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+      <div className="px-5 py-5">
+        {loading ? (
+          <div className="space-y-3 py-2">{[0, 1, 2].map(i => <div key={i} className="skeleton h-10 w-full rounded-xl" />)}</div>
+        ) : rows.length === 0 ? (
+          <p className="text-sm text-ink-muted py-6 text-center">No retailers with running, NPA or settled loans yet.</p>
+        ) : selected ? (
+          (() => {
+            const pct = recoveryPct(selected.loanGiven, selected.totalCollected);
+            const cleared = selected.deficit <= 0;
+            return (
+              <motion.div
+                className="space-y-5"
+                variants={staggerContainer(0.07, 0.04)} initial="hidden" animate="show"
+                key={selected.retailerId}
+              >
+                {/* Shop name + status chips */}
+                <motion.div variants={fadeUp} className="flex flex-wrap items-center gap-2">
+                  <span className="font-display text-xl font-extrabold text-gradient-brand">{selected.name}</span>
+                  {!selected.isActive && <span className="badge-gray">Inactive</span>}
+                  <span className="badge-green">● {selected.runningCount} Running</span>
+                  {selected.npaCount > 0 && <span className="badge-red">⛔ {selected.npaCount} NPA</span>}
+                  {selected.settledCount > 0 && <span className="badge-blue">🤝 {selected.settledCount} Settled</span>}
+                </motion.div>
+
+                {/* Hero figures — saturated gradients, big white numbers */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <HeroTile
+                    icon="💼" label="Loan Given (Invested)" value={selected.loanGiven}
+                    gradient="from-blue-500 via-indigo-600 to-violet-600" glow="shadow-indigo-500/40"
+                  />
+                  <HeroTile
+                    icon="💰" label="Total Collected" value={selected.totalCollected}
+                    sub="EMI + Fine + 1st EMI charge"
+                    gradient="from-emerald-500 via-teal-600 to-cyan-600" glow="shadow-teal-500/40"
+                  />
+                  <HeroTile
+                    icon={cleared ? '🎉' : '⏳'}
+                    label={cleared ? 'Surplus Recovered' : 'Deficit — Still to Recover'}
+                    value={Math.abs(selected.deficit)}
+                    sub="Loan Given − Total Collected"
+                    gradient={cleared ? 'from-emerald-500 via-green-600 to-lime-600' : 'from-rose-500 via-red-600 to-orange-600'}
+                    glow={cleared ? 'shadow-green-500/40' : 'shadow-rose-500/40'}
                   />
                 </div>
-              </div>
-            </div>
-          );
-        })()
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="data-table text-xs sm:text-sm">
-            <thead>
-              <tr>
-                <th>Retailer</th>
-                <th className="text-right">Accounts</th>
-                <th className="text-right">Loan Given</th>
-                <th className="text-right">EMI</th>
-                <th className="text-right">Fine</th>
-                <th className="text-right">1st Charge</th>
-                <th className="text-right">Total Collected</th>
-                <th className="text-right">Deficit / Surplus</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(r => (
-                <tr key={r.retailerId} onClick={() => onSelect(r.retailerId)} className="cursor-pointer hover:bg-surface-2">
-                  <td className="font-semibold text-ink">{r.name}{!r.isActive && <span className="ml-1.5 text-[10px] text-ink-muted">(inactive)</span>}</td>
-                  <td className="num text-right" title={`${r.runningCount} running · ${r.npaCount} NPA · ${r.settledCount} settled`}>
-                    {accountsOf(r)}
-                  </td>
-                  <td className="num text-right">{formatCurrency(r.loanGiven)}</td>
-                  <td className="num text-right">{formatCurrency(r.emiCollected)}</td>
-                  <td className="num text-right">{formatCurrency(r.fineCollected)}</td>
-                  <td className="num text-right">{formatCurrency(r.firstChargeCollected)}</td>
-                  <td className="num text-right font-semibold">{formatCurrency(r.totalCollected)}</td>
-                  <td className="num text-right font-bold whitespace-nowrap"><DeficitCell value={r.deficit} /></td>
+
+                {/* Collection breakup — bright tinted tiles, bold dark text */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <SummaryTile icon="📅" label="EMI Collected" value={selected.emiCollected} tone="border-teal-300 bg-gradient-to-br from-teal-50 to-cyan-100 text-teal-800" />
+                  <SummaryTile icon="💸" label="Fine Collected" value={selected.fineCollected} tone="border-rose-300 bg-gradient-to-br from-rose-50 to-pink-100 text-rose-800" />
+                  <SummaryTile icon="🧾" label="1st EMI Charge Collected" value={selected.firstChargeCollected} tone="border-amber-300 bg-gradient-to-br from-amber-50 to-yellow-100 text-amber-800" />
+                </div>
+
+                {/* Recovery progress — thick bar with % inside */}
+                <motion.div variants={fadeUp} className="rounded-2xl border-2 border-teal-200 bg-gradient-to-br from-teal-50 via-white to-emerald-50 p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-teal-700">📊 Investment Recovery</p>
+                    <p className="num text-sm font-extrabold text-teal-800">{pct}% recovered</p>
+                  </div>
+                  <div className="h-5 rounded-full bg-white border border-teal-200 overflow-hidden shadow-inner">
+                    <motion.div
+                      className={`h-full rounded-full flex items-center justify-end pr-2 ${cleared ? 'progress-festive' : 'bg-gradient-to-r from-teal-500 via-emerald-500 to-cyan-400'}`}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.max(pct, 6)}%` }}
+                      transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
+                    >
+                      <span className="num text-[10px] font-extrabold text-white drop-shadow">{pct}%</span>
+                    </motion.div>
+                  </div>
+                  <p className="text-[11px] text-ink-muted mt-2">
+                    {cleared
+                      ? `🎊 Invested amount fully recovered — running ${formatCurrency(Math.abs(selected.deficit))} in surplus at this shop.`
+                      : `${formatCurrency(selected.deficit)} more to collect before the invested amount is fully back.`}
+                  </p>
+                </motion.div>
+              </motion.div>
+            );
+          })()
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="data-table text-xs sm:text-sm">
+              <thead>
+                <tr>
+                  <th>Retailer</th>
+                  <th className="text-right">Accounts</th>
+                  <th className="text-right">Loan Given</th>
+                  <th className="text-right">EMI</th>
+                  <th className="text-right">Fine</th>
+                  <th className="text-right">1st Charge</th>
+                  <th className="text-right">Total Collected</th>
+                  <th className="text-right">Deficit / Surplus</th>
                 </tr>
-              ))}
-              <tr className="border-t-2 border-surface-4 bg-surface-2">
-                <td className="font-bold text-ink">All Retailers</td>
-                <td className="num text-right font-bold">{totals.runningCount + totals.npaCount + totals.settledCount}</td>
-                <td className="num text-right font-bold">{formatCurrency(totals.loanGiven)}</td>
-                <td className="num text-right font-bold">{formatCurrency(totals.emiCollected)}</td>
-                <td className="num text-right font-bold">{formatCurrency(totals.fineCollected)}</td>
-                <td className="num text-right font-bold">{formatCurrency(totals.firstChargeCollected)}</td>
-                <td className="num text-right font-bold">{formatCurrency(totals.totalCollected)}</td>
-                <td className="num text-right font-bold whitespace-nowrap"><DeficitCell value={totals.deficit} /></td>
-              </tr>
-            </tbody>
-          </table>
-          <p className="text-[10px] text-ink-muted mt-2">Tap a row to open that retailer&apos;s detailed summary.</p>
-        </div>
-      )}
+              </thead>
+              <motion.tbody variants={staggerContainer(0.05, 0.03)} initial="hidden" animate="show">
+                {rows.map((r, i) => {
+                  const c = SECTOR_COLORS[i % SECTOR_COLORS.length];
+                  const pct = recoveryPct(r.loanGiven, r.totalCollected);
+                  return (
+                    <motion.tr
+                      key={r.retailerId}
+                      variants={fadeUp}
+                      onClick={() => onSelect(r.retailerId)}
+                      className="cursor-pointer hover:bg-teal-50/70 transition-colors"
+                    >
+                      <td>
+                        <div className="flex items-center gap-2.5 min-w-[150px]">
+                          <span className={`w-6 h-6 rounded-lg ${c.dot} text-white text-xs font-bold flex items-center justify-center shrink-0 shadow-sm`}>{i + 1}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-ink truncate">
+                              {r.name}{!r.isActive && <span className="ml-1.5 text-[10px] text-ink-muted">(inactive)</span>}
+                            </p>
+                            <div className="mt-1 h-1.5 w-full max-w-[130px] rounded-full bg-surface-3 overflow-hidden">
+                              <motion.div
+                                className={`h-full rounded-full bg-gradient-to-r ${c.bar}`}
+                                initial={{ width: 0 }}
+                                animate={{ width: `${Math.max(pct, 3)}%` }}
+                                transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.06 * i }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="num text-right" title={`${r.runningCount} running · ${r.npaCount} NPA · ${r.settledCount} settled`}>
+                        <span className="inline-flex items-center justify-center min-w-[26px] px-1.5 py-0.5 rounded-full bg-brand-50 border border-brand-200 text-brand-700 font-bold">
+                          {accountsOf(r)}
+                        </span>
+                      </td>
+                      <td className="num text-right font-semibold text-indigo-700">{formatCurrency(r.loanGiven)}</td>
+                      <td className="num text-right text-teal-700">{formatCurrency(r.emiCollected)}</td>
+                      <td className="num text-right text-rose-700">{formatCurrency(r.fineCollected)}</td>
+                      <td className="num text-right text-amber-700">{formatCurrency(r.firstChargeCollected)}</td>
+                      <td className="num text-right font-bold text-emerald-700">{formatCurrency(r.totalCollected)}</td>
+                      <td className="text-right whitespace-nowrap"><DeficitCell value={r.deficit} /></td>
+                    </motion.tr>
+                  );
+                })}
+                <motion.tr variants={fadeUp} className="border-t-2 border-teal-300 bg-gradient-to-r from-teal-50 via-emerald-50 to-cyan-50">
+                  <td className="font-extrabold text-teal-800">Σ All Retailers</td>
+                  <td className="num text-right font-extrabold text-teal-800">{totals.runningCount + totals.npaCount + totals.settledCount}</td>
+                  <td className="num text-right font-extrabold text-indigo-800">{formatCurrency(totals.loanGiven)}</td>
+                  <td className="num text-right font-extrabold text-teal-800">{formatCurrency(totals.emiCollected)}</td>
+                  <td className="num text-right font-extrabold text-rose-800">{formatCurrency(totals.fineCollected)}</td>
+                  <td className="num text-right font-extrabold text-amber-800">{formatCurrency(totals.firstChargeCollected)}</td>
+                  <td className="num text-right font-extrabold text-emerald-800">{formatCurrency(totals.totalCollected)}</td>
+                  <td className="text-right whitespace-nowrap"><DeficitCell value={totals.deficit} /></td>
+                </motion.tr>
+              </motion.tbody>
+            </table>
+            <p className="text-[11px] text-ink-muted mt-2.5 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-breathe" />
+              Tap any row to open that retailer&apos;s detailed summary · bar under each name shows % of investment recovered
+            </p>
+          </div>
+        )}
+      </div>
     </motion.div>
   );
 }
 
-function SummaryTile({ label, value, tone, sub }: { label: string; value: number; tone: string; sub?: string }) {
+/** Saturated-gradient hero figure — big white number on a vivid card. */
+function HeroTile({
+  icon, label, value, sub, gradient, glow,
+}: {
+  icon: string; label: string; value: number; sub?: string; gradient: string; glow: string;
+}) {
   return (
-    <div className={`rounded-xl border p-3 ${tone}`}>
-      <p className="text-[10px] font-bold uppercase tracking-widest">{label}</p>
-      <CountUp value={value} format={formatCurrency} className="num mt-1 block text-xl font-extrabold" />
+    <motion.div
+      variants={cardRise}
+      whileHover={{ y: -5, scale: 1.02, transition: SPRING }}
+      whileTap={{ scale: 0.98 }}
+      className={`sheen-track gradient-pan relative overflow-hidden rounded-2xl bg-gradient-to-br ${gradient} p-4 text-white shadow-lg ${glow}`}
+    >
+      <div className="pointer-events-none absolute -right-7 -top-7 h-20 w-20 rounded-full bg-white/25 blur-2xl" />
+      <div className="pointer-events-none absolute -bottom-8 -left-5 h-24 w-24 rounded-full bg-black/20 blur-2xl" />
+      <div className="relative flex items-center gap-1.5">
+        <span className="text-base drop-shadow-sm">{icon}</span>
+        <p className="text-[10px] font-extrabold uppercase tracking-widest drop-shadow-sm">{label}</p>
+      </div>
+      <CountUp value={value} format={formatCurrency} className="num relative mt-1.5 block text-2xl font-extrabold drop-shadow-md" />
+      {sub && <p className="relative mt-1 text-[10px] font-medium text-white/90 drop-shadow-sm">{sub}</p>}
+    </motion.div>
+  );
+}
+
+/** Bright tinted tile — bold dark text on a soft colour wash for max legibility. */
+function SummaryTile({ icon, label, value, tone, sub }: { icon?: string; label: string; value: number; tone: string; sub?: string }) {
+  return (
+    <motion.div
+      variants={cardRise}
+      whileHover={{ y: -3, transition: SPRING }}
+      className={`rounded-2xl border-2 p-3.5 shadow-sm ${tone}`}
+    >
+      <p className="text-[10px] font-extrabold uppercase tracking-widest flex items-center gap-1.5">
+        {icon && <span className="text-sm">{icon}</span>}{label}
+      </p>
+      <CountUp value={value} format={formatCurrency} className="num mt-1.5 block text-2xl font-extrabold" />
       {sub && <p className="mt-0.5 text-[10px] text-ink-muted">{sub}</p>}
-    </div>
+    </motion.div>
   );
 }
 

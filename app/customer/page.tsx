@@ -197,7 +197,9 @@ export default function CustomerPortal() {
   // app-token sessions refresh via the token, Aadhaar/mobile sessions via the
   // customer id already in the session. `silent` (auto-refresh) skips toasts.
   const sessionCustomerId: string | undefined = session?.customer?.id;
+  const [refreshing, setRefreshing] = useState(false);
   const refreshData = useCallback(async (silent = false) => {
+    if (!silent) setRefreshing(true);
     try {
       const token = localStorage.getItem(TOKEN_KEY);
       let data: { customer?: unknown; emis?: unknown[]; breakdown?: unknown; broadcasts?: unknown[] } | null = null;
@@ -223,6 +225,8 @@ export default function CustomerPortal() {
       }
     } catch {
       if (!silent) toast.error('Refresh failed');
+    } finally {
+      if (!silent) setRefreshing(false);
     }
   }, [sessionCustomerId]);
 
@@ -555,9 +559,23 @@ export default function CustomerPortal() {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-slate-400 hidden sm:block">{customer?.customer_name}</span>
-            <button onClick={() => refreshData()} className="text-xs text-jade-400 hover:text-jade-500 transition-colors border border-white/[0.08] px-3 py-1.5 rounded-lg mr-2">
-              🔄 Refresh
-            </button>
+            <motion.button
+              onClick={() => refreshData()}
+              disabled={refreshing}
+              whileHover={{ y: -1 }}
+              whileTap={{ scale: 0.94 }}
+              className="mr-2 inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-gradient-to-r from-emerald-50 to-teal-100 px-3 py-1.5 text-xs font-bold text-emerald-700 shadow-sm transition-colors hover:border-emerald-400 hover:text-emerald-800 disabled:opacity-60"
+            >
+              <motion.svg
+                width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                animate={refreshing ? { rotate: 360 } : { rotate: 0 }}
+                transition={refreshing ? { repeat: Infinity, duration: 0.8, ease: 'linear' } : { duration: 0.2 }}
+              >
+                <path d="M21 12a9 9 0 11-2.64-6.36" />
+                <path d="M21 3v6h-6" />
+              </motion.svg>
+              {refreshing ? 'Refreshing…' : 'Refresh'}
+            </motion.button>
             <button onClick={() => { setSession(null); localStorage.removeItem(SESSION_KEY); localStorage.removeItem(TOKEN_KEY); }} className="text-xs text-slate-500 hover:text-brand-400 transition-colors border border-white/[0.08] px-3 py-1.5 rounded-lg">
               Switch
             </button>
