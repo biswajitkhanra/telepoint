@@ -1745,6 +1745,11 @@ function MetricDashboard({
   const marketPct = marketTotal > 0
     ? Math.min(100, Math.round(((m.emiCollected + m.firstEmiChargeCollected) / marketTotal) * 100))
     : 0;
+  // Fine recovery on the running book: collected out of everything billed.
+  const fineTotal = m.fineCollected + m.fineDue;
+  const fineProgressPct = fineTotal > 0
+    ? Math.min(100, Math.round((m.fineCollected / fineTotal) * 100))
+    : 0;
 
   return (
     <div className="card p-6 border-l-4 border-brand-500 bg-gradient-to-br from-blue-50 via-white to-indigo-50">
@@ -1827,6 +1832,16 @@ function MetricDashboard({
           gradient="from-rose-500 via-red-600 to-rose-700"
           glow="shadow-rose-500/40"
           graphic="alert"
+        />
+        <MetricCard
+          title="FINE COLLECTION"
+          formula="Fine collected — running customers (live)"
+          value={m.fineCollected}
+          secondary={{ label: 'Fine still due', value: m.fineDue }}
+          gradient="from-pink-500 via-rose-600 to-red-700"
+          glow="shadow-pink-500/40"
+          graphic="filled-bar"
+          progress={fineProgressPct}
         />
       </motion.div>
 

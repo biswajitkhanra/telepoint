@@ -7,6 +7,7 @@ import { formatCurrency } from '@/lib/formatters';
 import CountUp from '@/components/motion/CountUp';
 import { SPRING, SPRING_BOUNCY, cardRise, staggerContainer, fadeUp } from '@/lib/motion';
 import type { BreakdownRow } from '@/app/api/admin/top-products/route';
+import type { RetailerSummaryRow } from '@/app/api/admin/retailer-summary/route';
 
 // Each ranked sector gets its OWN vivid colour (gradient bar + chip).
 const SECTOR_COLORS = [
@@ -142,6 +143,29 @@ export default function AnalysisDashboard({
   const [top, setTop] = useState<{ brands: BreakdownRow[]; products: BreakdownRow[] } | null>(null);
   const [topLoading, setTopLoading] = useState(true);
   const [topTab, setTopTab] = useState<'products' | 'brands'>('products');
+
+  // Retailer-wise recovery summary — lifetime running book, not month-scoped.
+  const [retSummary, setRetSummary] = useState<RetailerSummaryRow[] | null>(null);
+  const [retSummaryLoading, setRetSummaryLoading] = useState(true);
+  const [selectedRetailerId, setSelectedRetailerId] = useState<string>('');
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setRetSummaryLoading(true);
+      try {
+        const res = await fetch('/api/admin/retailer-summary', { cache: 'no-store' });
+        if (!res.ok) { if (!cancelled) setRetSummary(null); return; }
+        const d = await res.json();
+        if (!cancelled) setRetSummary(d.rows ?? []);
+      } catch {
+        if (!cancelled) setRetSummary(null);
+      } finally {
+        if (!cancelled) setRetSummaryLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -440,6 +464,16 @@ export default function AnalysisDashboard({
         />
       </div>
 
+      <SectionDivider grad="from-teal-500 to-emerald-500" text="Retailer-wise Summary" />
+
+      {/* ── Retailer-wise recovery summary — running book, all time ────────── */}
+      <RetailerRecoverySummary
+        rows={retSummary ?? []}
+        loading={retSummaryLoading}
+        selectedId={selectedRetailerId}
+        onSelect={setSelectedRetailerId}
+      />
+
       <SectionDivider grad="from-violet-500 to-fuchsia-500" text="Top Selling — Month till Date" />
 
       {/* ── Top Selling Brands & Products — month-till-date, rainbow ───────── */}
@@ -481,6 +515,159 @@ export default function AnalysisDashboard({
         </div>
       </motion.div>
     </motion.div>
+  );
+}
+
+// ── Retailer-wise recovery summary ───────────────────────────────────────────
+// Per retailer, over their RUNNING loans: loan given (invested) vs what has
+// come back (EMI + fine + 1st-EMI charge collected) and the deficit still to
+// recover. Pick an individual retailer for a detailed card, or "All Retailers"
+// for the side-by-side table.
+function RetailerRecoverySummary({
+  rows, loading, selectedId, onSelect,
+}: {
+  rows: RetailerSummaryRow[];
+  loading: boolean;
+  selectedId: string;
+  onSelect: (id: string) => void;
+}) {
+  const selected = rows.find(r => r.retailerId === selectedId) || null;
+  const totals = rows.reduce(
+    (t, r) => ({
+      runningCount: t.runningCount + r.runningCount,
+      loanGiven: t.loanGiven + r.loanGiven,
+      emiCollected: t.emiCollected + r.emiCollected,
+      fineCollected: t.fineCollected + r.fineCollected,
+      firstChargeCollected: t.firstChargeCollected + r.firstChargeCollected,
+      totalCollected: t.totalCollected + r.totalCollected,
+      deficit: t.deficit + r.deficit,
+    }),
+    { runningCount: 0, loanGiven: 0, emiCollected: 0, fineCollected: 0, firstChargeCollected: 0, totalCollected: 0, deficit: 0 },
+  );
+  const recoveryPct = (loan: number, collected: number) =>
+    loan > 0 ? Math.min(100, Math.round((collected / loan) * 100)) : 0;
+
+  return (
+    <motion.div
+      className="card p-6 border-t-4 border-teal-400"
+      variants={cardRise} initial="hidden" whileInView="show" viewport={{ once: true, margin: '-40px' }}
+    >
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+        <div>
+          <p className="section-header mb-0 text-teal-700">🏪 Retailer-wise Recovery Summary</p>
+          <p className="text-[11px] text-ink-muted mt-0.5">
+            Running loans only — loan given vs collected (EMI + Fine + 1st EMI charge) and the deficit still to recover
+          </p>
+        </div>
+        <select
+          value={selectedId}
+          onChange={e => onSelect(e.target.value)}
+          className="form-input !py-2 !w-auto"
+          aria-label="Retailer"
+        >
+          <option value="">All Retailers</option>
+          {rows.map(r => <option key={r.retailerId} value={r.retailerId}>{r.name}</option>)}
+        </select>
+      </div>
+
+      {loading ? (
+        <div className="space-y-3 py-2">{[0, 1, 2].map(i => <div key={i} className="skeleton h-8 w-full rounded-lg" />)}</div>
+      ) : rows.length === 0 ? (
+        <p className="text-sm text-ink-muted py-6 text-center">No retailers with running loans yet.</p>
+      ) : selected ? (
+        (() => {
+          const pct = recoveryPct(selected.loanGiven, selected.totalCollected);
+          const cleared = selected.deficit <= 0;
+          return (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                <SummaryTile label="Loan Given (Invested)" value={selected.loanGiven} tone="border-emerald-500/40 bg-emerald-500/10 text-emerald-700" />
+                <SummaryTile label="EMI Collected" value={selected.emiCollected} tone="border-teal-500/40 bg-teal-500/10 text-teal-700" />
+                <SummaryTile label="Fine Collected" value={selected.fineCollected} tone="border-rose-500/40 bg-rose-500/10 text-rose-700" />
+                <SummaryTile label="1st EMI Charge Collected" value={selected.firstChargeCollected} tone="border-amber-500/40 bg-amber-500/10 text-amber-700" />
+                <SummaryTile label="Total Collected" value={selected.totalCollected} tone="border-violet-500/40 bg-violet-500/10 text-violet-700" sub="EMI + Fine + 1st EMI charge" />
+                <SummaryTile
+                  label={cleared ? 'Recovered — Surplus' : 'Deficit (Still to Recover)'}
+                  value={Math.abs(selected.deficit)}
+                  tone={cleared ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700' : 'border-red-500/40 bg-red-500/10 text-red-700'}
+                  sub="Loan Given − Total Collected"
+                />
+              </div>
+              <div>
+                <div className="flex items-center justify-between text-[11px] text-ink-muted mb-1">
+                  <span>{selected.runningCount} running customer{selected.runningCount === 1 ? '' : 's'}</span>
+                  <span className="num font-semibold text-ink">{pct}% of invested amount recovered</span>
+                </div>
+                <div className="h-2.5 rounded-full bg-surface-3 overflow-hidden">
+                  <motion.div
+                    className={`h-full rounded-full bg-gradient-to-r ${cleared ? 'from-emerald-500 to-teal-400' : 'from-teal-500 to-cyan-400'}`}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${pct}%` }}
+                    transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+                  />
+                </div>
+              </div>
+            </div>
+          );
+        })()
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="data-table text-xs sm:text-sm">
+            <thead>
+              <tr>
+                <th>Retailer</th>
+                <th className="text-right">Running</th>
+                <th className="text-right">Loan Given</th>
+                <th className="text-right">EMI</th>
+                <th className="text-right">Fine</th>
+                <th className="text-right">1st Charge</th>
+                <th className="text-right">Total Collected</th>
+                <th className="text-right">Deficit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(r => (
+                <tr key={r.retailerId} onClick={() => onSelect(r.retailerId)} className="cursor-pointer hover:bg-surface-2">
+                  <td className="font-semibold text-ink">{r.name}{!r.isActive && <span className="ml-1.5 text-[10px] text-ink-muted">(inactive)</span>}</td>
+                  <td className="num text-right">{r.runningCount}</td>
+                  <td className="num text-right">{formatCurrency(r.loanGiven)}</td>
+                  <td className="num text-right">{formatCurrency(r.emiCollected)}</td>
+                  <td className="num text-right">{formatCurrency(r.fineCollected)}</td>
+                  <td className="num text-right">{formatCurrency(r.firstChargeCollected)}</td>
+                  <td className="num text-right font-semibold">{formatCurrency(r.totalCollected)}</td>
+                  <td className={`num text-right font-bold ${r.deficit > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                    {formatCurrency(r.deficit)}
+                  </td>
+                </tr>
+              ))}
+              <tr className="border-t-2 border-surface-4 bg-surface-2">
+                <td className="font-bold text-ink">All Retailers</td>
+                <td className="num text-right font-bold">{totals.runningCount}</td>
+                <td className="num text-right font-bold">{formatCurrency(totals.loanGiven)}</td>
+                <td className="num text-right font-bold">{formatCurrency(totals.emiCollected)}</td>
+                <td className="num text-right font-bold">{formatCurrency(totals.fineCollected)}</td>
+                <td className="num text-right font-bold">{formatCurrency(totals.firstChargeCollected)}</td>
+                <td className="num text-right font-bold">{formatCurrency(totals.totalCollected)}</td>
+                <td className={`num text-right font-bold ${totals.deficit > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                  {formatCurrency(totals.deficit)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p className="text-[10px] text-ink-muted mt-2">Tap a row to open that retailer&apos;s detailed summary.</p>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+function SummaryTile({ label, value, tone, sub }: { label: string; value: number; tone: string; sub?: string }) {
+  return (
+    <div className={`rounded-xl border p-3 ${tone}`}>
+      <p className="text-[10px] font-bold uppercase tracking-widest">{label}</p>
+      <CountUp value={value} format={formatCurrency} className="num mt-1 block text-xl font-extrabold" />
+      {sub && <p className="mt-0.5 text-[10px] text-ink-muted">{sub}</p>}
+    </div>
   );
 }
 
