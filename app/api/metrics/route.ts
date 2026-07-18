@@ -99,37 +99,36 @@ export async function GET(req: NextRequest) {
     retailerId = r.id;
   }
 
-  // ── Fine settings ─────────────────────────────────────────────────────────
-  const { data: fs } = await svc
-    .from('fine_settings').select('default_fine_amount, weekly_fine_increment').eq('id', 1).single();
+  // ── Fine settings + customers + approved payments — independent reads, so
+  // they run IN PARALLEL instead of three sequential round-trip stacks.
+  type PayReqRow = { fine_amount: number | null; approved_at: string | null; created_at: string | null };
+  const [fsRes, customers, payReqs] = await Promise.all([
+    svc.from('fine_settings').select('default_fine_amount, weekly_fine_increment').eq('id', 1).single(),
+    fetchAllPaged<CustomerRow>((from, to) => {
+      let q = svc
+        .from('customers')
+        .select('id, status, purchase_value, down_payment, disburse_amount, completion_date, settlement_amount, settlement_date, first_emi_charge_amount, first_emi_charge_paid_at')
+        .order('id')
+        .range(from, to);
+      if (retailerId) q = q.eq('retailer_id', retailerId);
+      return q as unknown as PromiseLike<{ data: CustomerRow[] | null; error: { message: string } | null }>;
+    }),
+    // Fine collected, bucketed by month of approval (transaction-level):
+    // every APPROVED payment request (paged, scoped), summed below.
+    fetchAllPaged<PayReqRow>((from, to) => {
+      let q = svc
+        .from('payment_requests')
+        .select('fine_amount, approved_at, created_at')
+        .eq('status', 'APPROVED')
+        .order('id')
+        .range(from, to);
+      if (retailerId) q = q.eq('retailer_id', retailerId);
+      return q as unknown as PromiseLike<{ data: PayReqRow[] | null; error: { message: string } | null }>;
+    }),
+  ]);
+  const fs = fsRes.data;
   const baseFine = Number(fs?.default_fine_amount ?? 450);
   const weeklyIncrement = Number(fs?.weekly_fine_increment ?? 25);
-
-  // ── Load customers (paged) ────────────────────────────────────────────────
-  const customers = await fetchAllPaged<CustomerRow>((from, to) => {
-    let q = svc
-      .from('customers')
-      .select('id, status, purchase_value, down_payment, disburse_amount, completion_date, settlement_amount, settlement_date, first_emi_charge_amount, first_emi_charge_paid_at')
-      .order('id')
-      .range(from, to);
-    if (retailerId) q = q.eq('retailer_id', retailerId);
-    return q as unknown as PromiseLike<{ data: CustomerRow[] | null; error: { message: string } | null }>;
-  });
-
-  // ── Fine collected, bucketed by year of approval (transaction-level) ──────
-  // Read every APPROVED payment request (paged, scoped) and sum the fine
-  // portion into the calendar year it was approved (fallback: created) in.
-  type PayReqRow = { fine_amount: number | null; approved_at: string | null; created_at: string | null };
-  const payReqs = await fetchAllPaged<PayReqRow>((from, to) => {
-    let q = svc
-      .from('payment_requests')
-      .select('fine_amount, approved_at, created_at')
-      .eq('status', 'APPROVED')
-      .order('id')
-      .range(from, to);
-    if (retailerId) q = q.eq('retailer_id', retailerId);
-    return q as unknown as PromiseLike<{ data: PayReqRow[] | null; error: { message: string } | null }>;
-  });
 
   const fineCollectedByMonth: Record<string, number> = {};
   for (const p of payReqs) {

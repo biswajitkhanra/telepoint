@@ -159,7 +159,7 @@ export function buildLoanStatementHtml(args: BuildStatementArgs): string {
       ${photo ? `<img src="${esc(photo)}" alt="" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">` : esc(customer?.customer_name?.[0]?.toUpperCase() || '?')}
     </div>
     <div>
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.28em;opacity:.75">TelePoint EMI Finance</div>
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.28em;opacity:.75">TelePoint EMI Solution</div>
       <div style="font-size:19px;font-weight:700">Statement of Loan Account</div>
       <div style="font-size:10px;opacity:.75">${esc(periodTxt)}</div>
     </div>
@@ -225,7 +225,7 @@ export function buildLoanStatementHtml(args: BuildStatementArgs): string {
     <p style="margin:2px 0">• Fines accrue on overdue instalments as per the late-payment policy in force.</p>
     <p style="margin:2px 0">• Please retain this statement for your records. Errors, if any, must be reported within 15 days.</p>
     <p style="margin:2px 0;font-weight:600;color:#0f172a">This is a computer-generated statement and does not require a signature.</p>
-    <p style="text-align:center;margin-top:10px">Generated on ${format(new Date(), 'd MMM yyyy, h:mm a')} · TelePoint EMI Finance</p>
+    <p style="text-align:center;margin-top:10px">Generated on ${format(new Date(), 'd MMM yyyy, h:mm a')} · TelePoint EMI Solution</p>
   </div>
 </div></body></html>`;
 }

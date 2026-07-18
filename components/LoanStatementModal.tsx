@@ -185,7 +185,7 @@ export default function LoanStatementModal({
               )}
             </div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-white/70">TelePoint EMI Finance</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-white/70">TelePoint EMI Solution</p>
               <h2 className="font-display text-lg font-bold text-white">Statement of Loan Account</h2>
               <p className="text-[10px] text-white/70">
                 {firstDue && lastDue
@@ -364,7 +364,7 @@ export default function LoanStatementModal({
               </div>
             </div>
             <p className="mt-3 text-center">
-              Generated on {format(new Date(), 'd MMM yyyy, h:mm a')} · TelePoint EMI Finance
+              Generated on {format(new Date(), 'd MMM yyyy, h:mm a')} · TelePoint EMI Solution
             </p>
           </section>
         </div>
