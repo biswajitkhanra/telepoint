@@ -535,6 +535,8 @@ function RetailerRecoverySummary({
   const totals = rows.reduce(
     (t, r) => ({
       runningCount: t.runningCount + r.runningCount,
+      npaCount: t.npaCount + r.npaCount,
+      settledCount: t.settledCount + r.settledCount,
       loanGiven: t.loanGiven + r.loanGiven,
       emiCollected: t.emiCollected + r.emiCollected,
       fineCollected: t.fineCollected + r.fineCollected,
@@ -542,10 +544,17 @@ function RetailerRecoverySummary({
       totalCollected: t.totalCollected + r.totalCollected,
       deficit: t.deficit + r.deficit,
     }),
-    { runningCount: 0, loanGiven: 0, emiCollected: 0, fineCollected: 0, firstChargeCollected: 0, totalCollected: 0, deficit: 0 },
+    { runningCount: 0, npaCount: 0, settledCount: 0, loanGiven: 0, emiCollected: 0, fineCollected: 0, firstChargeCollected: 0, totalCollected: 0, deficit: 0 },
   );
   const recoveryPct = (loan: number, collected: number) =>
     loan > 0 ? Math.min(100, Math.round((collected / loan) * 100)) : 0;
+  const accountsOf = (r: { runningCount: number; npaCount: number; settledCount: number }) =>
+    r.runningCount + r.npaCount + r.settledCount;
+  // Positive = still to recover (deficit); negative = already recovered extra.
+  const DeficitCell = ({ value }: { value: number }) =>
+    value > 0
+      ? <span className="text-red-600">{formatCurrency(value)}</span>
+      : <span className="text-emerald-600">+{formatCurrency(Math.abs(value))} surplus</span>;
 
   return (
     <motion.div
@@ -556,7 +565,7 @@ function RetailerRecoverySummary({
         <div>
           <p className="section-header mb-0 text-teal-700">🏪 Retailer-wise Recovery Summary</p>
           <p className="text-[11px] text-ink-muted mt-0.5">
-            Running loans only — loan given vs collected (EMI + Fine + 1st EMI charge) and the deficit still to recover
+            Running + NPA + Settled loans — loan given vs collected (EMI + Fine + 1st EMI charge), and the deficit still to recover or the surplus already recovered
           </p>
         </div>
         <select
@@ -573,7 +582,7 @@ function RetailerRecoverySummary({
       {loading ? (
         <div className="space-y-3 py-2">{[0, 1, 2].map(i => <div key={i} className="skeleton h-8 w-full rounded-lg" />)}</div>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-ink-muted py-6 text-center">No retailers with running loans yet.</p>
+        <p className="text-sm text-ink-muted py-6 text-center">No retailers with running, NPA or settled loans yet.</p>
       ) : selected ? (
         (() => {
           const pct = recoveryPct(selected.loanGiven, selected.totalCollected);
@@ -595,7 +604,11 @@ function RetailerRecoverySummary({
               </div>
               <div>
                 <div className="flex items-center justify-between text-[11px] text-ink-muted mb-1">
-                  <span>{selected.runningCount} running customer{selected.runningCount === 1 ? '' : 's'}</span>
+                  <span>
+                    {accountsOf(selected)} account{accountsOf(selected) === 1 ? '' : 's'} — {selected.runningCount} running
+                    {selected.npaCount > 0 && <> · {selected.npaCount} NPA</>}
+                    {selected.settledCount > 0 && <> · {selected.settledCount} settled</>}
+                  </span>
                   <span className="num font-semibold text-ink">{pct}% of invested amount recovered</span>
                 </div>
                 <div className="h-2.5 rounded-full bg-surface-3 overflow-hidden">
@@ -616,41 +629,39 @@ function RetailerRecoverySummary({
             <thead>
               <tr>
                 <th>Retailer</th>
-                <th className="text-right">Running</th>
+                <th className="text-right">Accounts</th>
                 <th className="text-right">Loan Given</th>
                 <th className="text-right">EMI</th>
                 <th className="text-right">Fine</th>
                 <th className="text-right">1st Charge</th>
                 <th className="text-right">Total Collected</th>
-                <th className="text-right">Deficit</th>
+                <th className="text-right">Deficit / Surplus</th>
               </tr>
             </thead>
             <tbody>
               {rows.map(r => (
                 <tr key={r.retailerId} onClick={() => onSelect(r.retailerId)} className="cursor-pointer hover:bg-surface-2">
                   <td className="font-semibold text-ink">{r.name}{!r.isActive && <span className="ml-1.5 text-[10px] text-ink-muted">(inactive)</span>}</td>
-                  <td className="num text-right">{r.runningCount}</td>
+                  <td className="num text-right" title={`${r.runningCount} running · ${r.npaCount} NPA · ${r.settledCount} settled`}>
+                    {accountsOf(r)}
+                  </td>
                   <td className="num text-right">{formatCurrency(r.loanGiven)}</td>
                   <td className="num text-right">{formatCurrency(r.emiCollected)}</td>
                   <td className="num text-right">{formatCurrency(r.fineCollected)}</td>
                   <td className="num text-right">{formatCurrency(r.firstChargeCollected)}</td>
                   <td className="num text-right font-semibold">{formatCurrency(r.totalCollected)}</td>
-                  <td className={`num text-right font-bold ${r.deficit > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                    {formatCurrency(r.deficit)}
-                  </td>
+                  <td className="num text-right font-bold whitespace-nowrap"><DeficitCell value={r.deficit} /></td>
                 </tr>
               ))}
               <tr className="border-t-2 border-surface-4 bg-surface-2">
                 <td className="font-bold text-ink">All Retailers</td>
-                <td className="num text-right font-bold">{totals.runningCount}</td>
+                <td className="num text-right font-bold">{totals.runningCount + totals.npaCount + totals.settledCount}</td>
                 <td className="num text-right font-bold">{formatCurrency(totals.loanGiven)}</td>
                 <td className="num text-right font-bold">{formatCurrency(totals.emiCollected)}</td>
                 <td className="num text-right font-bold">{formatCurrency(totals.fineCollected)}</td>
                 <td className="num text-right font-bold">{formatCurrency(totals.firstChargeCollected)}</td>
                 <td className="num text-right font-bold">{formatCurrency(totals.totalCollected)}</td>
-                <td className={`num text-right font-bold ${totals.deficit > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                  {formatCurrency(totals.deficit)}
-                </td>
+                <td className="num text-right font-bold whitespace-nowrap"><DeficitCell value={totals.deficit} /></td>
               </tr>
             </tbody>
           </table>

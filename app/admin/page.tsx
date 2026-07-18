@@ -26,6 +26,7 @@ import CountUp from '@/components/motion/CountUp';
 import StackUnfold from '@/components/motion/StackUnfold';
 import ShelfSearch from '@/components/motion/ShelfSearch';
 import { SPRING, cardRise, staggerContainer, rowItem } from '@/lib/motion';
+import type { ExpectedLossCustomer } from '@/app/api/admin/expected-loss/route';
 
 type Tab = 'search' | 'retailers' | 'reports' | 'analysis' | 'broadcast';
 
@@ -939,7 +940,24 @@ export default function AdminDashboard() {
             </div>
 
             {/* Live DB Metric Dashboard */}
-            <MetricDashboard supabase={supabase} baseFine={fineSettings.default_fine_amount} weeklyIncrement={fineSettings.weekly_fine_increment} />
+            <MetricDashboard
+              supabase={supabase}
+              baseFine={fineSettings.default_fine_amount}
+              weeklyIncrement={fineSettings.weekly_fine_increment}
+              onOpenCustomer={async (customerId) => {
+                setTab('search');
+                clearFilter();
+                const { data: cc } = await supabase
+                  .from('customers')
+                  .select('*, retailer:retailers(*)')
+                  .eq('id', customerId)
+                  .single();
+                if (cc) {
+                  setSearchResults([cc as Customer]);
+                  await selectCustomerFn(cc as Customer);
+                }
+              }}
+            />
 
             {/* Excel Exports */}
             <div className="card p-6 border-l-4 border-violet-500 bg-gradient-to-br from-violet-50 to-white">
@@ -1670,17 +1688,44 @@ const currentYM = () => {
 };
 
 function MetricDashboard({
-  supabase, baseFine, weeklyIncrement,
+  supabase, baseFine, weeklyIncrement, onOpenCustomer,
 }: {
   supabase: ReturnType<typeof createClient>;
   baseFine: number;
   weeklyIncrement: number;
+  onOpenCustomer?: (customerId: string) => void;
 }) {
   const [metrics, setMetrics] = useState<MetricNumbers | null>(null);
   const [loading, setLoading] = useState(true);
   const [fineMonth, setFineMonth] = useState<string>(currentYM()); // "YYYY-MM"
   const [fineYear, setFineYear] = useState<number>(new Date().getFullYear());
   const [plYear, setPlYear] = useState<string>(String(new Date().getFullYear()));
+
+  // Expected-loss drill-down: which customers make up the aggregate figure.
+  const [showExpectedLoss, setShowExpectedLoss] = useState(false);
+  const [elRows, setElRows] = useState<ExpectedLossCustomer[] | null>(null);
+  const [elLoading, setElLoading] = useState(false);
+  const toggleExpectedLoss = useCallback(async () => {
+    const next = !showExpectedLoss;
+    setShowExpectedLoss(next);
+    if (next && elRows === null && !elLoading) {
+      setElLoading(true);
+      try {
+        const res = await fetch('/api/admin/expected-loss', { cache: 'no-store' });
+        if (!res.ok) {
+          const e = await readJsonSafe<{ error?: string }>(res);
+          throw new Error(e?.error || `Expected-loss list failed (${res.status})`);
+        }
+        const d = await res.json();
+        setElRows(d.rows ?? []);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Could not load expected-loss customers');
+        setShowExpectedLoss(false);
+      } finally {
+        setElLoading(false);
+      }
+    }
+  }, [showExpectedLoss, elRows, elLoading]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1906,25 +1951,66 @@ function MetricDashboard({
               </div>
             </div>
 
-            {/* Expected loss — live risk, not year-bucketed */}
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3">
-              <div className="flex items-center gap-2.5">
-                <span className="text-xl">⚠️</span>
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700">Expected Loss (live)</p>
-                  <p className="text-[11px] text-ink-muted">Running customers with EMI due for more than 3 months · EMI due only, fines &amp; charges excluded</p>
+            {/* Expected loss — live risk, not year-bucketed. Tap to see WHICH
+                customers make up the figure; tap a customer to open their file. */}
+            <div className="mt-3 rounded-xl border border-amber-500/40 bg-amber-500/10">
+              <button onClick={toggleExpectedLoss} className="flex w-full flex-wrap items-center justify-between gap-3 p-3 text-left">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-xl">⚠️</span>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700">Expected Loss (live)</p>
+                    <p className="text-[11px] text-ink-muted">Running customers with EMI due for more than 3 months · EMI due only, fines &amp; charges excluded</p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-6">
-                <div className="text-right">
-                  <p className="text-[10px] uppercase tracking-wide text-ink-muted">Accounts</p>
-                  <CountUp value={m.expectedLossCount} className="num block text-lg font-extrabold text-amber-700" />
+                <div className="flex items-center gap-6">
+                  <div className="text-right">
+                    <p className="text-[10px] uppercase tracking-wide text-ink-muted">Accounts</p>
+                    <CountUp value={m.expectedLossCount} className="num block text-lg font-extrabold text-amber-700" />
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] uppercase tracking-wide text-ink-muted">EMI Due</p>
+                    <CountUp value={m.expectedLossEmiDue} format={fmt} className="num block text-lg font-extrabold text-amber-700" />
+                  </div>
+                  <span className="text-amber-700 text-xs font-bold">{showExpectedLoss ? '▲ Hide' : '▼ Show customers'}</span>
                 </div>
-                <div className="text-right">
-                  <p className="text-[10px] uppercase tracking-wide text-ink-muted">EMI Due</p>
-                  <CountUp value={m.expectedLossEmiDue} format={fmt} className="num block text-lg font-extrabold text-amber-700" />
+              </button>
+              {showExpectedLoss && (
+                <div className="border-t border-amber-500/30 px-3 pb-3">
+                  {elLoading ? (
+                    <p className="py-3 text-center text-xs text-ink-muted">Loading customers…</p>
+                  ) : !elRows || elRows.length === 0 ? (
+                    <p className="py-3 text-center text-xs text-ink-muted">No expected-loss customers right now. 🎉</p>
+                  ) : (
+                    <div className="mt-2 overflow-x-auto rounded-lg border border-amber-500/30 bg-white/70">
+                      <table className="data-table text-xs">
+                        <thead>
+                          <tr><th>Customer</th><th>Mobile</th><th>Retailer</th><th>Oldest Unpaid EMI</th><th className="text-right">Overdue</th><th className="text-right">EMI Due</th></tr>
+                        </thead>
+                        <tbody>
+                          {elRows.map(r => (
+                            <tr
+                              key={r.customerId}
+                              onClick={() => onOpenCustomer?.(r.customerId)}
+                              className="cursor-pointer hover:bg-amber-50"
+                            >
+                              <td>
+                                <p className="font-medium text-ink">{r.name}</p>
+                                {r.imei && <p className="num text-[10px] text-ink-muted">{r.imei}</p>}
+                              </td>
+                              <td className="num text-ink-muted">{r.mobile || '—'}</td>
+                              <td className="text-ink-muted">{r.retailerName}</td>
+                              <td className="num text-danger">{r.oldestDueDate ? format(new Date(r.oldestDueDate), 'd MMM yyyy') : '—'}</td>
+                              <td className="num text-right font-semibold text-danger">{r.daysOverdue}d</td>
+                              <td className="num text-right font-bold text-amber-700">{fmt(r.emiDue)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <p className="px-3 py-2 text-[10px] text-ink-muted">Tap a customer to open their full file in Search.</p>
+                    </div>
+                  )}
                 </div>
-              </div>
+              )}
             </div>
 
             {/* All years — clickable profit vs loss bars */}
