@@ -13,6 +13,7 @@ import SmartAlertPopup from '@/components/SmartAlertPopup';
 import LoanStatementModal from '@/components/LoanStatementModal';
 import { AnimatePresence } from 'framer-motion';
 import { formatCurrency, formatDateOnly, readJsonSafe } from '@/lib/formatters';
+import { customerCodeOf } from '@/lib/customerCode';
 import { SPRING, fadeUp, popIn, staggerContainer, rowItem } from '@/lib/motion';
 
 const SESSION_KEY = 'emi_customer_session';
@@ -279,10 +280,18 @@ export default function CustomerPortal() {
 
     // All unpaid EMIs whose due month is the current month or earlier (no prepay of
     // future months). Each contributes its remaining balance after any partial payment.
-    const dueEmis = sortedEmis.filter(e =>
+    let dueEmis = sortedEmis.filter(e =>
       (e.status === 'UNPAID' || e.status === 'PARTIALLY_PAID') &&
       toISTDateString(e.due_date).slice(0, 7) <= currentMonth,
     );
+    // Nothing due yet (e.g. a fresh loan whose first EMI date hasn't arrived):
+    // let the customer pay their NEXT upcoming EMI early instead of being
+    // limited to just the 1st-EMI charge. Only the single next installment is
+    // opened up — later months still can't be prepaid.
+    if (dueEmis.length === 0) {
+      const nextUp = sortedEmis.find(e => e.status === 'UNPAID' || e.status === 'PARTIALLY_PAID');
+      if (nextUp) dueEmis = [nextUp];
+    }
     const emiDue = dueEmis.reduce(
       (sum, e) => sum + Math.max(0, Number(e.amount || 0) - Math.max(0, Number(e.partial_paid_amount || 0))),
       0,
@@ -309,13 +318,15 @@ export default function CustomerPortal() {
     };
   }, [sortedEmis, breakdown, customer]);
 
-  // UPI reference note: lists the EMI numbers being paid + IMEI, and (if any
-  // fine is included) which EMIs the fine belongs to. Example:
-  //   "EMI 3 IMEI 123456789012345 | Fine of EMI 2,3"
+  // UPI reference note: leads with the customer's unique number (short, so it
+  // survives UPI apps that truncate the note), then the EMI numbers being paid.
+  // Example: "TP1024 | EMI 3 | Fine of EMI 2,3"
   function buildUpiNote(): string {
     const parts: string[] = [];
+    const code = customerCodeOf(customer);
+    if (code) parts.push(code);
     if (dueSummary.dueEmiNos.length > 0) {
-      parts.push(`EMI ${dueSummary.dueEmiNos.join(',')} IMEI ${customer?.imei || ''}`.trim());
+      parts.push(`EMI ${dueSummary.dueEmiNos.join(',')}`);
     } else if (customer?.imei) {
       parts.push(`IMEI ${customer.imei}`);
     }
@@ -593,21 +604,10 @@ export default function CustomerPortal() {
         animate="show"
       >
 
-        {/* Install App Prompt — shows on mobile when token-based and not installed as PWA */}
-        {typeof window !== 'undefined' && localStorage.getItem(TOKEN_KEY) && !window.matchMedia('(display-mode: standalone)').matches && (
-          <motion.div variants={fadeUp} className="card p-4 flex items-center gap-3" style={{ background: 'linear-gradient(135deg, #dbeafe, #eff6ff)', border: '2px solid #93c5fd' }}>
-            <span className="text-3xl">📱</span>
-            <div className="flex-1">
-              <p className="font-bold text-sm text-blue-900">Install TelePoint App</p>
-              <p className="text-xs text-blue-700 mt-0.5">Tap the menu button (⋮ or □↑) in your browser and select <strong>&quot;Add to Home Screen&quot;</strong> for quick access.</p>
-            </div>
-          </motion.div>
-        )}
-
-                {/* Phase 6: Animated Broadcasts */}
+        {/* Broadcasts from the shop / admin — real messages, kept */}
         <BroadcastAnimator broadcasts={broadcastMessages} />
 
-        {/* Phase 6: Smart Alert Popup */}
+        {/* Smart alert popup (upcoming EMI reminder) */}
         <SmartAlertPopup
           fineDue={calculateTotalFineFromEmis(sortedEmis)}
           daysUntilDue={daysUntilDue}
@@ -615,36 +615,6 @@ export default function CustomerPortal() {
           nextEmiAmount={nextUnpaidEmi?.amount}
           firstChargeDue={breakdown?.first_emi_charge_due ?? (customer?.first_emi_charge_paid_at ? 0 : (customer?.first_emi_charge_amount || 0))}
         />
-
-        {/* 1st EMI Charge alert */}
-        {breakdown?.popup_first_emi_charge && (
-          <motion.div variants={popIn} className="alert-gold">
-            <div className="flex items-center gap-3">
-              <motion.span className="text-2xl" animate={{ rotate: [0, -12, 12, 0] }} transition={{ duration: 1.4, repeat: Infinity, repeatDelay: 2 }}>⚠️</motion.span>
-              <div>
-                <p className="text-gold-300 font-semibold">1st EMI Charge Pending</p>
-                <p className="text-gold-400/70 text-sm mt-0.5">
-                  A one-time charge of {fmt(breakdown.first_emi_charge_due)} is due. Contact your retailer to pay.
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Fine alert */}
-        {breakdown?.popup_fine_due && (
-          <motion.div variants={popIn} className="alert-red">
-            <div className="flex items-center gap-3">
-              <motion.span className="text-2xl" animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 1.2, repeat: Infinity }}>🔴</motion.span>
-              <div>
-                <p className="text-crimson-300 font-semibold">Late Fine Due</p>
-                <p className="text-crimson-400/70 text-sm mt-0.5">
-                  A late fine of {fmt(breakdown.fine_due)} applies. Contact your retailer.
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        )}
 
         {/* Profile card */}
         <motion.div variants={fadeUp} className="card overflow-hidden">
@@ -684,7 +654,21 @@ export default function CustomerPortal() {
               </div>
             </div>
           </div>
-          <div className="border-t border-surface-4 px-5 py-4 grid grid-cols-2 gap-4">
+          {/* Unique customer number — quote this when paying or calling the shop */}
+          {customerCodeOf(customer) && (
+            <div className="mx-5 mb-4 flex items-center justify-between rounded-xl border border-brand-200 bg-brand-50 px-4 py-2.5">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-brand-700">Customer ID</p>
+                <p className="num text-lg font-bold text-brand-700 leading-tight">{customerCodeOf(customer)}</p>
+              </div>
+              <p className="max-w-[46%] text-right text-[10px] leading-snug text-slate-500">
+                Mention this ID with every payment so it reaches your account faster.
+              </p>
+            </div>
+          )}
+          {/* Fixed 2-column grid (inline style beats the global mobile 1-col
+              override) so the details stay compact on phones. */}
+          <div className="border-t border-surface-4 px-5 py-4 grid gap-x-4 gap-y-3.5" style={{ gridTemplateColumns: '1fr 1fr' }}>
             <Field label="Mobile" value={customer?.mobile || ''} mono />
             <Field label="IMEI" value={customer?.imei || ''} mono />
             <Field label="Purchase Date" value={customer?.purchase_date ? format(new Date(customer.purchase_date), 'd MMM yyyy') : ''} />
@@ -707,7 +691,7 @@ export default function CustomerPortal() {
             style={{ background: 'linear-gradient(120deg, #0c4a6e, #1e40af 55%, #4c1d95)' }}
           >
             <div className="flex items-center gap-3">
-              <span className="text-2xl">📄</span>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>
               <div>
                 <p className="font-display text-base font-bold text-white">View Loan Statement</p>
               </div>
@@ -811,14 +795,6 @@ export default function CustomerPortal() {
                 <div className="flex justify-between"><span className="font-semibold text-ink">Total Payable</span><span className="font-num text-xl font-bold text-gold-400">{fmt(totalDue)}</span></div>
               </div>
               {dueSummary.nextDueDate && <p className="text-xs text-slate-500 mt-3">Due: {format(new Date(dueSummary.nextDueDate), 'd MMM yyyy')}</p>}
-
-              <div className="mt-4 rounded-xl bg-surface-2 border border-surface-4 px-3 py-2">
-                <p className="text-[10px] uppercase tracking-wide text-slate-500 mb-0.5">UPI reference</p>
-                <p className="text-xs text-slate-400 break-words font-num">{buildUpiNote()}</p>
-              </div>
-              <p className="text-[11px] text-slate-600 mt-2 leading-relaxed">
-                Pay using any UPI app. Status updates after verification.
-              </p>
             </motion.div>
           ) : null;
         })()}
@@ -829,7 +805,7 @@ export default function CustomerPortal() {
           if (!fb.length) return null;
           return (
             <motion.div variants={fadeUp} className="card overflow-hidden">
-              <div className="px-5 py-3 border-b border-surface-4"><span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">⚠️ Fine Details</span></div>
+              <div className="px-5 py-3 border-b border-surface-4"><span className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Fine Details</span></div>
               <div className="divide-y divide-white/[0.03]">
                 {fb.sort((a, b) => a.emi_no - b.emi_no).map(r => (
                   <div key={r.emi_no} className="px-5 py-3 space-y-1">
@@ -867,7 +843,7 @@ export default function CustomerPortal() {
           return (
             <motion.div variants={fadeUp} className="card overflow-hidden">
               <div className="px-5 py-3 border-b border-surface-4">
-                <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">🧾 Fine History</span>
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Fine History</span>
               </div>
               <div className="divide-y divide-surface-3">
                 {fineRows.map(r => (
@@ -960,7 +936,7 @@ export default function CustomerPortal() {
           if (!paidEmis.length) return null;
           return (
             <motion.div variants={fadeUp} className="card overflow-hidden">
-              <div className="px-5 py-3 border-b border-surface-4"><span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">📅 Payment History</span></div>
+              <div className="px-5 py-3 border-b border-surface-4"><span className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Payment History</span></div>
               <div className="divide-y divide-white/[0.03]">
                 {paidEmis.map(e => (
                   <div key={e.id} className="px-5 py-2.5 flex justify-between items-center">
@@ -977,7 +953,7 @@ export default function CustomerPortal() {
                         const method = e.mode || (e.utr ? 'UPI' : 'CASH');
                         return (
                           <p className="text-[10px] text-slate-500">
-                            {method === 'UPI' ? '🟢 UPI' : '💵 Cash'}
+                            {method === 'UPI' ? 'UPI' : 'Cash'}
                             {method === 'UPI' && e.utr ? <span className="font-mono"> · UTR {e.utr}</span> : ''}
                           </p>
                         );

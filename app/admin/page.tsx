@@ -27,6 +27,7 @@ import StackUnfold from '@/components/motion/StackUnfold';
 import ShelfSearch from '@/components/motion/ShelfSearch';
 import { SPRING, cardRise, staggerContainer, rowItem } from '@/lib/motion';
 import type { ExpectedLossCustomer } from '@/app/api/admin/expected-loss/route';
+import { customerCodeOf, looksLikeCustomerCode, normalizeCustomerCode } from '@/lib/customerCode';
 
 type Tab = 'search' | 'retailers' | 'reports' | 'analysis' | 'broadcast';
 
@@ -159,11 +160,18 @@ export default function AdminDashboard() {
     try {
       const sb = supabaseRef.current;
       let qb = sb.from('customers').select('*, retailer:retailers(*)');
-      if (/^\d{15}$/.test(query)) qb = qb.eq('imei', query);
+      if (looksLikeCustomerCode(query)) qb = qb.ilike('customer_code', normalizeCustomerCode(query) + '%');
+      else if (/^\d{15}$/.test(query)) qb = qb.eq('imei', query);
       else if (/^\d{12}$/.test(query)) qb = qb.eq('aadhaar', query);
       else qb = qb.ilike('customer_name', `%${query}%`);
 
-      const { data, error } = await qb.order('customer_name').limit(20);
+      let { data, error } = await qb.order('customer_name').limit(20);
+      // Customer-code search before migration 025 is applied (column missing):
+      // fall back to a name search so the box never hard-fails.
+      if (error && looksLikeCustomerCode(query)) {
+        ({ data, error } = await sb.from('customers').select('*, retailer:retailers(*)')
+          .ilike('customer_name', `%${query}%`).order('customer_name').limit(20));
+      }
       if (error) { console.error('Search error:', error); return; }
       const results = (data as Customer[]) || [];
       setSearchResults(results);
@@ -556,6 +564,7 @@ export default function AdminDashboard() {
                           <div className="shrink-0">{statusBadge}</div>
                         </div>
                         <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs">
+                          <span className="text-ink-muted">ID <span className="font-num font-bold text-brand-700">{customerCodeOf(c)}</span></span>
                           <span className="text-ink-muted">IMEI <span className="font-num text-ink">{c.imei || '—'}</span></span>
                           <span className="text-ink-muted">Mobile <span className="font-num text-ink">{c.mobile || '—'}</span></span>
                           <span className="text-ink-muted">Retailer <span className="text-ink">{(c.retailer as Retailer)?.name || '—'}</span></span>

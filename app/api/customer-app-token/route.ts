@@ -49,8 +49,9 @@ export async function GET(req: NextRequest) {
     last_accessed_at: new Date().toISOString(),
   }).eq('token', token);
 
-  // Load full customer data
-  const { data: customer } = await svc.from('customers').select(`
+  // Load full customer data. `customer_code` (migration 025) is requested
+  // first; if the column is not deployed yet, retry without it.
+  const APP_COLS = `
     id, retailer_id, customer_name, father_name, aadhaar, mobile,
     alternate_number_1, alternate_number_2,
     model_no, imei, purchase_value, down_payment, disburse_amount,
@@ -58,7 +59,16 @@ export async function GET(req: NextRequest) {
     first_emi_charge_amount, first_emi_charge_paid_at,
     customer_photo_url, status, is_locked, lock_provider,
     retailer:retailers(name, mobile)
-  `).eq('id', tokenRow.customer_id).single();
+  `;
+  type CustRow = Record<string, unknown> & { id: string; retailer_id: string };
+  const first = await svc.from('customers')
+    .select(APP_COLS.replace('customer_photo_url', 'customer_code, customer_photo_url'))
+    .eq('id', tokenRow.customer_id).single();
+  let customer = first.data as unknown as CustRow | null;
+  if (first.error?.message && /customer_code/.test(first.error.message)) {
+    const retry = await svc.from('customers').select(APP_COLS).eq('id', tokenRow.customer_id).single();
+    customer = retry.data as unknown as CustRow | null;
+  }
 
   if (!customer) return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
 
