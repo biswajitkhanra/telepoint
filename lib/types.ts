@@ -21,6 +21,8 @@ export interface Customer {
   id: string;
   retailer_id: string;
   retailer?: Retailer | null;
+  /** Short unique customer number (TP1001…), assigned by migration 025. */
+  customer_code?: string | null;
   customer_name: string;
   father_name?: string;
   aadhaar?: string;

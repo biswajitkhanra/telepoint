@@ -10,6 +10,7 @@ import PhoneLockBadge from './PhoneLockBadge';
 import CustomerAppDownload from './CustomerAppDownload';
 import LoanStatementModal from './LoanStatementModal';
 import { SPRING, fadeUp, staggerContainer } from '@/lib/motion';
+import { customerCodeOf } from '@/lib/customerCode';
 
 // Per-cell entrance for the detail grid — small upward drift, no scale (keeps
 // the hairline `gap-px` dividers crisp during the animation).
@@ -158,6 +159,11 @@ export default function CustomerDetailPanel({ customer, paidCount, totalEmis, is
             <div>
               <h2 className="text-xl font-bold text-ink font-display leading-tight">{customer.customer_name}</h2>
               {customer.father_name && <p className="text-ink-muted text-sm">C/O {customer.father_name}</p>}
+              {customerCodeOf(customer) && (
+                <span className="mt-1 inline-flex items-center gap-1 rounded-md border border-brand-200 bg-brand-50 px-2 py-0.5 text-[11px] font-bold text-brand-700">
+                  ID <span className="num">{customerCodeOf(customer)}</span>
+                </span>
+              )}
             </div>
             <span className={`badge ${
               customer.status === 'RUNNING' ? 'badge-green' :
