@@ -666,9 +666,8 @@ export default function CustomerPortal() {
               </p>
             </div>
           )}
-          {/* Fixed 2-column grid (inline style beats the global mobile 1-col
-              override) so the details stay compact on phones. */}
-          <div className="border-t border-surface-4 px-5 py-4 grid gap-x-4 gap-y-3.5" style={{ gridTemplateColumns: '1fr 1fr' }}>
+          {/* keep-cols: stays a compact 2-column grid on phones. */}
+          <div className="border-t border-surface-4 px-5 py-4 grid grid-cols-2 keep-cols gap-x-4 gap-y-3.5">
             <Field label="Mobile" value={customer?.mobile || ''} mono />
             <Field label="IMEI" value={customer?.imei || ''} mono />
             <Field label="Purchase Date" value={customer?.purchase_date ? format(new Date(customer.purchase_date), 'd MMM yyyy') : ''} />

@@ -326,8 +326,11 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
   .card { overflow-x: hidden; }
   main { overflow-x: hidden; }
 
-  .grid-cols-2, .grid-cols-3, .grid-cols-4 { grid-template-columns: 1fr !important; }
-  .sm\:grid-cols-2 { grid-template-columns: 1fr !important; }
+  .grid-cols-2:not(.keep-cols), .grid-cols-3:not(.keep-cols), .grid-cols-4:not(.keep-cols) { grid-template-columns: 1fr !important; }
+  .sm\:grid-cols-2:not(.keep-cols) { grid-template-columns: 1fr !important; }
+  /* Opt-out for compact stat/field grids: stay 2-up on phones instead of
+     stacking into one long column. */
+  .keep-cols { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
 
   .max-w-6xl, .max-w-5xl, .max-w-4xl { max-width: 100% !important; padding-left: 1rem; padding-right: 1rem; }
 
