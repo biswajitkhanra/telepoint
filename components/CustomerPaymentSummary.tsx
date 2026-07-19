@@ -3,7 +3,7 @@
 import { Customer, EMISchedule, DueBreakdown } from '@/lib/types';
 import { calculateTotalFineFromEmis, getPerEmiFineBreakdown } from '@/lib/fineCalc';
 import { formatCurrency, formatDateOnly } from '@/lib/formatters';
-import { differenceInDays } from 'date-fns';
+import { diffDaysIST } from '@/lib/ist';
 import { motion } from 'framer-motion';
 import CountUp from '@/components/motion/CountUp';
 import { SPRING, fadeUp, staggerContainer } from '@/lib/motion';
@@ -69,7 +69,7 @@ export default function CustomerPaymentSummary({
     .sort((a, b) => a.emi_no - b.emi_no)[0];
   const nextDueDate = nextEmi?.due_date ?? breakdown?.next_emi_due_date ?? null;
   const nextDaysLeft = nextDueDate
-    ? differenceInDays(new Date(nextDueDate), new Date())
+    ? diffDaysIST(nextDueDate, new Date())
     : null;
   const nextEmiNo = nextEmi?.emi_no ?? breakdown?.next_emi_no ?? null;
   // Remaining principal on next EMI = scheduled − already-paid partial.

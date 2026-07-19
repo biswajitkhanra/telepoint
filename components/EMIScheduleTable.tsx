@@ -3,7 +3,8 @@
 import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { EMISchedule } from '@/lib/types';
-import { format, differenceInDays, addDays } from 'date-fns';
+import { format, addDays } from 'date-fns';
+import { diffDaysIST } from '@/lib/ist';
 import { createClient } from '@/lib/supabase/client';
 import toast from 'react-hot-toast';
 import { calculateSingleEmiFine } from '@/lib/fineCalc';
@@ -304,7 +305,7 @@ export default function EMIScheduleTable({
           const emiAmount       = Number(emi.amount || 0);
           const emiPaid         = Math.max(0, Number(emi.partial_paid_amount || 0));
           const emiRemaining    = Math.max(0, emiAmount - emiPaid);
-          const overdueDays     = isOverdue ? differenceInDays(today, dueDate) : 0;
+          const overdueDays     = isOverdue ? diffDaysIST(today, dueDate) : 0;
           const fineStartDate   = addDays(dueDate, 1);
 
           // Payment method must always show for a paid EMI. The `mode` column is

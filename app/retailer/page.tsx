@@ -17,7 +17,8 @@ import DueBreakdownPanel from '@/components/DueBreakdownPanel';
 import SmartAlertPopup from '@/components/SmartAlertPopup';
 import PaymentModal from '@/components/PaymentModal';
 import toast from 'react-hot-toast';
-import { format, differenceInDays } from 'date-fns';
+import { format } from 'date-fns';
+import { diffDaysIST } from '@/lib/ist';
 import Link from 'next/link';
 import { calculateTotalFineFromEmis } from '@/lib/fineCalc';
 import BottomNav from '@/components/BottomNav';
@@ -93,6 +94,30 @@ export default function RetailerDashboard() {
   useEffect(() => {
     loadRetailerInfo();
     loadFineSettings();
+  }, []);
+
+  // Auto-load the Due + Upcoming EMI lists as soon as the retailer logs in —
+  // no tap needed. Opens "Show Due" when overdue customers exist, otherwise
+  // the upcoming list, so the day's collection work is visible immediately.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setListsLoading(true);
+      try {
+        const res = await fetch('/api/retailer/emi-lists', { cache: 'no-store' });
+        if (!res.ok || cancelled) return;
+        const d = await res.json();
+        if (cancelled) return;
+        const up = (d.upcoming as UpcomingRow[]) || [];
+        const dl = (d.due as DueRow[]) || [];
+        setUpcoming(up);
+        setDue(dl);
+        setActiveList(dl.length > 0 ? 'due' : 'upcoming');
+      } finally {
+        if (!cancelled) setListsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   async function loadFineSettings() {
@@ -749,7 +774,7 @@ export default function RetailerDashboard() {
               <SmartAlertPopup
                 key={selectedCustomer.id}
                 fineDue={breakdown.fine_due ?? 0}
-                daysUntilDue={breakdown.next_emi_due_date ? differenceInDays(new Date(breakdown.next_emi_due_date), new Date()) : null}
+                daysUntilDue={breakdown.next_emi_due_date ? diffDaysIST(breakdown.next_emi_due_date, new Date()) : null}
                 nextEmiNo={breakdown.next_emi_no}
                 nextEmiAmount={breakdown.next_emi_amount}
                 firstChargeDue={breakdown.first_emi_charge_due ?? 0}
@@ -757,7 +782,7 @@ export default function RetailerDashboard() {
             )}
 
             {breakdown && (() => {
-              const daysLeft = breakdown.next_emi_due_date ? differenceInDays(new Date(breakdown.next_emi_due_date), new Date()) : null;
+              const daysLeft = breakdown.next_emi_due_date ? diffDaysIST(breakdown.next_emi_due_date, new Date()) : null;
               return (
                 <motion.div className="space-y-2" variants={staggerContainer(0.1, 0.05)} initial="hidden" animate="show">
                   {breakdown.fine_due > 0 && (
