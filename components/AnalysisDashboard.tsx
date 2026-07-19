@@ -380,7 +380,7 @@ export default function AnalysisDashboard({
 
       {/* Aspect comparison cards */}
       <motion.div
-        className="grid grid-cols-2 lg:grid-cols-4 gap-3"
+        className="grid grid-cols-2 keep-cols lg:grid-cols-4 gap-3"
         variants={staggerContainer(0.08, 0.05)}
         initial="hidden"
         animate="show"

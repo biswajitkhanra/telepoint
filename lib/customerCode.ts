@@ -1,11 +1,12 @@
-// Unique customer number shown to customers, printed in the UPI payment
+// Unique customer / loan ID shown to customers, printed in the UPI payment
 // reference and searchable in the admin portal.
 //
-// The real permanent number lives in customers.customer_code (TP1001, TP1002…,
-// added by migration 025). Until that migration is applied the column is
+// The real permanent ID lives in customers.customer_code — TP + a fixed
+// 4-character base-36 number (TP0001 … TPZZZZ, 16.7 lakh unique IDs), added
+// by migration 025. It never grows past 4 characters no matter how many
+// customers exist. Until that migration is applied the column is
 // missing/empty, so we fall back to a stable code derived from the customer's
-// UUID — still unique and still usable on receipts, it just isn't a short
-// sequential number yet.
+// UUID — still unique and still usable on receipts, just longer.
 
 export function customerCodeOf(c: { customer_code?: string | null; id?: string | null } | null | undefined): string {
   if (!c) return '';
