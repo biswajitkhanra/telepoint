@@ -48,7 +48,8 @@ export default function PhoneLockBadge({ customerId, isLocked, lockProvider, isA
           {locked ? 'Locked' : 'Active'}
         </span>
       )}
-      {showBadge && lockProvider && <span className="text-[10px] text-ink-muted bg-surface-2 px-2 py-0.5 rounded-full">{lockProvider}</span>}
+      {/* Lock provider name is admin-only — retailers only see locked/active state. */}
+      {showBadge && isAdmin && lockProvider && <span className="text-[10px] text-ink-muted bg-surface-2 px-2 py-0.5 rounded-full">{lockProvider}</span>}
       {showButton && <button onClick={() => setConfirm(true)} disabled={loading} className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${locked ? 'border-success-border text-success hover:bg-success-light' : 'border-danger-border text-danger hover:bg-danger-light'}`}>{locked ? '🔓 Unlock' : '🔒 Lock'}</button>}
     </div>
     {confirm && (

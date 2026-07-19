@@ -5,9 +5,31 @@
 /* ── Base ────────────────────────────────────────────────── */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Semantic theme tokens — light is the default; <html class="dark"> flips
+   every ink/surface token app-wide (Tailwind reads these via rgb(var(…))). */
+:root {
+  --tp-ink: 15 23 42;          /* slate-900 */
+  --tp-ink-light: 30 41 59;    /* slate-800 */
+  --tp-ink-muted: 100 116 139; /* slate-500 */
+  --tp-surface: 255 255 255;
+  --tp-surface-2: 248 250 252; /* slate-50 */
+  --tp-surface-3: 241 245 249; /* slate-100 */
+  --tp-surface-4: 226 232 240; /* slate-200 */
+}
+.dark {
+  --tp-ink: 241 245 249;       /* slate-100 */
+  --tp-ink-light: 226 232 240; /* slate-200 */
+  --tp-ink-muted: 148 163 184; /* slate-400 */
+  --tp-surface: 15 23 42;      /* slate-900 */
+  --tp-surface-2: 30 41 59;    /* slate-800 */
+  --tp-surface-3: 51 65 85;    /* slate-700 */
+  --tp-surface-4: 71 85 105;   /* slate-600 */
+  color-scheme: dark;
+}
+
 html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; overflow-x: hidden; }
 body {
-  background: #f8fafc; color: #1e293b;
+  background: rgb(var(--tp-surface-2)); color: rgb(var(--tp-ink-light));
   font-family: 'Inter', 'Noto Sans Bengali', 'Noto Sans Devanagari', system-ui, sans-serif; line-height: 1.5;
   overflow-x: hidden;
   -webkit-tap-highlight-color: transparent;
@@ -40,7 +62,7 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 @layer components {
 
   /* Cards */
-  .card { @apply rounded-2xl shadow-card border border-surface-4 bg-gradient-to-br from-white to-surface-2; }
+  .card { @apply rounded-2xl shadow-card border border-surface-4 bg-gradient-to-br from-surface to-surface-2; }
   .card-hover {
     @apply card cursor-pointer;
     transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s ease;
@@ -71,7 +93,7 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
   }
   .btn-secondary {
     @apply btn px-5 py-2.5 text-ink border border-surface-4 shadow-sm
-           bg-gradient-to-br from-white to-surface-3 hover:from-surface-2 hover:to-surface-4
+           bg-gradient-to-br from-surface to-surface-3 hover:from-surface-2 hover:to-surface-4
            hover:border-brand-300 hover:shadow-md;
   }
   .btn-danger {
@@ -89,7 +111,7 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 
   /* Inputs — proper mobile sizing */
   .input {
-    @apply w-full rounded-xl border border-surface-4 bg-white px-4 py-2.5 text-sm text-ink
+    @apply w-full rounded-xl border border-surface-4 bg-surface px-4 py-2.5 text-sm text-ink
            placeholder-ink-muted/50 transition-all duration-200
            focus:outline-none focus:border-brand-400 focus:ring-4 focus:ring-brand-400/25;
     min-height: 44px;
@@ -120,7 +142,7 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
            bg-ink/50 backdrop-blur-md;
   }
   .modal-panel {
-    @apply bg-white rounded-t-3xl sm:rounded-2xl w-full sm:max-w-lg max-h-[92vh] overflow-y-auto
+    @apply bg-surface rounded-t-3xl sm:rounded-2xl w-full sm:max-w-lg max-h-[92vh] overflow-y-auto
            shadow-modal;
     animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
@@ -438,6 +460,31 @@ input[type='checkbox']:active {
     scroll-behavior: auto !important;
   }
 }
+
+/* ── Dark theme surface overrides ────────────────────────── */
+/* The token variables above re-skin everything built on ink/surface. These
+   few extras cover hand-tuned light gradients that variables can't reach. */
+.dark ::-webkit-scrollbar-track { background: #1e293b; }
+.dark ::-webkit-scrollbar-thumb { background: #475569; }
+.dark .page-bg {
+  background:
+    radial-gradient(1100px 560px at -8% -18%, rgba(129,140,248,0.14) 0%, transparent 58%),
+    radial-gradient(1000px 600px at 108% -12%, rgba(56,189,248,0.10) 0%, transparent 58%),
+    radial-gradient(900px 620px at 50% 122%, rgba(99,102,241,0.12) 0%, transparent 60%),
+    linear-gradient(135deg, #0b1120 0%, #0f172a 45%, #131129 100%);
+  animation: none;
+}
+.dark .skeleton {
+  background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+  background-size: 200% 100%;
+}
+.dark .shadow-card, .dark .card { box-shadow: 0 1px 3px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.3); }
+/* Legacy tinted washes that pair with text-ink — deepen them in dark mode */
+.dark .bg-violet-50, .dark .bg-fuchsia-50, .dark .bg-indigo-50,
+.dark .bg-brand-50, .dark .bg-sky-50, .dark .bg-emerald-50, .dark .bg-amber-50 {
+  background-color: rgb(51 65 85 / 0.6);
+}
+.dark .modal-backdrop { background-color: rgb(2 6 23 / 0.7); }
 
 /* ── Compatibility Aliases ───────────────────────────────── */
 .gradient-bg { @apply page-bg; }
