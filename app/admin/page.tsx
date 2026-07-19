@@ -19,7 +19,8 @@ import AnalysisDashboard from '@/components/AnalysisDashboard';
 import toast from 'react-hot-toast';
 import { calculateTotalFineFromEmis } from '@/lib/fineCalc';
 import BottomNav from '@/components/BottomNav';
-import { addDays, subMonths, format, differenceInDays } from 'date-fns';
+import { addDays, subMonths, format } from 'date-fns';
+import { diffDaysIST } from '@/lib/ist';
 import { formatCurrency, formatDateOnly, readJsonSafe } from '@/lib/formatters';
 import { motion, AnimatePresence } from 'framer-motion';
 import CountUp from '@/components/motion/CountUp';
@@ -678,14 +679,14 @@ export default function AdminDashboard() {
                   <SmartAlertPopup
                     key={selectedCustomer.id}
                     fineDue={breakdown.fine_due ?? 0}
-                    daysUntilDue={breakdown.next_emi_due_date ? differenceInDays(new Date(breakdown.next_emi_due_date), new Date()) : null}
+                    daysUntilDue={breakdown.next_emi_due_date ? diffDaysIST(breakdown.next_emi_due_date, new Date()) : null}
                     nextEmiNo={breakdown.next_emi_no}
                     nextEmiAmount={breakdown.next_emi_amount}
                     firstChargeDue={breakdown.first_emi_charge_due ?? 0}
                   />
                 )}
                 {breakdown && (() => {
-                  const daysLeft = breakdown.next_emi_due_date ? differenceInDays(new Date(breakdown.next_emi_due_date), new Date()) : null;
+                  const daysLeft = breakdown.next_emi_due_date ? diffDaysIST(breakdown.next_emi_due_date, new Date()) : null;
                   return (
                     <div className="space-y-2">
                       {breakdown.fine_due > 0 && (

@@ -4,7 +4,8 @@ import { motion } from 'framer-motion';
 import CountUp from '@/components/motion/CountUp';
 import { Customer, EMISchedule, DueBreakdown } from '@/lib/types';
 import toast from 'react-hot-toast';
-import { format, differenceInDays } from 'date-fns';
+import { format } from 'date-fns';
+import { diffDaysIST } from '@/lib/ist';
 import { calculateSingleEmiFine, calculateTotalFineFromEmis } from '@/lib/fineCalc';
 import FineSummaryPanel from './FineSummaryPanel';
 import { formatCurrency, readJsonSafe } from '@/lib/formatters';
@@ -398,7 +399,7 @@ export default function PaymentModal({
             )}
             {finesByEmi.map(({ emi, remaining }) => {
               const checked = selectedFineEmis.has(emi.emi_no);
-              const overdueDays = differenceInDays(new Date(), new Date(emi.due_date));
+              const overdueDays = diffDaysIST(new Date(), emi.due_date);
               return (
                 <label
                   key={emi.id}
@@ -505,7 +506,7 @@ export default function PaymentModal({
                           <div className={`flex items-center justify-between px-3 py-1.5 border-t ${sel ? 'bg-danger-light/60 border-danger-border' : 'bg-danger-light/30 border-danger-border/40'}`}>
                             <p className="text-[11px] text-danger font-medium">
                               ⚠ Fine for this EMI
-                              {isOverdue ? ` · ${differenceInDays(new Date(), new Date(emi.due_date))}d overdue` : ''}
+                              {isOverdue ? ` · ${diffDaysIST(new Date(), emi.due_date)}d overdue` : ''}
                             </p>
                             <p className="num text-[11px] font-semibold text-danger">{fmt(emiFineAmt)}</p>
                           </div>

@@ -4,10 +4,10 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Customer, EMISchedule, DueBreakdown } from '@/lib/types';
-import { format, differenceInDays } from 'date-fns';
+import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { calculateTotalFineFromEmis, getPerEmiFineBreakdown } from '@/lib/fineCalc';
-import { toISTDateString } from '@/lib/ist';
+import { toISTDateString, diffDaysIST } from '@/lib/ist';
 import BroadcastAnimator from '@/components/BroadcastAnimator';
 import SmartAlertPopup from '@/components/SmartAlertPopup';
 import LoanStatementModal from '@/components/LoanStatementModal';
@@ -124,7 +124,7 @@ export default function CustomerPortal() {
     if (!session) return;
     const { breakdown } = session;
     if (!breakdown?.next_emi_due_date) return;
-    const daysUntilDue = differenceInDays(new Date(breakdown.next_emi_due_date), new Date());
+    const daysUntilDue = diffDaysIST(breakdown.next_emi_due_date, new Date());
     if (daysUntilDue >= 0 && daysUntilDue <= 5) {
       setShowUpcomingAlert(true);
     }
@@ -259,7 +259,7 @@ export default function CustomerPortal() {
   const unpaidEmis = sortedEmis.filter(e => e.status === 'UNPAID' || e.status === 'PARTIALLY_PAID');
   const nextUnpaidEmi = unpaidEmis[0];
   const daysUntilDue = nextUnpaidEmi
-    ? differenceInDays(new Date(nextUnpaidEmi.due_date), new Date())
+    ? diffDaysIST(nextUnpaidEmi.due_date, new Date())
     : null;
 
   const dueSummary = useMemo(() => {
@@ -734,7 +734,7 @@ export default function CustomerPortal() {
           >
             {sortedEmis.map(emi => {
               const isOverdue = ['UNPAID', 'PARTIALLY_PAID'].includes(emi.status) && new Date(emi.due_date) < new Date();
-              const daysLeft = differenceInDays(new Date(emi.due_date), new Date());
+              const daysLeft = diffDaysIST(emi.due_date, new Date());
               const isUpcoming = ['UNPAID', 'PARTIALLY_PAID'].includes(emi.status) && daysLeft >= 0 && daysLeft <= 5;
               return (
                 <motion.div key={emi.id} variants={rowItem} whileHover={{ scale: 1.01, x: 2 }} className={`flex items-center justify-between px-4 py-3.5 rounded-xl border ${

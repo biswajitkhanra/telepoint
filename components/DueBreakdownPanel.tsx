@@ -1,7 +1,8 @@
 'use client';
 
 import { DueBreakdown } from '@/lib/types';
-import { format, addDays, differenceInDays } from 'date-fns';
+import { format, addDays } from 'date-fns';
+import { diffDaysIST } from '@/lib/ist';
 import { motion } from 'framer-motion';
 import CountUp from '@/components/motion/CountUp';
 import { SPRING, fadeUp } from '@/lib/motion';
@@ -16,7 +17,7 @@ export default function DueBreakdownPanel({ breakdown }: { breakdown: DueBreakdo
   const dueDate = breakdown.next_emi_due_date ? new Date(breakdown.next_emi_due_date) : null;
   const fineStartDate = dueDate ? addDays(dueDate, 1) : null;
   const overdueDays = dueDate && breakdown.is_overdue
-    ? differenceInDays(new Date(), dueDate)
+    ? diffDaysIST(new Date(), dueDate)
     : 0;
 
   return (
