@@ -78,7 +78,7 @@ export default function NavBar({ role, pendingCount = 0 }: NavBarProps) {
       initial={{ y: -24, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={SPRING}
-      className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-surface-4 shadow-sm no-print"
+      className="sticky top-0 z-40 bg-white/90 dark:bg-surface/90 backdrop-blur-md border-b border-surface-4 shadow-sm no-print"
     >
       <div className="max-w-6xl mx-auto px-3 sm:px-4 h-14 flex items-center justify-between gap-2">
         {/* Logo + wordmark */}

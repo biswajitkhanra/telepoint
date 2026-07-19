@@ -412,7 +412,10 @@ export default function CustomerFormModal({
                        form={form} set={set} errors={errors} required placeholder="Box / serial no." />
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                    <div><label className="label">Lock Provider</label><select value={form.lock_provider} onChange={e => set('lock_provider', e.target.value)} className="input"><option value="">— Select —</option><option value="Binowin">Binowin</option><option value="101">101</option><option value="Emi Sathi">Emi Sathi</option><option value="Yogic Astra">Yogic Astra</option><option value="Tiger">Tiger</option></select></div>
+                    {/* Lock provider name is admin-only — hidden on retailer logins. */}
+                    {isAdmin && (
+                      <div><label className="label">Lock Provider</label><select value={form.lock_provider} onChange={e => set('lock_provider', e.target.value)} className="input"><option value="">— Select —</option><option value="Binowin">Binowin</option><option value="101">101</option><option value="Emi Sathi">Emi Sathi</option><option value="Yogic Astra">Yogic Astra</option><option value="Tiger">Tiger</option></select></div>
+                    )}
                     <F label="Lock Device ID" field="lock_device_id" form={form} set={set} errors={errors} placeholder="IMEI or Lock ID" />
                   </div>
                   <div className="mt-4">

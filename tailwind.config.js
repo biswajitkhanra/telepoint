@@ -5,6 +5,7 @@ module.exports = {
     './components/**/*.{js,ts,jsx,tsx,mdx}',
     './app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
+  darkMode: 'class',
   theme: {
     extend: {
       fontFamily: {
@@ -25,8 +26,19 @@ module.exports = {
           50:  '#f0fdfa', 100: '#ccfbf1', 200: '#99f6e4', 300: '#5eead4',
           400: '#2dd4bf', 500: '#14b8a6', 600: '#0d9488', 700: '#0f766e',
         },
-        ink:  { DEFAULT: '#0f172a', light: '#1e293b', muted: '#64748b' },
-        surface: { DEFAULT: '#ffffff', 2: '#f8fafc', 3: '#f1f5f9', 4: '#e2e8f0' },
+        // Semantic tokens are CSS-variable driven so the whole app re-skins
+        // for dark mode by swapping variables on <html class="dark">.
+        ink:  {
+          DEFAULT: 'rgb(var(--tp-ink) / <alpha-value>)',
+          light: 'rgb(var(--tp-ink-light) / <alpha-value>)',
+          muted: 'rgb(var(--tp-ink-muted) / <alpha-value>)',
+        },
+        surface: {
+          DEFAULT: 'rgb(var(--tp-surface) / <alpha-value>)',
+          2: 'rgb(var(--tp-surface-2) / <alpha-value>)',
+          3: 'rgb(var(--tp-surface-3) / <alpha-value>)',
+          4: 'rgb(var(--tp-surface-4) / <alpha-value>)',
+        },
         success: { DEFAULT: '#16a34a', light: '#f0fdf4', border: '#86efac' },
         warning: { DEFAULT: '#d97706', light: '#fffbeb', border: '#fcd34d' },
         danger:  { DEFAULT: '#dc2626', light: '#fef2f2', border: '#fca5a5' },
