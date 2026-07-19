@@ -21,7 +21,9 @@ function apply(choice: ThemeChoice) {
 }
 
 export function useTheme(): [ThemeChoice, (c: ThemeChoice) => void] {
-  const [choice, setChoice] = useState<ThemeChoice>('system');
+  // Light is the portal default — dark only when the user explicitly picks it
+  // (or picks System on an OS that prefers dark).
+  const [choice, setChoice] = useState<ThemeChoice>('light');
   useEffect(() => {
     try {
       const saved = localStorage.getItem('tp-theme') as ThemeChoice | null;
