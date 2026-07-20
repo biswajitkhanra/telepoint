@@ -92,10 +92,10 @@ export function CompareBars({
           formatter={(v) => format(Number(v))}
         />
         <Legend wrapperStyle={{ fontSize: 12, color: ink.axis }} iconType="circle" iconSize={9} />
-        <Bar dataKey="compare" name={compareLabel} fill={cmp} radius={[4, 4, 0, 0]} maxBarSize={44}>
+        <Bar dataKey="compare" name={compareLabel} fill={cmp} radius={[4, 4, 0, 0]} maxBarSize={44} animationDuration={420} animationEasing="ease-out">
           <LabelList dataKey="compare" position="top" formatter={(v) => format(Number(v))} style={{ fill: ink.axis, fontSize: 10, fontWeight: 700 }} />
         </Bar>
-        <Bar dataKey="current" name={currentLabel} fill={cur} radius={[4, 4, 0, 0]} maxBarSize={44}>
+        <Bar dataKey="current" name={currentLabel} fill={cur} radius={[4, 4, 0, 0]} maxBarSize={44} animationDuration={420} animationEasing="ease-out">
           <LabelList dataKey="current" position="top" formatter={(v) => format(Number(v))} style={{ fill: dark ? '#c7d2fe' : '#4338ca', fontSize: 10, fontWeight: 700 }} />
         </Bar>
       </BarChart>
@@ -130,7 +130,7 @@ export function TrendArea({
         <Tooltip contentStyle={tooltipStyle(dark)} formatter={(v) => format(Number(v))} />
         <Area
           type="monotone" dataKey="value" stroke={c} strokeWidth={2}
-          fill="url(#tp-trend-fill)" activeDot={{ r: 4 }} animationDuration={800}
+          fill="url(#tp-trend-fill)" activeDot={{ r: 4 }} animationDuration={420}
         />
       </AreaChart>
     </ResponsiveContainer>
@@ -159,8 +159,8 @@ export function ProfitLossBars({
           formatter={(v) => format(Number(v))}
         />
         <Legend wrapperStyle={{ fontSize: 12, color: ink.axis }} iconType="circle" iconSize={9} />
-        <Bar dataKey="profit" name="Profit" fill={SERIES.emerald} radius={[4, 4, 0, 0]} maxBarSize={40} />
-        <Bar dataKey="loss" name="Loss booked" fill={SERIES.rose} radius={[4, 4, 0, 0]} maxBarSize={40} />
+        <Bar dataKey="profit" name="Profit" fill={SERIES.emerald} radius={[4, 4, 0, 0]} maxBarSize={40} animationDuration={420} animationEasing="ease-out" />
+        <Bar dataKey="loss" name="Loss booked" fill={SERIES.rose} radius={[4, 4, 0, 0]} maxBarSize={40} animationDuration={420} animationEasing="ease-out" />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -189,7 +189,7 @@ export function RankedBars({
           contentStyle={tooltipStyle(dark)}
           formatter={(v) => format(Number(v))}
         />
-        <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={18} animationDuration={800}>
+        <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={18} animationDuration={420}>
           {data.map(d => (
             <Cell key={d.name} fill={base} opacity={selected && d.name !== selected ? 0.45 : 1} />
           ))}

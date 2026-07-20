@@ -167,8 +167,16 @@ export default function ReportsHub({
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-500 dark:text-indigo-300">Reports</p>
-          <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-ink mt-1">
-            {greeting}, TelePoint <span aria-hidden>👋</span>
+          <h1 className="font-display text-2xl sm:text-3xl font-extrabold mt-1">
+            <span className="bg-gradient-to-r from-indigo-600 via-purple-500 to-sky-500 dark:from-indigo-300 dark:via-purple-300 dark:to-sky-300 bg-clip-text text-transparent">
+              {greeting}, TelePoint
+            </span>{' '}
+            <motion.span
+              aria-hidden
+              className="inline-block origin-bottom"
+              animate={{ rotate: [0, 16, -6, 16, 0] }}
+              transition={{ duration: 1.4, repeat: Infinity, repeatDelay: 3.5 }}
+            >👋</motion.span>
           </h1>
           <p className="text-sm text-ink-muted mt-1 flex items-center gap-2 flex-wrap">
             <Clock4 size={13} aria-hidden />
@@ -315,13 +323,13 @@ function QuickActions({ retailers, onRefreshMetrics }: { retailers: Retailer[]; 
     icon: typeof FileSpreadsheet; title: string; sub: string; tint: string;
     onClick?: () => void; href?: string; download?: string;
   }[] = [
-    { icon: FileSpreadsheet, title: 'Collection Sheet', sub: 'Per-retailer monthly EMI sheet with fines (CSV)', tint: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300', onClick: () => setSheet('collection') },
-    { icon: ReceiptText, title: 'Payment History Report', sub: 'Every approved payment in a month, with UTR (CSV)', tint: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300', onClick: () => setSheet('payments') },
-    { icon: FileText, title: 'All Customers (Excel)', sub: 'One workbook — Running, Complete, Settled & NPA tabs', tint: 'bg-sky-50 text-sky-600 dark:bg-sky-500/15 dark:text-sky-300', href: '/api/export?type=all', download: 'all-customers.xlsx' },
-    { icon: Download, title: 'Running Customers (CSV)', sub: 'Full dump of every active loan', tint: 'bg-purple-50 text-purple-600 dark:bg-purple-500/15 dark:text-purple-300', href: '/api/export?type=running', download: 'customers-running.csv' },
-    { icon: Download, title: 'Complete Customers (CSV)', sub: 'Every finished loan on record', tint: 'bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300', href: '/api/export?type=complete', download: 'customers-complete.csv' },
-    { icon: LifeBuoy, title: 'Full Backup', sub: 'Complete portal snapshot — every table, one file', tint: 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300', href: '/api/admin/full-backup' },
-    { icon: RefreshCcw, title: recalcing ? 'Recalculating…' : 'Recalculate Fines', sub: 'Re-run the fine engine across all unpaid EMIs', tint: 'bg-slate-100 text-slate-600 dark:bg-slate-500/20 dark:text-slate-300', onClick: recalcFines },
+    { icon: FileSpreadsheet, title: 'Collection Sheet', sub: 'Per-retailer monthly EMI sheet with fines (CSV)', tint: 'bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-md shadow-indigo-500/30', onClick: () => setSheet('collection') },
+    { icon: ReceiptText, title: 'Payment History Report', sub: 'Every approved payment in a month, with UTR (CSV)', tint: 'bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/30', onClick: () => setSheet('payments') },
+    { icon: FileText, title: 'All Customers (Excel)', sub: 'One workbook — Running, Complete, Settled & NPA tabs', tint: 'bg-gradient-to-br from-sky-500 to-cyan-500 text-white shadow-md shadow-sky-500/30', href: '/api/export?type=all', download: 'all-customers.xlsx' },
+    { icon: Download, title: 'Running Customers (CSV)', sub: 'Full dump of every active loan', tint: 'bg-gradient-to-br from-purple-500 to-fuchsia-600 text-white shadow-md shadow-purple-500/30', href: '/api/export?type=running', download: 'customers-running.csv' },
+    { icon: Download, title: 'Complete Customers (CSV)', sub: 'Every finished loan on record', tint: 'bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/30', href: '/api/export?type=complete', download: 'customers-complete.csv' },
+    { icon: LifeBuoy, title: 'Full Backup', sub: 'Complete portal snapshot — every table, one file', tint: 'bg-gradient-to-br from-rose-500 to-pink-600 text-white shadow-md shadow-rose-500/30', href: '/api/admin/full-backup' },
+    { icon: RefreshCcw, title: recalcing ? 'Recalculating…' : 'Recalculate Fines', sub: 'Re-run the fine engine across all unpaid EMIs', tint: 'bg-gradient-to-br from-slate-500 to-slate-600 text-white shadow-md shadow-slate-500/30', onClick: recalcFines },
   ];
 
   return (
@@ -330,7 +338,7 @@ function QuickActions({ retailers, onRefreshMetrics }: { retailers: Retailer[]; 
         <SectionHead
           icon={ArrowRight} title="Quick actions"
           sub="Reports, exports and maintenance — every button is wired to a live endpoint"
-          tint="text-sky-600 bg-sky-50 dark:bg-sky-500/15"
+          tint="text-white bg-gradient-to-br from-sky-500 to-cyan-500 shadow-md shadow-sky-500/30"
         />
       </div>
       <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 keep-cols">
@@ -558,7 +566,7 @@ function DueFilters({
       <Panel className="p-5 sm:p-6" animate={false}>
         <SectionHead
           icon={Filter} title="Collection radar" sub="Slice the unpaid book by due window, overdue age or pending fines"
-          tint="text-amber-600 bg-amber-50 dark:bg-amber-500/15"
+          tint="text-white bg-gradient-to-br from-amber-500 to-orange-500 shadow-md shadow-amber-500/30"
           right={activeFilter && (
             <button
               onClick={() => { setActiveFilter(null); setRows(null); }}
@@ -703,7 +711,7 @@ function ProfitAndRisk({
         <SectionHead
           icon={Landmark} title="Profit & Loss — year-wise"
           sub="Profit: completed customers (collected − loan value) · Loss: NPA + settled"
-          tint="text-emerald-600 bg-emerald-50 dark:bg-emerald-500/15"
+          tint="text-white bg-gradient-to-br from-emerald-500 to-teal-500 shadow-md shadow-emerald-500/30"
           right={
             <select
               value={plYear} onChange={e => setPlYear(e.target.value)}
@@ -752,7 +760,7 @@ function ProfitAndRisk({
           <SectionHead
             icon={ReceiptText} title="Fine collection trend"
             sub="Late-fine money actually collected, by IST month of approval — last 12 months"
-            tint="text-purple-600 bg-purple-50 dark:bg-purple-500/15"
+            tint="text-white bg-gradient-to-br from-purple-500 to-fuchsia-600 shadow-md shadow-purple-500/30"
           />
           {loading
             ? <Skeleton className="h-56 w-full rounded-xl mt-4" />
@@ -767,7 +775,7 @@ function ProfitAndRisk({
             className="w-full flex flex-wrap items-center justify-between gap-3 p-5 text-left hover:bg-surface-2/60 transition-colors whitespace-normal"
           >
             <div className="flex items-center gap-3">
-              <span className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300 flex items-center justify-center">
+              <span className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/30 flex items-center justify-center">
                 <ShieldAlert size={18} aria-hidden />
               </span>
               <div>
@@ -879,7 +887,7 @@ function UtrSearch({ supabase }: { supabase: ReturnType<typeof createClient> }) 
         <SectionHead
           icon={Search} title="Find a payment"
           sub="Look up any payment by UTR number, reference or note"
-          tint="text-sky-600 bg-sky-50 dark:bg-sky-500/15"
+          tint="text-white bg-gradient-to-br from-sky-500 to-cyan-500 shadow-md shadow-sky-500/30"
         />
         <div className="mt-4 flex gap-2">
           <input
