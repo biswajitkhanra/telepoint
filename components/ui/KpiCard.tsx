@@ -17,14 +17,14 @@ import { InfoTip, ProgressBar, Skeleton } from '@/components/ui/primitives';
 
 export type KpiTone = 'indigo' | 'sky' | 'emerald' | 'amber' | 'rose' | 'purple' | 'slate';
 
-const TONES: Record<KpiTone, { chip: string; spark: string; bar: string; ring: string }> = {
-  indigo:  { chip: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300',   spark: '#6366f1', bar: 'bg-gradient-to-r from-indigo-500 to-indigo-400', ring: 'hover:border-indigo-300 dark:hover:border-indigo-500/60' },
-  sky:     { chip: 'bg-sky-50 text-sky-600 dark:bg-sky-500/15 dark:text-sky-300',               spark: '#0ea5e9', bar: 'bg-gradient-to-r from-sky-500 to-sky-400',       ring: 'hover:border-sky-300 dark:hover:border-sky-500/60' },
-  emerald: { chip: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300', spark: '#10b981', bar: 'bg-gradient-to-r from-emerald-500 to-emerald-400', ring: 'hover:border-emerald-300 dark:hover:border-emerald-500/60' },
-  amber:   { chip: 'bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300',       spark: '#f59e0b', bar: 'bg-gradient-to-r from-amber-500 to-amber-400',   ring: 'hover:border-amber-300 dark:hover:border-amber-500/60' },
-  rose:    { chip: 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300',           spark: '#f43f5e', bar: 'bg-gradient-to-r from-rose-500 to-rose-400',     ring: 'hover:border-rose-300 dark:hover:border-rose-500/60' },
-  purple:  { chip: 'bg-purple-50 text-purple-600 dark:bg-purple-500/15 dark:text-purple-300',   spark: '#a855f7', bar: 'bg-gradient-to-r from-purple-500 to-purple-400', ring: 'hover:border-purple-300 dark:hover:border-purple-500/60' },
-  slate:   { chip: 'bg-surface-3 text-ink-muted',                                               spark: '#64748b', bar: 'bg-gradient-to-r from-slate-500 to-slate-400',   ring: 'hover:border-slate-300 dark:hover:border-slate-500/60' },
+const TONES: Record<KpiTone, { chip: string; spark: string; bar: string; ring: string; wash: string }> = {
+  indigo:  { chip: 'bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-md shadow-indigo-500/40',   spark: '#6366f1', bar: 'bg-gradient-to-r from-indigo-500 to-indigo-400', ring: 'hover:border-indigo-300 dark:hover:border-indigo-500/60 hover:shadow-indigo-500/20', wash: 'from-indigo-500/[0.07]' },
+  sky:     { chip: 'bg-gradient-to-br from-sky-500 to-cyan-500 text-white shadow-md shadow-sky-500/40',           spark: '#0ea5e9', bar: 'bg-gradient-to-r from-sky-500 to-sky-400',       ring: 'hover:border-sky-300 dark:hover:border-sky-500/60 hover:shadow-sky-500/20', wash: 'from-sky-500/[0.07]' },
+  emerald: { chip: 'bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/40',   spark: '#10b981', bar: 'bg-gradient-to-r from-emerald-500 to-emerald-400', ring: 'hover:border-emerald-300 dark:hover:border-emerald-500/60 hover:shadow-emerald-500/20', wash: 'from-emerald-500/[0.07]' },
+  amber:   { chip: 'bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/40',     spark: '#f59e0b', bar: 'bg-gradient-to-r from-amber-500 to-amber-400',   ring: 'hover:border-amber-300 dark:hover:border-amber-500/60 hover:shadow-amber-500/20', wash: 'from-amber-500/[0.07]' },
+  rose:    { chip: 'bg-gradient-to-br from-rose-500 to-pink-600 text-white shadow-md shadow-rose-500/40',         spark: '#f43f5e', bar: 'bg-gradient-to-r from-rose-500 to-rose-400',     ring: 'hover:border-rose-300 dark:hover:border-rose-500/60 hover:shadow-rose-500/20', wash: 'from-rose-500/[0.07]' },
+  purple:  { chip: 'bg-gradient-to-br from-purple-500 to-fuchsia-600 text-white shadow-md shadow-purple-500/40',  spark: '#a855f7', bar: 'bg-gradient-to-r from-purple-500 to-purple-400', ring: 'hover:border-purple-300 dark:hover:border-purple-500/60 hover:shadow-purple-500/20', wash: 'from-purple-500/[0.07]' },
+  slate:   { chip: 'bg-gradient-to-br from-slate-500 to-slate-600 text-white shadow-md shadow-slate-500/40',      spark: '#64748b', bar: 'bg-gradient-to-r from-slate-500 to-slate-400',   ring: 'hover:border-slate-300 dark:hover:border-slate-500/60 hover:shadow-slate-500/20', wash: 'from-slate-500/[0.07]' },
 };
 
 /** Inline SVG sparkline drawn from a REAL numeric series. */
@@ -44,7 +44,7 @@ function Sparkline({ points, color }: { points: number[]; color: string }) {
       <motion.path
         d={path} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
         initial={{ pathLength: 0 }} whileInView={{ pathLength: 1 }} viewport={{ once: true }}
-        transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
       />
       <circle
         cx={pad + (points.length - 1) * step}
@@ -105,18 +105,30 @@ export function KpiCard({
   return (
     <motion.div
       variants={cardRise}
-      whileHover={{ y: -4, transition: SPRING }}
+      whileHover={{ y: -5, scale: 1.015, transition: SPRING }}
       className={cn(
-        'group relative rounded-[20px] border border-surface-4/80 bg-surface p-4 sm:p-5 shadow-card',
+        'group relative overflow-hidden rounded-[20px] border border-surface-4/80 bg-surface p-4 sm:p-5 shadow-card',
         'transition-[border-color,box-shadow] hover:shadow-card-hover dark:border-surface-3',
         t.ring, className,
       )}
       role="group" aria-label={label}
     >
-      <div className="flex items-start justify-between gap-2">
-        <span className={cn('w-9 h-9 rounded-xl flex items-center justify-center shrink-0', t.chip)}>
-          <Icon size={17} strokeWidth={2.2} aria-hidden />
-        </span>
+      {/* Soft tonal wash that blooms on hover — pure opacity, stays 60fps */}
+      <div
+        aria-hidden
+        className={cn(
+          'pointer-events-none absolute inset-0 bg-gradient-to-br to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300',
+          t.wash,
+        )}
+      />
+      <div className="relative flex items-start justify-between gap-2">
+        <motion.span
+          className={cn('w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ring-1 ring-white/25', t.chip)}
+          whileHover={{ rotate: -6, scale: 1.08 }}
+          transition={SPRING}
+        >
+          <Icon size={18} strokeWidth={2.2} aria-hidden />
+        </motion.span>
         <div className="flex items-center gap-1.5">
           {deltaPct !== undefined && (
             <span
@@ -136,9 +148,9 @@ export function KpiCard({
         </div>
       </div>
 
-      <div className="mt-3 flex items-end justify-between gap-2">
+      <div className="relative mt-3 flex items-end justify-between gap-2">
         <div className="min-w-0">
-          <CountUp value={value} format={fmt} className="num block text-xl sm:text-2xl font-extrabold text-ink leading-tight" />
+          <CountUp value={value} format={fmt} duration={0.8} className="num block text-xl sm:text-2xl font-extrabold text-ink leading-tight" />
           <p className="text-[11px] font-semibold text-ink-muted mt-1 truncate">{label}</p>
         </div>
         {spark && spark.length >= 2 && (
@@ -147,14 +159,14 @@ export function KpiCard({
       </div>
 
       {secondary && (
-        <p className="mt-2 text-[11px] text-ink-muted">
+        <p className="relative mt-2 text-[11px] text-ink-muted">
           {secondary.label}{' '}
           <span className="num font-bold text-ink">{(secondary.format ?? fmt)(secondary.value)}</span>
         </p>
       )}
 
       {progressPct !== undefined && (
-        <div className="mt-3">
+        <div className="relative mt-3">
           <div className="flex items-center justify-between mb-1">
             <span className="text-[10px] font-semibold uppercase tracking-wide text-ink-muted">{progressLabel ?? 'Progress'}</span>
             <span className="num text-[10px] font-extrabold text-ink">{Math.round(progressPct)}%</span>

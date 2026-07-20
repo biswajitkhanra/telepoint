@@ -374,7 +374,11 @@ export default function AnalyticsPro({ supabase }: { supabase: ReturnType<typeof
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-purple-500 dark:text-purple-300">Analytics</p>
-          <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-ink mt-1">Business intelligence</h1>
+          <h1 className="font-display text-2xl sm:text-3xl font-extrabold mt-1">
+            <span className="bg-gradient-to-r from-purple-600 via-fuchsia-500 to-rose-500 dark:from-purple-300 dark:via-fuchsia-300 dark:to-rose-300 bg-clip-text text-transparent">
+              Business intelligence
+            </span>
+          </h1>
           <p className="text-sm text-ink-muted mt-1">
             {MONTHS[month - 1]} {year} vs {MONTHS[month - 1]} {year - 1}
             {isCurrentMonth && <Chip className="ml-2 border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300">Month till date</Chip>}
@@ -406,7 +410,7 @@ export default function AnalyticsPro({ supabase }: { supabase: ReturnType<typeof
       {/* ═══ YoY snapshot cards — real deltas vs same month last year ═══ */}
       <section aria-label="Year-over-year comparison">
         <div className="mb-3">
-          <SectionHead icon={TrendingUp} title="Year-over-year snapshot" sub={`${thisLabel} vs ${lastLabel} — running + completed loans`} tint="text-emerald-600 bg-emerald-50 dark:bg-emerald-500/15" />
+          <SectionHead icon={TrendingUp} title="Year-over-year snapshot" sub={`${thisLabel} vs ${lastLabel} — running + completed loans`} tint="text-white bg-gradient-to-br from-emerald-500 to-teal-500 shadow-md shadow-emerald-500/30" />
         </div>
         <KpiGrid>
           <KpiCard
@@ -446,7 +450,7 @@ export default function AnalyticsPro({ supabase }: { supabase: ReturnType<typeof
           <SectionHead
             icon={BarChart3} title="Loan given vs collected"
             sub={`${thisLabel} against ${lastLabel}`}
-            tint="text-indigo-600 bg-indigo-50 dark:bg-indigo-500/15"
+            tint="text-white bg-gradient-to-br from-indigo-500 to-violet-600 shadow-md shadow-indigo-500/30"
           />
           <div className="mt-4">
             {loading ? <Skeleton className="h-64 w-full rounded-xl" /> : (
@@ -465,7 +469,7 @@ export default function AnalyticsPro({ supabase }: { supabase: ReturnType<typeof
           <SectionHead
             icon={TrendingUp} title={volume.label}
             sub="Toggle the metric to compare"
-            tint="text-sky-600 bg-sky-50 dark:bg-sky-500/15"
+            tint="text-white bg-gradient-to-br from-sky-500 to-cyan-500 shadow-md shadow-sky-500/30"
             right={
               <Segmented<VolumeMetric>
                 id="volume-metric" size="sm"
@@ -496,7 +500,7 @@ export default function AnalyticsPro({ supabase }: { supabase: ReturnType<typeof
         <LeaderboardPanel
           icon={Trophy} title="Lead generation leaderboard"
           sub={`Most customers onboarded — ${MONTHS[month - 1]} ${year}`}
-          tint="text-amber-600 bg-amber-50 dark:bg-amber-500/15"
+          tint="text-white bg-gradient-to-br from-amber-500 to-orange-500 shadow-md shadow-amber-500/30"
           rows={data?.leadLeaderboard ?? []}
           loading={loading}
           format={v => `${Math.round(v)} customers`}
@@ -505,7 +509,7 @@ export default function AnalyticsPro({ supabase }: { supabase: ReturnType<typeof
         <LeaderboardPanel
           icon={Crown} title="Collection leaderboard"
           sub={`Highest EMI volume collected — ${MONTHS[month - 1]} ${year}`}
-          tint="text-emerald-600 bg-emerald-50 dark:bg-emerald-500/15"
+          tint="text-white bg-gradient-to-br from-emerald-500 to-teal-500 shadow-md shadow-emerald-500/30"
           rows={data?.collectionLeaderboard ?? []}
           loading={loading}
           format={fmt}
@@ -527,7 +531,7 @@ export default function AnalyticsPro({ supabase }: { supabase: ReturnType<typeof
           <SectionHead
             icon={Package} title="Top selling — month till date"
             sub={`${MONTHS[month - 1]} ${year} · whole network, ranked by devices financed`}
-            tint="text-purple-600 bg-purple-50 dark:bg-purple-500/15"
+            tint="text-white bg-gradient-to-br from-purple-500 to-fuchsia-600 shadow-md shadow-purple-500/30"
             right={
               <Segmented<'products' | 'brands'>
                 id="top-tab" size="sm"
@@ -719,7 +723,7 @@ function RetailerRecovery({
         <SectionHead
           icon={Store} title="Retailer-wise recovery"
           sub="Running + NPA + settled loans — loan given vs everything collected (lifetime)"
-          tint="text-emerald-600 bg-emerald-50 dark:bg-emerald-500/15"
+          tint="text-white bg-gradient-to-br from-emerald-500 to-teal-500 shadow-md shadow-emerald-500/30"
           right={selected && (
             <button
               onClick={() => onSelect('')}

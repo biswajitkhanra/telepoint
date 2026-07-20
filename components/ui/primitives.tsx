@@ -43,14 +43,14 @@ export function Panel({
 
 /* ── Section heading with icon chip ─────────────────────────────────────── */
 export function SectionHead({
-  icon: Icon, title, sub, tint = 'text-brand-600 bg-brand-50 dark:bg-brand-500/15', right,
+  icon: Icon, title, sub, tint = 'text-white bg-gradient-to-br from-indigo-500 to-violet-600 shadow-md shadow-indigo-500/30', right,
 }: {
   icon: LucideIcon; title: string; sub?: string; tint?: string; right?: ReactNode;
 }) {
   return (
     <div className="flex items-start justify-between gap-3 flex-wrap">
       <div className="flex items-center gap-3 min-w-0">
-        <span className={cn('w-9 h-9 rounded-xl flex items-center justify-center shrink-0', tint)}>
+        <span className={cn('w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ring-1 ring-white/25', tint)}>
           <Icon size={18} strokeWidth={2.2} aria-hidden />
         </span>
         <div className="min-w-0">
@@ -139,7 +139,7 @@ export function ProgressBar({
       role="progressbar" aria-valuenow={Math.round(clamped)} aria-valuemin={0} aria-valuemax={100}
     >
       <motion.div
-        className={cn('h-full rounded-full', barClassName)}
+        className={cn('h-full rounded-full bar-glint', barClassName)}
         initial={{ width: 0 }}
         whileInView={{ width: `${clamped}%` }}
         viewport={{ once: true }}

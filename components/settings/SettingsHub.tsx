@@ -90,7 +90,11 @@ export default function SettingsHub({
       {/* Header */}
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-500 dark:text-indigo-300">Settings</p>
-        <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-ink mt-1">Portal configuration</h1>
+        <h1 className="font-display text-2xl sm:text-3xl font-extrabold mt-1">
+          <span className="bg-gradient-to-r from-indigo-600 via-sky-500 to-emerald-500 dark:from-indigo-300 dark:via-sky-300 dark:to-emerald-300 bg-clip-text text-transparent">
+            Portal configuration
+          </span>
+        </h1>
         <p className="text-sm text-ink-muted mt-1">Business rules, appearance, access and data safety — organised in one place.</p>
       </div>
 
@@ -100,7 +104,7 @@ export default function SettingsHub({
           <SectionHead
             icon={AlertTriangle} title="EMI fine engine"
             sub="Applied automatically to every overdue EMI across the whole portal"
-            tint="text-rose-600 bg-rose-50 dark:bg-rose-500/15"
+            tint="text-white bg-gradient-to-br from-rose-500 to-pink-600 shadow-md shadow-rose-500/30"
           />
           <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -145,7 +149,7 @@ export default function SettingsHub({
             <SectionHead
               icon={Palette} title="Appearance"
               sub="Theme preference is saved on this device and applied instantly"
-              tint="text-purple-600 bg-purple-50 dark:bg-purple-500/15"
+              tint="text-white bg-gradient-to-br from-purple-500 to-fuchsia-600 shadow-md shadow-purple-500/30"
             />
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <ThemeToggle />
@@ -158,7 +162,7 @@ export default function SettingsHub({
             <SectionHead
               icon={Store} title="Retailers & access"
               sub="Shops, login credentials and collection PINs"
-              tint="text-sky-600 bg-sky-50 dark:bg-sky-500/15"
+              tint="text-white bg-gradient-to-br from-sky-500 to-cyan-500 shadow-md shadow-sky-500/30"
             />
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <Chip className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
@@ -183,11 +187,11 @@ export default function SettingsHub({
           <SectionHead
             icon={DatabaseBackup} title="Backup & data"
             sub="Your data is backed up automatically every 12 hours"
-            tint="text-emerald-600 bg-emerald-50 dark:bg-emerald-500/15"
+            tint="text-white bg-gradient-to-br from-emerald-500 to-teal-500 shadow-md shadow-emerald-500/30"
           />
           <div className="mt-4 space-y-2.5">
             <a href="/api/admin/full-backup" className="flex items-center gap-3 rounded-2xl border border-surface-4 bg-surface-2 p-3.5 hover:border-emerald-300 dark:hover:border-emerald-500/50 transition-colors group">
-              <span className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+              <span className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/30 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
                 <LifeBuoy size={16} aria-hidden />
               </span>
               <span className="min-w-0 flex-1">
@@ -197,7 +201,7 @@ export default function SettingsHub({
               <Download size={14} className="text-ink-muted shrink-0" aria-hidden />
             </a>
             <a href="/api/export?type=all" download="all-customers.xlsx" className="flex items-center gap-3 rounded-2xl border border-surface-4 bg-surface-2 p-3.5 hover:border-emerald-300 dark:hover:border-emerald-500/50 transition-colors group">
-              <span className="w-9 h-9 rounded-xl bg-sky-50 text-sky-600 dark:bg-sky-500/15 dark:text-sky-300 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+              <span className="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-500 to-cyan-500 text-white shadow-md shadow-sky-500/30 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
                 <FileSpreadsheet size={16} aria-hidden />
               </span>
               <span className="min-w-0 flex-1">
@@ -218,13 +222,13 @@ export default function SettingsHub({
             <SectionHead
               icon={Wrench} title="Maintenance"
               sub="Housekeeping tools that act on live data"
-              tint="text-amber-600 bg-amber-50 dark:bg-amber-500/15"
+              tint="text-white bg-gradient-to-br from-amber-500 to-orange-500 shadow-md shadow-amber-500/30"
             />
             <button
               onClick={recalcFines} disabled={recalcing}
               className="mt-4 flex w-full items-center gap-3 rounded-2xl border border-surface-4 bg-surface-2 p-3.5 text-left hover:border-amber-300 dark:hover:border-amber-500/50 transition-colors group disabled:opacity-60 whitespace-normal"
             >
-              <span className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+              <span className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/30 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
                 <RefreshCcw size={16} className={recalcing ? 'animate-spin' : ''} aria-hidden />
               </span>
               <span className="min-w-0">
@@ -239,7 +243,7 @@ export default function SettingsHub({
             <SectionHead
               icon={Settings2} title="About"
               sub="TelePoint EMI Solution"
-              tint="text-indigo-600 bg-indigo-50 dark:bg-indigo-500/15"
+              tint="text-white bg-gradient-to-br from-indigo-500 to-violet-600 shadow-md shadow-indigo-500/30"
             />
             <dl className="mt-4 space-y-2 text-[12px]">
               <div className="flex justify-between gap-3">
