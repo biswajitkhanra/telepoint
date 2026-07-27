@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { format } from 'date-fns';
 import { notFound, redirect } from 'next/navigation';
 import PrintButton from '@/components/PrintButton';
+import { firstChargePaid, firstChargeStatusLabel } from '@/lib/firstCharge';
 
 function fmt(n: number) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(n);
@@ -121,9 +122,9 @@ export default async function NOCPage({ params, searchParams }: {
             <DocSection title="EMI SUMMARY">
               <DocRow label="Monthly EMI" value={`${fmt(customer.emi_amount)} × ${customer.emi_tenure} months`} />
               <DocRow label="EMIs Paid" value={`${paidEmis.length} / ${customer.emi_tenure}`} bold />
-              <DocRow label="Total Collected" value={fmt(totalPaid + (customer.first_emi_charge_amount || 0))} bold />
+              <DocRow label="Total Collected" value={fmt(totalPaid + firstChargePaid(customer))} bold />
               {(customer.first_emi_charge_amount || 0) > 0 && (
-                <DocRow label="1st EMI Charge" value={`${fmt(customer.first_emi_charge_amount)} — ${customer.first_emi_charge_paid_at ? 'PAID' : 'PENDING'}`} />
+                <DocRow label="1st EMI Charge" value={`${fmt(customer.first_emi_charge_amount)} — ${firstChargeStatusLabel(customer).toUpperCase()}`} />
               )}
               <DocRow label="Account Status" value={customer.status} bold />
             </DocSection>

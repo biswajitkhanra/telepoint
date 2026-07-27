@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { formatCurrency } from '@/lib/formatters';
 import { getPerEmiFineBreakdown } from '@/lib/fineCalc';
+import { firstChargePaid as firstChargePaidOf, firstChargeRemaining as firstChargeRemainingOf } from '@/lib/firstCharge';
 import { buildLoanStatementHtml, ibbDirect, paymentMethod, paidOnDate } from '@/lib/loanStatementHtml';
 import { downloadHtmlAsPdf } from '@/lib/pdf';
 
@@ -74,7 +75,7 @@ export default function LoanStatementModal({
     let fineAccrued = 0, finePaid = 0;
     for (const f of fineByEmi.values()) { fineAccrued += f.total; finePaid += f.paid; }
     const firstChargeAmt = Number(customer?.first_emi_charge_amount || 0);
-    const firstChargePaid = customer?.first_emi_charge_paid_at ? firstChargeAmt : 0;
+    const firstChargePaidAmt = customer ? firstChargePaidOf(customer) : 0;
     return {
       emiContract,
       emiPaid,
@@ -83,8 +84,8 @@ export default function LoanStatementModal({
       finePaid,
       fineRemaining: Math.max(0, fineAccrued - finePaid),
       firstChargeAmt,
-      firstChargePaid,
-      firstChargeRemaining: Math.max(0, firstChargeAmt - firstChargePaid),
+      firstChargePaid: firstChargePaidAmt,
+      firstChargeRemaining: customer ? firstChargeRemainingOf(customer) : 0,
       paidCount: sorted.filter((e) => e.status === 'APPROVED').length,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

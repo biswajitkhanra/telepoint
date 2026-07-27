@@ -7,6 +7,7 @@ import { diffDaysIST } from '@/lib/ist';
 import { motion } from 'framer-motion';
 import CountUp from '@/components/motion/CountUp';
 import { SPRING, fadeUp, staggerContainer } from '@/lib/motion';
+import { firstChargePaid, firstChargeRemaining } from '@/lib/firstCharge';
 
 // Per-tile entrance for the metric grids.
 const tileItem = {
@@ -53,13 +54,12 @@ export default function CustomerPaymentSummary({
   const totalFinePaid    = emis.reduce((s, e) => s + Number(e.fine_paid_amount || 0), 0);
   const totalFineDue     = calculateTotalFineFromEmis(emis, baseFine, weeklyIncrement);
 
-  // 1st EMI charge
-  const firstCharge       = Number(customer.first_emi_charge_amount || 0);
-  const firstChargePaid   = customer.first_emi_charge_paid_at ? firstCharge : 0;
-  const firstChargeDue    = Math.max(0, firstCharge - firstChargePaid);
+  // 1st EMI charge (partial-payment aware)
+  const firstChargePaidAmt = firstChargePaid(customer);
+  const firstChargeDue    = firstChargeRemaining(customer);
 
   // Aggregates
-  const totalPaid      = totalEmiPaid + totalFinePaid + firstChargePaid;
+  const totalPaid      = totalEmiPaid + totalFinePaid + firstChargePaidAmt;
   const totalRemaining = totalEmiDue + totalFineDue + firstChargeDue;
 
   // Next upcoming — prefer the unpaid EMI from the local list (always reflects

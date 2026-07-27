@@ -196,23 +196,34 @@ async function adjustFineForRequest(svc: Svc, request: RequestRow, signedTotal: 
 async function adjustFirstChargeForRequest(svc: Svc, request: RequestRow, apply: boolean, paidAt: string | null) {
   const charge = toNumber(request.first_emi_charge_amount);
   if (charge <= 0) return;
-  if (apply) {
-    await svc.from('customers').update({
-      first_emi_charge_paid_at: paidAt ?? new Date().toISOString(),
-    }).eq('id', request.customer_id);
-    return;
-  }
 
-  const { count } = await svc.from('payment_requests')
-    .select('id', { count: 'exact', head: true })
-    .eq('customer_id', request.customer_id)
-    .eq('status', 'APPROVED')
-    .gt('first_emi_charge_amount', 0)
-    .neq('id', request.id);
+  // The First EMI Charge now behaves exactly like a normal EMI: each payment
+  // increments the running paid balance (first_emi_charge_paid_amount), and the
+  // fully-paid timestamp (first_emi_charge_paid_at) is stamped only once the
+  // whole charge is collected. Reversing a request rolls the balance back.
+  const { data: cust } = await svc.from('customers')
+    .select('first_emi_charge_amount, first_emi_charge_paid_amount, first_emi_charge_paid_at')
+    .eq('id', request.customer_id)
+    .maybeSingle();
+  if (!cust) return;
 
-  if ((count || 0) === 0) {
-    await svc.from('customers').update({ first_emi_charge_paid_at: null }).eq('id', request.customer_id);
-  }
+  const total = toNumber(cust.first_emi_charge_amount);
+  if (total <= 0) return;
+
+  // Legacy rows may have paid_at set without a paid_amount — treat as fully paid.
+  const currentPaid = cust.first_emi_charge_paid_at
+    ? total
+    : Math.max(0, toNumber(cust.first_emi_charge_paid_amount));
+
+  const delta = apply ? charge : -charge;
+  const nextPaid = Math.max(0, Math.min(total, currentPaid + delta));
+  const isFull = nextPaid >= total;
+
+  await svc.from('customers').update({
+    first_emi_charge_paid_amount: nextPaid,
+    first_emi_charge_paid_at: isFull ? (paidAt ?? cust.first_emi_charge_paid_at ?? new Date().toISOString()) : null,
+    updated_at: new Date().toISOString(),
+  }).eq('id', request.customer_id);
 }
 
 export async function applyApprovedRequestEffects(svc: Svc, request: RequestRow, actorUserId?: string | null, paidAt?: string | null) {
@@ -265,7 +276,7 @@ export async function recomputeCustomerCompletion(svc: Svc, customerId: string) 
   await svc.rpc('recalc_customer_fines', { p_customer_id: customerId }).then(() => null).catch(() => null);
 
   const { data: customer } = await svc.from('customers')
-    .select('id, status, first_emi_charge_amount, first_emi_charge_paid_at')
+    .select('id, status, first_emi_charge_amount, first_emi_charge_paid_amount, first_emi_charge_paid_at')
     .eq('id', customerId)
     .maybeSingle();
   if (!customer) return;
@@ -279,7 +290,13 @@ export async function recomputeCustomerCompletion(svc: Svc, customerId: string) 
     .select('fine_amount, fine_paid_amount, fine_waived')
     .eq('customer_id', customerId);
   const finePending = (fineRows || []).some((row: any) => !row.fine_waived && toNumber(row.fine_amount) > toNumber(row.fine_paid_amount));
-  const firstChargePending = toNumber(customer.first_emi_charge_amount) > 0 && !customer.first_emi_charge_paid_at;
+  // Charge is still pending unless the running paid balance covers the full
+  // amount (a set paid-at timestamp also means fully paid, incl. legacy rows).
+  const firstChargeTotal = toNumber(customer.first_emi_charge_amount);
+  const firstChargePaidAmt = customer.first_emi_charge_paid_at
+    ? firstChargeTotal
+    : Math.max(0, toNumber(customer.first_emi_charge_paid_amount));
+  const firstChargePending = firstChargeTotal > 0 && firstChargePaidAmt < firstChargeTotal;
 
   if ((openEmiCount || 0) === 0 && !finePending && !firstChargePending) {
     await svc.from('customers').update({ status: 'COMPLETE', completion_date: new Date().toISOString().split('T')[0] }).eq('id', customerId);

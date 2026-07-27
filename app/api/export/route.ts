@@ -3,6 +3,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { buildCsv, csvHeaders } from '@/lib/csv';
 import { buildXlsx, xlsxHeaders, XlsxCell, XlsxSheet } from '@/lib/xlsx';
 import { formatShortDateIST } from '@/lib/ist';
+import { firstChargePaid, firstChargeStatus } from '@/lib/firstCharge';
 import { fetchAllByIds, fetchAllPaged } from '@/lib/dbFetch';
 
 // ── Customer column structure ────────────────────────────────────────────────
@@ -72,6 +73,7 @@ interface CustomerRow {
   emi_tenure: number;
   emi_due_day: number;
   first_emi_charge_amount?: number | null;
+  first_emi_charge_paid_amount?: number | null;
   first_emi_charge_paid_at?: string | null;
   emi_start_date?: string | null;
   purchase_date?: string | null;
@@ -95,7 +97,7 @@ const CUSTOMER_COLUMNS =
   'id, customer_name, father_name, aadhaar, voter_id, mobile, alternate_number_1, ' +
   'alternate_number_2, address, landmark, imei, model_no, box_no, purchase_value, ' +
   'down_payment, disburse_amount, emi_amount, emi_tenure, emi_due_day, ' +
-  'first_emi_charge_amount, first_emi_charge_paid_at, emi_start_date, purchase_date, ' +
+  'first_emi_charge_amount, first_emi_charge_paid_amount, first_emi_charge_paid_at, emi_start_date, purchase_date, ' +
   'status, completion_date, completion_remark, settlement_amount, settlement_date, ' +
   'is_locked, customer_photo_url, aadhaar_front_url, aadhaar_back_url, bill_photo_url, ' +
   'emi_card_photo_url, retailer:retailers(name)';
@@ -183,7 +185,11 @@ function buildRowsForStatus(
         'TENURE': num(c.emi_tenure),
         'EMI DUE DAY': num(c.emi_due_day),
         '1ST EMI CHARGE': num(c.first_emi_charge_amount),
-        '1ST EMI CHARGE PAID': c.first_emi_charge_paid_at ? dateCell(c.first_emi_charge_paid_at) : 'NO',
+        '1ST EMI CHARGE PAID': c.first_emi_charge_paid_at
+          ? dateCell(c.first_emi_charge_paid_at)
+          : (firstChargeStatus(c) === 'PARTIAL'
+              ? `PARTIAL (${firstChargePaid(c)}/${num(c.first_emi_charge_amount)})`
+              : 'NO'),
         'PURCHASE DATE': dateCell(c.purchase_date),
         'EMI START DATE': dateCell(c.emi_start_date),
         '1st EMI': firstEmiDate ? formatShortDateIST(firstEmiDate) : '',

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { calculateSingleEmiFine } from '@/lib/fineCalc';
+import { firstChargeRemaining } from '@/lib/firstCharge';
 import { buildCsv, csvHeaders } from '@/lib/csv';
 import {
   formatPaymentDateIST,
@@ -41,6 +42,7 @@ interface CustomerRow {
   imei: string;
   emi_amount: number;
   first_emi_charge_amount: number;
+  first_emi_charge_paid_amount?: number;
   first_emi_charge_paid_at?: string;
   status: string;
 }
@@ -117,7 +119,7 @@ export async function GET(req: NextRequest) {
     // Only RUNNING customers are part of the monthly collection sheet.
     const { data: customers } = await svc
       .from('customers')
-      .select('id, retailer_id, customer_name, mobile, alternate_number_1, imei, emi_amount, first_emi_charge_amount, first_emi_charge_paid_at, status')
+      .select('id, retailer_id, customer_name, mobile, alternate_number_1, imei, emi_amount, first_emi_charge_amount, first_emi_charge_paid_amount, first_emi_charge_paid_at, status')
       .eq('retailer_id', retailer.id)
       .eq('status', 'RUNNING');
 
@@ -185,10 +187,7 @@ export async function GET(req: NextRequest) {
         fineDue += Math.max(0, effective - finePaid);
       }
 
-      const firstChargeDue =
-        Number(c.first_emi_charge_amount) > 0 && !c.first_emi_charge_paid_at
-          ? Number(c.first_emi_charge_amount)
-          : 0;
+      const firstChargeDue = firstChargeRemaining(c);
 
       // Skip customers with absolutely nothing actionable this month.
       const hasMonthlyEmi = !!monthlyEmi && monthlyEmi.status !== 'APPROVED';
