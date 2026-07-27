@@ -26,6 +26,7 @@ import {
 import { createClient } from '@/lib/supabase/client';
 import { Retailer, PaymentRequest } from '@/lib/types';
 import { formatCurrency, readJsonSafe } from '@/lib/formatters';
+import { firstChargeRemaining } from '@/lib/firstCharge';
 import { todayIST, midnightIST } from '@/lib/ist';
 import { useCachedFetch } from '@/lib/useCachedFetch';
 import { staggerContainer } from '@/lib/motion';
@@ -449,7 +450,7 @@ function DueFilters({
       } else if (filterKey === 'first_emi_charge_due') {
         const { data: cc, error: ccErr } = await supabase
           .from('customers')
-          .select('id, customer_name, imei, mobile, first_emi_charge_amount, retailer:retailers(name)')
+          .select('id, customer_name, imei, mobile, first_emi_charge_amount, first_emi_charge_paid_amount, first_emi_charge_paid_at, retailer:retailers(name)')
           .gt('first_emi_charge_amount', 0)
           .is('first_emi_charge_paid_at', null)
           .eq('status', 'RUNNING');
@@ -457,11 +458,13 @@ function DueFilters({
         const mappedCharge: FilteredEMI[] = (cc ?? []).map((r) => {
           const row = (r ?? {}) as Record<string, unknown>;
           const retailer = (row.retailer ?? null) as { name?: string } | null;
+          // Remaining balance after any partial first-charge payments.
+          const remainingCharge = firstChargeRemaining(row as never);
           return {
             id: (row.id as string) ?? '',
             emi_no: 0,
             due_date: '',
-            amount: Number(row.first_emi_charge_amount ?? 0),
+            amount: remainingCharge,
             status: 'CHARGE_DUE',
             fine_amount: 0,
             customer_name: (row.customer_name as string) ?? '',

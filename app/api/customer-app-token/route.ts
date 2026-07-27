@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
     alternate_number_1, alternate_number_2,
     model_no, imei, purchase_value, down_payment, disburse_amount,
     purchase_date, emi_due_day, emi_amount, emi_tenure,
-    first_emi_charge_amount, first_emi_charge_paid_at,
+    first_emi_charge_amount, first_emi_charge_paid_amount, first_emi_charge_paid_at,
     customer_photo_url, status, is_locked, lock_provider,
     retailer:retailers(name, mobile)
   `;

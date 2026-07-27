@@ -21,6 +21,7 @@ import { format } from 'date-fns';
 import { diffDaysIST } from '@/lib/ist';
 import Link from 'next/link';
 import { calculateTotalFineFromEmis } from '@/lib/fineCalc';
+import { firstChargeRemaining } from '@/lib/firstCharge';
 import BottomNav from '@/components/BottomNav';
 import UpcomingEmiWidget from '@/components/UpcomingEmiWidget';
 
@@ -240,7 +241,7 @@ export default function RetailerDashboard() {
     if (bdErr) {
       const el = (emis as EMISchedule[]) || []; const nx = el.find(e => e.status === 'UNPAID' || e.status === 'PARTIALLY_PAID');
       const af = calculateTotalFineFromEmis(el, fineSettings.default_fine_amount, fineSettings.weekly_fine_increment);
-      const fc = customer.first_emi_charge_paid_at ? 0 : (customer.first_emi_charge_amount || 0);
+      const fc = firstChargeRemaining(customer);
       setBreakdown({ customer_id: customer.id, customer_status: customer.status, next_emi_no: nx?.emi_no, next_emi_amount: nx?.amount, next_emi_due_date: nx?.due_date, next_emi_status: nx?.status, fine_due: af, first_emi_charge_due: fc, total_payable: (nx?.amount ?? 0) + af + fc, popup_first_emi_charge: fc > 0, popup_fine_due: af > 0, is_overdue: nx ? new Date(nx.due_date) < new Date() : false } as DueBreakdown);
     } else setBreakdown(bd as DueBreakdown);
     const elapsed = Date.now() - started;

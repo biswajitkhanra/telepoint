@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { calculateTotalFineFromEmis } from '@/lib/fineCalc';
+import { firstChargeRemaining, firstChargePaid } from '@/lib/firstCharge';
 import { fetchAllByIds, fetchAllPaged } from '@/lib/dbFetch';
 import { toISTDateString } from '@/lib/ist';
 import { EMISchedule } from '@/lib/types';
@@ -34,6 +35,7 @@ type CustomerRow = {
   settlement_amount: number | null;
   settlement_date: string | null;
   first_emi_charge_amount: number | null;
+  first_emi_charge_paid_amount: number | null;
   first_emi_charge_paid_at: string | null;
 };
 
@@ -107,7 +109,7 @@ export async function GET(req: NextRequest) {
     fetchAllPaged<CustomerRow>((from, to) => {
       let q = svc
         .from('customers')
-        .select('id, status, purchase_value, down_payment, disburse_amount, completion_date, settlement_amount, settlement_date, first_emi_charge_amount, first_emi_charge_paid_at')
+        .select('id, status, purchase_value, down_payment, disburse_amount, completion_date, settlement_amount, settlement_date, first_emi_charge_amount, first_emi_charge_paid_amount, first_emi_charge_paid_at')
         .order('id')
         .range(from, to);
       if (retailerId) q = q.eq('retailer_id', retailerId);
@@ -195,10 +197,8 @@ export async function GET(req: NextRequest) {
     const cFineDue = calculateTotalFineFromEmis(cEmis, baseFine, weeklyIncrement);
     const cEmiDue = cEmis.reduce((s, e) => s + Math.max(0, Number(e.amount || 0) - emiPaid(e)), 0);
 
-    const chargeAmount = Number(c.first_emi_charge_amount || 0);
-    const chargePaid = !!c.first_emi_charge_paid_at;
-    const cFirstChargeDue = chargeAmount > 0 && !chargePaid ? chargeAmount : 0;
-    const cFirstChargeCollected = chargeAmount > 0 && chargePaid ? chargeAmount : 0;
+    const cFirstChargeDue = firstChargeRemaining(c);
+    const cFirstChargeCollected = firstChargePaid(c);
 
     const cLoanValue = Math.max(0, Number(c.purchase_value || 0) - Number(c.down_payment || 0));
     const cCollected =

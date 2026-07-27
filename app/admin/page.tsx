@@ -10,7 +10,7 @@ import CustomerDetailPanel from '@/components/CustomerDetailPanel';
 import PhoneLockBadge from '@/components/PhoneLockBadge';
 import CustomerPaymentSummary from '@/components/CustomerPaymentSummary';
 import RetailerPaymentSummary from '@/components/RetailerPaymentSummary';
-import CustomerFormModal from '@/components/CustomerFormModal';
+import CustomerFormModal, { type FormData as CustomerFormData } from '@/components/CustomerFormModal';
 import EMIScheduleTable from '@/components/EMIScheduleTable';
 import DueBreakdownPanel from '@/components/DueBreakdownPanel';
 import SmartAlertPopup from '@/components/SmartAlertPopup';
@@ -27,6 +27,7 @@ import StackUnfold from '@/components/motion/StackUnfold';
 import ShelfSearch from '@/components/motion/ShelfSearch';
 import { SPRING, staggerContainer, rowItem } from '@/lib/motion';
 import { customerCodeOf, looksLikeCustomerCode, normalizeCustomerCode } from '@/lib/customerCode';
+import { firstChargeRemaining } from '@/lib/firstCharge';
 
 // Heavy dashboard surfaces are code-split — each loads only when its tab is
 // opened, keeping the initial admin bundle small and first paint fast.
@@ -40,6 +41,8 @@ const hubLoading = () => (
 const ReportsHub = dynamicImport(() => import('@/components/reports/ReportsHub'), { ssr: false, loading: hubLoading });
 const AnalyticsPro = dynamicImport(() => import('@/components/analytics/AnalyticsPro'), { ssr: false, loading: hubLoading });
 const SettingsHub = dynamicImport(() => import('@/components/settings/SettingsHub'), { ssr: false, loading: hubLoading });
+// EMI Calculator (ECAL) — super-admin only; code-split so it loads on demand.
+const EmiCalculatorModal = dynamicImport(() => import('@/components/EmiCalculatorModal'), { ssr: false });
 
 type Tab = 'search' | 'retailers' | 'reports' | 'analysis' | 'settings' | 'broadcast';
 
@@ -58,6 +61,8 @@ export default function AdminDashboard() {
   const [breakdown, setBreakdown] = useState<DueBreakdown | null>(null);
   const [showCustomerForm, setShowCustomerForm] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [showEcal, setShowEcal] = useState(false);
+  const [ecalPrefill, setEcalPrefill] = useState<Partial<Record<keyof CustomerFormData, string>> | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [completeRemark, setCompleteRemark] = useState('');
@@ -179,7 +184,7 @@ export default function AdminDashboard() {
     if (bdErr) {
       const next = emiList.find(e => e.status === 'UNPAID' || e.status === 'PARTIALLY_PAID');
       const af = calculateTotalFineFromEmis(emiList);
-      const fc = customer.first_emi_charge_paid_at ? 0 : (customer.first_emi_charge_amount || 0);
+      const fc = firstChargeRemaining(customer);
       setBreakdown({ customer_id: customer.id, customer_status: customer.status, next_emi_no: next?.emi_no, next_emi_amount: next?.amount, next_emi_due_date: next?.due_date, next_emi_status: next?.status, fine_due: af, first_emi_charge_due: fc, total_payable: (next?.amount ?? 0) + af + fc, popup_first_emi_charge: fc > 0, popup_fine_due: af > 0, is_overdue: next ? new Date(next.due_date) < new Date() : false } as DueBreakdown);
     } else setBreakdown(bd as DueBreakdown);
     const elapsed = Date.now() - started;
@@ -377,9 +382,14 @@ export default function AdminDashboard() {
                 <h1 className="font-display text-3xl font-bold text-ink">Customer Search</h1>
                 <p className="text-ink-muted text-sm mt-1">Search all customers — RUNNING and COMPLETE</p>
               </div>
-              <button onClick={() => { setEditingCustomer(null); setShowCustomerForm(true); }} className="btn-primary">
-                + New Customer
-              </button>
+              <div className="flex items-center gap-2">
+                <button onClick={() => { setEditingCustomer(null); setEcalPrefill(null); setShowCustomerForm(true); }} className="btn-primary">
+                  + New Customer
+                </button>
+                <button onClick={() => setShowEcal(true)} className="btn-secondary" title="EMI Calculator (Super Admin)">
+                  🧮 EMI Calculator (ECAL)
+                </button>
+              </div>
             </div>
 
             <SearchInput onSearch={handleSearch} loading={searchLoading} autoFocus />
@@ -923,9 +933,25 @@ export default function AdminDashboard() {
           <CustomerFormModal
             customer={editingCustomer}
             retailers={retailers}
-            onClose={() => { setShowCustomerForm(false); setEditingCustomer(null); }}
+            initialData={ecalPrefill ?? undefined}
+            onClose={() => { setShowCustomerForm(false); setEditingCustomer(null); setEcalPrefill(null); }}
             onSaved={refreshSelectedCustomer}
             isAdmin={true}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* EMI Calculator (ECAL) — super-admin planning tool + auto-create customer */}
+      <AnimatePresence>
+        {showEcal && (
+          <EmiCalculatorModal
+            onClose={() => setShowEcal(false)}
+            onCreateCustomer={(prefill) => {
+              setShowEcal(false);
+              setEditingCustomer(null);
+              setEcalPrefill(prefill);
+              setShowCustomerForm(true);
+            }}
           />
         )}
       </AnimatePresence>

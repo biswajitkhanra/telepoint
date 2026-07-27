@@ -3,6 +3,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { calculateTotalFineFromEmis } from '@/lib/fineCalc';
 import { fetchAllByIds, fetchAllPaged } from '@/lib/dbFetch';
 import { EMISchedule } from '@/lib/types';
+import { firstChargeRemaining } from '@/lib/firstCharge';
 import { todayIST, addDaysIST, midnightIST, diffDaysIST } from '@/lib/ist';
 
 // Upcoming EMI widget window: show only EMIs due within the next N days
@@ -33,6 +34,7 @@ type CustomerRow = {
   status: string;
   customer_photo_url: string | null;
   first_emi_charge_amount: number | null;
+  first_emi_charge_paid_amount: number | null;
   first_emi_charge_paid_at: string | null;
 };
 
@@ -94,7 +96,7 @@ export async function GET(req: NextRequest) {
   const customers = await fetchAllPaged<CustomerRow>((from, to) =>
     svc
       .from('customers')
-      .select('id, customer_name, mobile, imei, status, customer_photo_url, first_emi_charge_amount, first_emi_charge_paid_at')
+      .select('id, customer_name, mobile, imei, status, customer_photo_url, first_emi_charge_amount, first_emi_charge_paid_amount, first_emi_charge_paid_at')
       .eq('retailer_id', retailerId as string)
       .eq('status', 'RUNNING')
       .order('id')
@@ -144,8 +146,7 @@ export async function GET(req: NextRequest) {
     const open = cEmis.filter(e => e.status === 'UNPAID' || e.status === 'PARTIALLY_PAID');
 
     const allRemaining = cEmis.reduce((s, e) => s + remaining(e), 0);
-    const chargeDue = Number(c.first_emi_charge_amount || 0) > 0 && !c.first_emi_charge_paid_at
-      ? Number(c.first_emi_charge_amount || 0) : 0;
+    const chargeDue = firstChargeRemaining(c);
     const totalFine = calculateTotalFineFromEmis(cEmis, baseFine, weeklyIncrement);
 
     const overdue = open.filter(e => midnightIST(e.due_date) < todayMs);

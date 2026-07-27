@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { csvHeaders, csvCell, csvRow } from '@/lib/csv';
 import { calculateTotalFineFromEmis } from '@/lib/fineCalc';
+import { firstChargeRemaining } from '@/lib/firstCharge';
 import { EMISchedule } from '@/lib/types';
 import { fetchAllByIds, fetchAllPaged } from '@/lib/dbFetch';
 
@@ -38,6 +39,7 @@ interface CustomerRow {
   emi_amount: number;
   emi_due_day: number;
   first_emi_charge_amount?: number | null;
+  first_emi_charge_paid_amount?: number | null;
   first_emi_charge_paid_at?: string | null;
 }
 
@@ -103,8 +105,10 @@ function buildRetailerSection(
     const emis = emisByCustomer.get(c.id) ?? [];
     const firstEmiDate = formatDMonYY(emis.find(e => e.emi_no === 1)?.due_date ?? '');
 
-    // 1st EMI charge: show amount only if not yet collected (use ?? to preserve ₹0)
-    const firstEmiCharge = c.first_emi_charge_paid_at ? '' : (c.first_emi_charge_amount ?? '');
+    // 1st EMI charge: show the REMAINING balance still due (partial-aware);
+    // blank once fully collected.
+    const firstChargeRem = firstChargeRemaining(c);
+    const firstEmiCharge = firstChargeRem > 0 ? firstChargeRem : '';
 
     // Fine Due: total accrued fine on all overdue EMIs as of today
     const fineDue = calculateTotalFineFromEmis(emis as unknown as EMISchedule[], baseFine, weeklyIncrement);
@@ -222,7 +226,7 @@ export async function GET(req: NextRequest) {
         .from('customers')
         .select(
           'id, customer_name, mobile, alternate_number_1, imei, emi_amount, emi_due_day, ' +
-          'first_emi_charge_amount, first_emi_charge_paid_at',
+          'first_emi_charge_amount, first_emi_charge_paid_amount, first_emi_charge_paid_at',
         )
         .eq('retailer_id', retailer.id)
         // RUNNING + NPA: NPA accounts are defaulted but still owe money, so they

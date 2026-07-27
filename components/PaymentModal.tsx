@@ -9,6 +9,7 @@ import { diffDaysIST } from '@/lib/ist';
 import { calculateSingleEmiFine, calculateTotalFineFromEmis } from '@/lib/fineCalc';
 import FineSummaryPanel from './FineSummaryPanel';
 import { formatCurrency, readJsonSafe } from '@/lib/formatters';
+import { firstChargeRemaining, firstChargePaid } from '@/lib/firstCharge';
 import { backdrop, modalPanel, sheetPanel } from '@/lib/motion';
 
 interface Props {
@@ -103,8 +104,8 @@ export default function PaymentModal({
     ? Math.max(0, Number(selectedEmi.amount || 0) - Number(selectedEmi.partial_paid_amount || 0))
     : 0;
 
-  const scheduledCharge = breakdown?.first_emi_charge_due
-    ?? (customer.first_emi_charge_paid_at ? 0 : (customer.first_emi_charge_amount || 0));
+  const scheduledCharge = breakdown?.first_emi_charge_due ?? firstChargeRemaining(customer);
+  const firstChargeAlreadyPaid = firstChargePaid(customer);
 
   // ── Decoupled fine selections ──────────────────────────────────────────────
   // Each EMI's fine is its OWN actionable line item. Selecting EMI 2's
@@ -434,7 +435,11 @@ export default function PaymentModal({
                   <input type="checkbox" checked={collectCharge} onChange={e => setCollectCharge(e.target.checked)} className="w-5 h-5 accent-amber-500 rounded" />
                   <div>
                     <p className="text-sm font-semibold text-warning">⭐ 1st EMI Charge</p>
-                    <p className="text-xs text-ink-muted">One-time, not yet collected</p>
+                    <p className="text-xs text-ink-muted">
+                      {firstChargeAlreadyPaid > 0
+                        ? `Paid ${fmt(firstChargeAlreadyPaid)} · Remaining ${fmt(scheduledCharge)} · partial ok`
+                        : 'One-time · partial payments allowed'}
+                    </p>
                   </div>
                 </div>
                 <span className="num font-bold text-warning">{fmt(scheduledCharge)}</span>

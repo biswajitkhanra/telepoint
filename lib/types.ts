@@ -43,6 +43,9 @@ export interface Customer {
   emi_amount: number;
   emi_tenure: number;
   first_emi_charge_amount: number;
+  /** Running balance of the First EMI Charge collected so far (partial payments). */
+  first_emi_charge_paid_amount?: number;
+  /** Stamped only once the First EMI Charge is FULLY paid. */
   first_emi_charge_paid_at?: string;
   box_no?: string;
   // Image URLs

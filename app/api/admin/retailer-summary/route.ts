@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { fetchAllByIds, fetchAllPaged } from '@/lib/dbFetch';
+import { firstChargePaid } from '@/lib/firstCharge';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Super-admin: Retailer-wise investment recovery summary.
@@ -32,6 +33,7 @@ type CustomerRow = {
   settlement_date: string | null;
   completion_date: string | null;
   first_emi_charge_amount: number | null;
+  first_emi_charge_paid_amount: number | null;
   first_emi_charge_paid_at: string | null;
 };
 
@@ -77,7 +79,7 @@ export async function GET() {
     fetchAllPaged<CustomerRow>((from, to) =>
       svc
         .from('customers')
-        .select('id, retailer_id, status, purchase_value, down_payment, settlement_amount, settlement_date, completion_date, first_emi_charge_amount, first_emi_charge_paid_at')
+        .select('id, retailer_id, status, purchase_value, down_payment, settlement_amount, settlement_date, completion_date, first_emi_charge_amount, first_emi_charge_paid_amount, first_emi_charge_paid_at')
         .in('status', [...COUNTED_STATUSES])
         .order('id')
         .range(from, to) as unknown as PromiseLike<{ data: CustomerRow[] | null; error: { message: string } | null }>,
@@ -151,8 +153,7 @@ export async function GET() {
     }
 
     row.fineCollected += cEmis.reduce((s, e) => s + Number(e.fine_paid_amount || 0), 0);
-    const chargeAmount = Number(c.first_emi_charge_amount || 0);
-    if (chargeAmount > 0 && c.first_emi_charge_paid_at) row.firstChargeCollected += chargeAmount;
+    row.firstChargeCollected += firstChargePaid(c);
   }
 
   const rows = [...byRetailer.values()]

@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS customers (
   emi_amount               NUMERIC(12,2) NOT NULL,
   emi_tenure               INT NOT NULL CHECK (emi_tenure BETWEEN 1 AND 12),
   first_emi_charge_amount  NUMERIC(12,2) DEFAULT 0,
+  first_emi_charge_paid_amount NUMERIC(12,2) DEFAULT 0,
   first_emi_charge_paid_at TIMESTAMPTZ,
   box_no                   TEXT,
   -- Image URLs (IBB hosted)
@@ -432,9 +433,14 @@ BEGIN
   END LOOP;
 
   -- First EMI charge
-  IF COALESCE(v_customer.first_emi_charge_amount, 0) > 0
-     AND v_customer.first_emi_charge_paid_at IS NULL THEN
-    v_first_charge_due := v_customer.first_emi_charge_amount;
+  -- First EMI charge — remaining balance after any partial payments.
+  IF COALESCE(v_customer.first_emi_charge_amount, 0) > 0 THEN
+    v_first_charge_due := GREATEST(0,
+      COALESCE(v_customer.first_emi_charge_amount, 0)
+      - CASE WHEN v_customer.first_emi_charge_paid_at IS NOT NULL
+             THEN COALESCE(v_customer.first_emi_charge_amount, 0)
+             ELSE COALESCE(v_customer.first_emi_charge_paid_amount, 0) END
+    );
   END IF;
 
   v_total := v_emi_amount + v_fine_due + v_first_charge_due;
@@ -669,10 +675,23 @@ BEGIN
 
   -- STEP 3: Mark first EMI charge paid (idempotent)
   IF COALESCE(v_request.first_emi_charge_amount, 0) > 0 THEN
-    UPDATE customers
-    SET first_emi_charge_paid_at = COALESCE(first_emi_charge_paid_at, v_now),
+    UPDATE customers c
+    SET first_emi_charge_paid_amount = LEAST(
+          COALESCE(c.first_emi_charge_amount, 0),
+          CASE WHEN c.first_emi_charge_paid_at IS NOT NULL
+               THEN COALESCE(c.first_emi_charge_amount, 0)
+               ELSE COALESCE(c.first_emi_charge_paid_amount, 0) END
+          + v_request.first_emi_charge_amount
+        ),
+        first_emi_charge_paid_at = CASE
+          WHEN (CASE WHEN c.first_emi_charge_paid_at IS NOT NULL
+                     THEN COALESCE(c.first_emi_charge_amount, 0)
+                     ELSE COALESCE(c.first_emi_charge_paid_amount, 0) END
+                + v_request.first_emi_charge_amount) >= COALESCE(c.first_emi_charge_amount, 0)
+          THEN COALESCE(c.first_emi_charge_paid_at, v_now)
+          ELSE NULL END,
         updated_at = v_now
-    WHERE id = v_request.customer_id;
+    WHERE c.id = v_request.customer_id;
   END IF;
 
   -- STEP 4: Approve the payment_request row
@@ -709,7 +728,10 @@ BEGIN
         AND fine_amount > COALESCE(fine_paid_amount, 0)
     );
     v_charge_pending := COALESCE(v_cust.first_emi_charge_amount, 0) > 0
-                     AND v_cust.first_emi_charge_paid_at IS NULL;
+                     AND (CASE WHEN v_cust.first_emi_charge_paid_at IS NOT NULL
+                               THEN COALESCE(v_cust.first_emi_charge_amount, 0)
+                               ELSE COALESCE(v_cust.first_emi_charge_paid_amount, 0) END)
+                         < COALESCE(v_cust.first_emi_charge_amount, 0);
 
     IF v_unpaid_count = 0 AND NOT v_fine_pending AND NOT v_charge_pending THEN
       UPDATE customers
@@ -979,9 +1001,14 @@ BEGIN
     END IF;
   END LOOP;
 
-  IF COALESCE(v_customer.first_emi_charge_amount, 0) > 0
-     AND v_customer.first_emi_charge_paid_at IS NULL THEN
-    v_first_charge_due := v_customer.first_emi_charge_amount;
+  -- First EMI charge — remaining balance after any partial payments.
+  IF COALESCE(v_customer.first_emi_charge_amount, 0) > 0 THEN
+    v_first_charge_due := GREATEST(0,
+      COALESCE(v_customer.first_emi_charge_amount, 0)
+      - CASE WHEN v_customer.first_emi_charge_paid_at IS NOT NULL
+             THEN COALESCE(v_customer.first_emi_charge_amount, 0)
+             ELSE COALESCE(v_customer.first_emi_charge_paid_amount, 0) END
+    );
   END IF;
 
   RETURN jsonb_build_object(
@@ -1169,10 +1196,23 @@ BEGIN
   END IF;
 
   IF COALESCE(v_request.first_emi_charge_amount, 0) > 0 THEN
-    UPDATE customers
-    SET first_emi_charge_paid_at = COALESCE(first_emi_charge_paid_at, v_now),
+    UPDATE customers c
+    SET first_emi_charge_paid_amount = LEAST(
+          COALESCE(c.first_emi_charge_amount, 0),
+          CASE WHEN c.first_emi_charge_paid_at IS NOT NULL
+               THEN COALESCE(c.first_emi_charge_amount, 0)
+               ELSE COALESCE(c.first_emi_charge_paid_amount, 0) END
+          + v_request.first_emi_charge_amount
+        ),
+        first_emi_charge_paid_at = CASE
+          WHEN (CASE WHEN c.first_emi_charge_paid_at IS NOT NULL
+                     THEN COALESCE(c.first_emi_charge_amount, 0)
+                     ELSE COALESCE(c.first_emi_charge_paid_amount, 0) END
+                + v_request.first_emi_charge_amount) >= COALESCE(c.first_emi_charge_amount, 0)
+          THEN COALESCE(c.first_emi_charge_paid_at, v_now)
+          ELSE NULL END,
         updated_at = v_now
-    WHERE id = v_request.customer_id;
+    WHERE c.id = v_request.customer_id;
   END IF;
 
   UPDATE payment_requests
@@ -1200,7 +1240,10 @@ BEGIN
           AND fine_amount > COALESCE(fine_paid_amount, 0)
       );
       v_charge_pending := COALESCE(v_cust.first_emi_charge_amount, 0) > 0
-                       AND v_cust.first_emi_charge_paid_at IS NULL;
+                       AND (CASE WHEN v_cust.first_emi_charge_paid_at IS NOT NULL
+                               THEN COALESCE(v_cust.first_emi_charge_amount, 0)
+                               ELSE COALESCE(v_cust.first_emi_charge_paid_amount, 0) END)
+                         < COALESCE(v_cust.first_emi_charge_amount, 0);
       IF NOT v_fine_pending AND NOT v_charge_pending THEN
         UPDATE customers SET status = 'COMPLETE', completion_date = v_now::DATE, updated_at = v_now
         WHERE id = v_request.customer_id AND status = 'RUNNING';

@@ -11,6 +11,7 @@ import CustomerAppDownload from './CustomerAppDownload';
 import LoanStatementModal from './LoanStatementModal';
 import { SPRING, fadeUp, staggerContainer } from '@/lib/motion';
 import { customerCodeOf } from '@/lib/customerCode';
+import { firstChargeRemaining, firstChargePaid, firstChargeStatus } from '@/lib/firstCharge';
 
 // Per-cell entrance for the detail grid — small upward drift, no scale (keeps
 // the hairline `gap-px` dividers crisp during the animation).
@@ -365,17 +366,27 @@ export default function CustomerDetailPanel({ customer, paidCount, totalEmis, is
       )}
 
       {/* 1st EMI charge status */}
-      {(customer.first_emi_charge_amount || 0) > 0 && (
-        <div className={`px-5 py-3 border-t border-surface-4 flex items-center justify-between ${customer.first_emi_charge_paid_at ? 'bg-success-light' : 'bg-warning-light'}`}>
-          <div>
-            <p className="text-xs text-ink-muted mb-0.5">1st EMI Charge</p>
-            <p className="num font-bold text-ink">{fmt(customer.first_emi_charge_amount)}</p>
+      {(customer.first_emi_charge_amount || 0) > 0 && (() => {
+        const status = firstChargeStatus(customer);
+        const remaining = firstChargeRemaining(customer);
+        const paid = firstChargePaid(customer);
+        return (
+          <div className={`px-5 py-3 border-t border-surface-4 flex items-center justify-between ${status === 'PAID' ? 'bg-success-light' : 'bg-warning-light'}`}>
+            <div>
+              <p className="text-xs text-ink-muted mb-0.5">1st EMI Charge</p>
+              <p className="num font-bold text-ink">{fmt(customer.first_emi_charge_amount)}</p>
+              {status === 'PARTIAL' && (
+                <p className="text-xs text-warning mt-0.5">Paid {fmt(paid)} · Remaining {fmt(remaining)}</p>
+              )}
+            </div>
+            {status === 'PAID'
+              ? <span className="badge-green">✓ Paid</span>
+              : status === 'PARTIAL'
+                ? <span className="badge-yellow">◐ Partially Paid</span>
+                : <span className="badge-yellow">⭐ Unpaid</span>}
           </div>
-          {customer.first_emi_charge_paid_at
-            ? <span className="badge-green">✓ Paid</span>
-            : <span className="badge-yellow">⭐ Pending</span>}
-        </div>
-      )}
+        );
+      })()}
 
       {/* Completion info */}
       {(customer.status === 'COMPLETE' || customer.status === 'SETTLED' || customer.status === 'NPA') && customer.completion_remark && (

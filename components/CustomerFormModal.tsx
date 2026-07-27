@@ -13,6 +13,13 @@ interface CustomerFormModalProps {
   onClose: () => void;
   onSaved: () => void;
   isAdmin: boolean;
+  /**
+   * Optional prefilled values (keys matching the internal form fields) used when
+   * creating a NEW customer — e.g. handed over from the EMI Calculator (ECAL) so
+   * the retailer/admin doesn't re-enter device, purchase, EMI and charge details.
+   * Ignored when editing an existing `customer`.
+   */
+  initialData?: Partial<Record<keyof FormData, string>>;
 }
 
 const EMPTY = {
@@ -49,7 +56,7 @@ const EMPTY = {
   google_drive_docs: '',
 };
 
-type FormData = typeof EMPTY;
+export type FormData = typeof EMPTY;
 type TabKey = 'info' | 'finance' | 'images';
 
 function isValidUrl(url: string) {
@@ -58,12 +65,13 @@ function isValidUrl(url: string) {
 }
 
 export default function CustomerFormModal({
-  customer, retailers, onClose, onSaved, isAdmin,
+  customer, retailers, onClose, onSaved, isAdmin, initialData,
 }: CustomerFormModalProps) {
   const _sbRef = useRef<ReturnType<typeof createClient> | null>(null);
   if (typeof window !== 'undefined' && !_sbRef.current) _sbRef.current = createClient();
   const supabase = _sbRef.current!;
-  const [form, setForm] = useState<FormData>({ ...EMPTY });
+  // Seed a NEW customer with any prefilled values (e.g. from the EMI Calculator).
+  const [form, setForm] = useState<FormData>({ ...EMPTY, ...(customer ? {} : (initialData ?? {})) });
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<TabKey>('info');
 

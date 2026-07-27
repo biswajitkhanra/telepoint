@@ -14,6 +14,7 @@ import LoanStatementModal from '@/components/LoanStatementModal';
 import { AnimatePresence } from 'framer-motion';
 import { formatCurrency, formatDateOnly, readJsonSafe } from '@/lib/formatters';
 import { customerCodeOf } from '@/lib/customerCode';
+import { firstChargeRemaining, firstChargePaid, firstChargeStatus } from '@/lib/firstCharge';
 import { SPRING, fadeUp, popIn, staggerContainer, rowItem } from '@/lib/motion';
 
 const SESSION_KEY = 'emi_customer_session';
@@ -301,7 +302,7 @@ export default function CustomerPortal() {
 
     const totalFineRemaining = fineRows.reduce((sum, row) => sum + row.remaining, 0);
     const fineEmiNos = fineRows.filter(r => r.remaining > 0).map(r => r.emi_no);
-    const firstChargeDue = customer?.first_emi_charge_paid_at ? 0 : Number(customer?.first_emi_charge_amount || 0);
+    const firstChargeDue = customer ? firstChargeRemaining(customer) : 0;
 
     const earliestDueEmi = dueEmis[0];
     return {
@@ -613,7 +614,7 @@ export default function CustomerPortal() {
           daysUntilDue={daysUntilDue}
           nextEmiNo={nextUnpaidEmi?.emi_no}
           nextEmiAmount={nextUnpaidEmi?.amount}
-          firstChargeDue={breakdown?.first_emi_charge_due ?? (customer?.first_emi_charge_paid_at ? 0 : (customer?.first_emi_charge_amount || 0))}
+          firstChargeDue={breakdown?.first_emi_charge_due ?? (customer ? firstChargeRemaining(customer) : 0)}
         />
 
         {/* Profile card */}
@@ -865,19 +866,29 @@ export default function CustomerPortal() {
         })()}
 
         {/* 1st EMI Charge status */}
-        {(customer?.first_emi_charge_amount || 0) > 0 && (
-          <motion.div variants={fadeUp} className={`glass-card p-4 flex items-center justify-between ${customer?.first_emi_charge_paid_at ? 'border-jade-500/20' : 'border-gold-500/20'}`}>
-            <div>
-              <p className="text-xs text-slate-500 mb-0.5">1st EMI Charge</p>
-              <p className="font-num font-semibold text-ink">{fmt(customer?.first_emi_charge_amount || 0)}</p>
-            </div>
-            {customer?.first_emi_charge_paid_at ? (
-              <span className="badge-approved">✓ Paid</span>
-            ) : (
-              <span className="badge-pending">⚠ Pending</span>
-            )}
-          </motion.div>
-        )}
+        {(customer?.first_emi_charge_amount || 0) > 0 && customer && (() => {
+          const status = firstChargeStatus(customer);
+          const remaining = firstChargeRemaining(customer);
+          const paid = firstChargePaid(customer);
+          return (
+            <motion.div variants={fadeUp} className={`glass-card p-4 flex items-center justify-between ${status === 'PAID' ? 'border-jade-500/20' : status === 'PARTIAL' ? 'border-amber-500/20' : 'border-gold-500/20'}`}>
+              <div>
+                <p className="text-xs text-slate-500 mb-0.5">1st EMI Charge</p>
+                <p className="font-num font-semibold text-ink">{fmt(customer?.first_emi_charge_amount || 0)}</p>
+                {status === 'PARTIAL' && (
+                  <p className="text-xs text-amber-600 mt-0.5">Paid {fmt(paid)} · Remaining {fmt(remaining)}</p>
+                )}
+              </div>
+              {status === 'PAID' ? (
+                <span className="badge-approved">✓ Paid</span>
+              ) : status === 'PARTIAL' ? (
+                <span className="badge-pending">◐ Partially Paid</span>
+              ) : (
+                <span className="badge-pending">⚠ Unpaid</span>
+              )}
+            </motion.div>
+          );
+        })()}
 
         {/* Payment Summary — Full Transparency */}
         {session && (() => {
