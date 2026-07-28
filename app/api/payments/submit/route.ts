@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
-import { validatePaymentDate, paymentDateToISO, todayIST } from '@/lib/ist';
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -10,7 +9,6 @@ export async function POST(req: NextRequest) {
     fine_breakdown,
     first_emi_charge_amount, total_amount,
     fine_for_emi_no, fine_due_date, collected_by_role, collect_type,
-    payment_date,
   } = body;
 
   // "noEmi" requests collect only fine and/or first-charge without touching
@@ -93,11 +91,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Resolve and validate the payment date
-  const resolvedPaymentDate = payment_date || todayIST();
-  const dateErr = validatePaymentDate(resolvedPaymentDate);
-  if (dateErr) return NextResponse.json({ error: dateErr }, { status: 400 });
-
   // ── CREATE PAYMENT REQUEST ─────────────────────────────────────────────────
   const { data: request, error: re } = await svc
     .from('payment_requests')
@@ -120,7 +113,6 @@ export async function POST(req: NextRequest) {
       fine_breakdown:          Array.isArray(fine_breakdown) ? fine_breakdown : null,
       collected_by_role:       collected_by_role || 'retailer',
       collected_by_user_id:    user.id,
-      payment_date:            resolvedPaymentDate,
     })
     .select()
     .single();
@@ -149,8 +141,7 @@ export async function POST(req: NextRequest) {
     // Fine eligibility is decided by THIS date vs the due date — never by the
     // admin approval date. Set BEFORE the rows go PENDING_APPROVAL so the
     // recalc below can still see (and lock in) any late fine.
-    // Use the payment_date (IST midnight) instead of server clock time.
-    const collectedAt = paymentDateToISO(resolvedPaymentDate);
+    const collectedAt = new Date().toISOString();
     await svc.from('emi_schedule')
       .update({ collection_requested_at: collectedAt })
       .in('id', emi_ids)

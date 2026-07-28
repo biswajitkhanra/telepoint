@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { applyApprovedRequestEffects, recomputeCustomerCompletion, reverseApprovedRequestEffects } from '@/lib/paymentReconcile';
-import { validatePaymentDate, paymentDateToISO, todayIST } from '@/lib/ist';
 
 async function requireSuperAdmin() {
   const supabase = createClient();
@@ -36,25 +35,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
     const body = await req.json().catch(() => ({}));
     const nextStatus = String(body.status ?? before.status);
-    
-    // Resolve payment_date: prioritize body, fallback to before.payment_date, then todayIST
-    let nextPaymentDate = before.payment_date;
-    if (body.payment_date !== undefined) {
-      nextPaymentDate = body.payment_date || null;
-    }
-    if (nextStatus === 'APPROVED' && !nextPaymentDate) {
-      nextPaymentDate = todayIST();
-    }
-    
-    if (nextPaymentDate) {
-      const dateErr = validatePaymentDate(nextPaymentDate);
-      if (dateErr) return NextResponse.json({ error: dateErr }, { status: 400 });
-    }
+    const nextPaidAt = normalizePaidAt(body.paid_at, before.approved_at || null);
 
     const updates: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
       status: nextStatus,
-      payment_date: nextPaymentDate,
       mode: body.mode ?? before.mode ?? 'CASH',
       utr: body.utr !== undefined ? body.utr || null : before.utr ?? null,
       total_emi_amount: Number(body.total_emi_amount ?? before.total_emi_amount ?? 0),
@@ -69,7 +54,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     };
 
     if (nextStatus === 'APPROVED') {
-      updates.approved_at = nextPaymentDate ? paymentDateToISO(nextPaymentDate) : new Date().toISOString();
+      updates.approved_at = nextPaidAt || new Date().toISOString();
       updates.approved_by = user.id;
     } else if (nextStatus !== 'APPROVED') {
       updates.approved_at = null;

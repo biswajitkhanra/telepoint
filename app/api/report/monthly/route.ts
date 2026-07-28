@@ -70,7 +70,6 @@ interface PaymentRow {
   first_emi_charge_amount: number;
   mode?: string;
   utr?: string;
-  payment_date?: string;
   approved_at?: string;
   notes?: string;
 }
@@ -137,11 +136,11 @@ export async function GET(req: NextRequest) {
 
     const { data: paymentRows } = await svc
       .from('payment_requests')
-      .select('customer_id, total_emi_amount, fine_amount, first_emi_charge_amount, mode, utr, payment_date, approved_at, notes')
+      .select('customer_id, total_emi_amount, fine_amount, first_emi_charge_amount, mode, utr, approved_at, notes')
       .in('customer_id', custIds)
       .eq('status', 'APPROVED')
-      .gte('payment_date', startDate)
-      .lte('payment_date', endDate);
+      .gte('approved_at', startUtc)
+      .lte('approved_at', endUtc);
     const payments = (paymentRows as PaymentRow[] | null) ?? [];
 
     // ── Per-customer evaluation ───────────────────────────────────────────
@@ -227,7 +226,7 @@ export async function GET(req: NextRequest) {
       const c = e.customer;
       const remarks: string[] = [];
       for (const p of e.payments) {
-        if (p.payment_date || p.approved_at) remarks.push(p.payment_date || formatPaymentDateIST(p.approved_at!));
+        if (p.approved_at) remarks.push(formatPaymentDateIST(p.approved_at));
         if (p.utr) remarks.push(p.utr);
         const parts: string[] = [];
         if (Number(p.total_emi_amount) > 0) parts.push(`EMI:${Number(p.total_emi_amount)}`);

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { applyApprovedRequestEffects, recomputeCustomerCompletion } from '@/lib/paymentReconcile';
-import { validatePaymentDate, paymentDateToISO, todayIST } from '@/lib/ist';
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,7 +11,7 @@ export async function POST(req: NextRequest) {
     if (profile?.role !== 'super_admin') return NextResponse.json({ error: 'Admin only' }, { status: 403 });
 
     const body = await req.json().catch(() => ({}));
-    const { customer_id, emi_ids, emi_nos, mode, utr, notes, total_emi_amount, scheduled_emi_amount, fine_amount, fine_breakdown, first_emi_charge_amount, total_amount, fine_for_emi_no, fine_due_date, collect_type, payment_date } = body;
+    const { customer_id, emi_ids, emi_nos, mode, utr, notes, total_emi_amount, scheduled_emi_amount, fine_amount, fine_breakdown, first_emi_charge_amount, total_amount, fine_for_emi_no, fine_due_date, collect_type } = body;
     const noEmi = collect_type === 'fine_only' || collect_type === 'first_charge_only';
     if (!customer_id || (!noEmi && !emi_ids?.length) || !mode) return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
     if (mode === 'UPI' && !utr?.trim()) return NextResponse.json({ error: 'UTR required' }, { status: 400 });
@@ -21,20 +20,13 @@ export async function POST(req: NextRequest) {
     const { data: customer } = await svc.from('customers').select('retailer_id').eq('id', customer_id).single();
     if (!customer) return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
 
-    // Resolve the payment date: use the user-selected date, fallback to today IST
-    const resolvedPaymentDate = payment_date || todayIST();
-    const dateErr = validatePaymentDate(resolvedPaymentDate);
-    if (dateErr) return NextResponse.json({ error: dateErr }, { status: 400 });
-
-    // Use payment date for all timestamps (anchored to IST midnight of the selected date)
-    const now = paymentDateToISO(resolvedPaymentDate);
+    const now = new Date().toISOString();
     const { data: request, error } = await svc.from('payment_requests').insert({
       customer_id, retailer_id: customer.retailer_id, submitted_by: user.id, status: 'APPROVED', mode,
       utr: utr || null, total_emi_amount: total_emi_amount || 0, scheduled_emi_amount: scheduled_emi_amount || 0,
       fine_amount: fine_amount || 0, first_emi_charge_amount: first_emi_charge_amount || 0, total_amount,
       notes: [notes, utr ? 'UTR: ' + utr : ''].filter(Boolean).join(' | ') || null,
       approved_by: user.id, approved_at: now,
-      payment_date: resolvedPaymentDate,
       selected_emi_nos: emi_nos || [], fine_for_emi_no: fine_for_emi_no || null, fine_due_date: fine_due_date || null,
       fine_breakdown: Array.isArray(fine_breakdown) ? fine_breakdown : null,
       collected_by_role: 'admin', collected_by_user_id: user.id,

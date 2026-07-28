@@ -41,7 +41,6 @@ interface PaymentRow {
   fine_amount: number | null;
   first_emi_charge_amount: number | null;
   total_amount: number | null;
-  payment_date: string | null;
   approved_at: string | null;
   created_at: string | null;
   customer: { customer_name: string | null; mobile: string | null; imei: string | null } | null;
@@ -62,31 +61,15 @@ export async function GET(req: NextRequest) {
 
   // ── Params ────────────────────────────────────────────────────────────────
   const { searchParams } = new URL(req.url);
-  const from = searchParams.get('from');
-  const to = searchParams.get('to');
   const month = parseInt(searchParams.get('month') ?? '', 10);
   const year = parseInt(searchParams.get('year') ?? '', 10);
+  if (!month || !year || month < 1 || month > 12 || year < 2020 || year > 2099) {
+    return NextResponse.json({ error: 'Valid month (1-12) and year required' }, { status: 400 });
+  }
   const retailerId = searchParams.get('retailer_id') || null;
 
-  let startDate: string;
-  let endDate: string;
-  let filenameSuffix = '';
-
-  if (from && to) {
-    startDate = from;
-    endDate = to;
-    filenameSuffix = `${from}_to_${to}`;
-  } else if (month && year && month >= 1 && month <= 12 && year >= 2020 && year <= 2099) {
-    const monthPrefix = `${year}-${String(month).padStart(2, '0')}`;
-    startDate = `${monthPrefix}-01`;
-    const lastDay = new Date(year, month, 0).getDate();
-    endDate = `${monthPrefix}-${String(lastDay).padStart(2, '0')}`;
-    filenameSuffix = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'][month - 1] + '_' + year;
-  } else {
-    return NextResponse.json({ error: 'Valid date range (from/to) or month/year required' }, { status: 400 });
-  }
-
   const svc = createServiceClient();
+  const { startUtc, endUtc } = istMonthRange(year, month);
 
   let retailerName = 'All_Retailers';
   if (retailerId) {
@@ -94,17 +77,17 @@ export async function GET(req: NextRequest) {
     retailerName = (r?.name || 'Retailer').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'Retailer';
   }
 
-  // ── Fetch APPROVED payments collected in the date range ───────────────────
-  // Use payment_date (IST calendar date) for scoping instead of approved_at.
-
+  // ── Fetch APPROVED payments collected in the month ────────────────────────
+  // Anchor the month window on approved_at (when the payment was confirmed /
+  // collected); fall back is handled below for legacy rows missing approved_at.
   const payments = await fetchAllPaged<PaymentRow>((from, to) => {
     let q = svc
       .from('payment_requests')
-      .select('id, mode, utr, total_emi_amount, fine_amount, first_emi_charge_amount, total_amount, payment_date, approved_at, created_at, customer:customers(customer_name, mobile, imei), retailer:retailers(name)')
+      .select('id, mode, utr, total_emi_amount, fine_amount, first_emi_charge_amount, total_amount, approved_at, created_at, customer:customers(customer_name, mobile, imei), retailer:retailers(name)')
       .eq('status', 'APPROVED')
-      .gte('payment_date', startDate)
-      .lte('payment_date', endDate)
-      .order('payment_date')
+      .gte('approved_at', startUtc)
+      .lte('approved_at', endUtc)
+      .order('approved_at')
       .order('id');
     if (retailerId) q = q.eq('retailer_id', retailerId);
     return q.range(from, to) as unknown as PromiseLike<{ data: PaymentRow[] | null; error: { message: string } | null }>;
@@ -135,7 +118,7 @@ export async function GET(req: NextRequest) {
       'Fine Amount': fine || '',
       '1st EMI Charge': charge || '',
       'Total Collected Amount': collected,
-      'Payment Date & Time': p.payment_date || formatDateTimeIST(p.approved_at || p.created_at),
+      'Payment Date & Time': formatDateTimeIST(p.approved_at || p.created_at),
       'Payment Method': p.mode || '',
       'UPI UTR Number': isUpi ? (p.utr || '') : '',
       'Retailer Name': p.retailer?.name || '',
