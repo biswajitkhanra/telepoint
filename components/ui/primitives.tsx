@@ -287,3 +287,96 @@ export function RankRow({
     </Tag>
   );
 }
+
+/* ── DateFilterBar ──────────────────────────────────────────────────────── */
+import type { DateRangePreset } from '@/lib/ist';
+export function DateFilterBar({
+  value,
+  onChange,
+  onCustomChange,
+  customRange,
+}: {
+  value: DateRangePreset;
+  onChange: (preset: DateRangePreset) => void;
+  customRange?: { from: string; to: string };
+  onCustomChange?: (range: { from: string; to: string }) => void;
+}) {
+  const presets: { value: DateRangePreset; label: string }[] = [
+    { value: 'today', label: 'Today' },
+    { value: 'yesterday', label: 'Yesterday' },
+    { value: 'last_7_days', label: 'Last 7 Days' },
+    { value: 'last_30_days', label: 'Last 30 Days' },
+    { value: 'this_month', label: 'This Month' },
+    { value: 'last_month', label: 'Last Month' },
+    { value: 'custom', label: 'Custom' },
+  ];
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Segmented options={presets} value={value} onChange={onChange} id="date-filter" />
+      {value === 'custom' && onCustomChange && customRange && (
+        <div className="flex items-center gap-2 ml-2">
+          <input 
+            type="date" 
+            value={customRange.from} 
+            max={customRange.to || undefined}
+            onChange={e => onCustomChange({ ...customRange, from: e.target.value })}
+            className="input py-1 px-2 text-[11px] font-semibold h-[32px] w-32" 
+          />
+          <span className="text-ink-muted text-xs font-medium">to</span>
+          <input 
+            type="date" 
+            value={customRange.to} 
+            min={customRange.from || undefined}
+            onChange={e => onCustomChange({ ...customRange, to: e.target.value })}
+            className="input py-1 px-2 text-[11px] font-semibold h-[32px] w-32" 
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── ConfirmDialog ──────────────────────────────────────────────────────── */
+export function ConfirmDialog({
+  open, title, description, confirmText = 'Confirm', cancelText = 'Cancel',
+  onConfirm, onCancel, isDanger = false, loading = false
+}: {
+  open: boolean; title: string; description: string; confirmText?: string; cancelText?: string;
+  onConfirm: () => void; onCancel: () => void; isDanger?: boolean; loading?: boolean;
+}) {
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          variants={backdrop} initial="hidden" animate="show" exit="exit"
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-ink/50 backdrop-blur-sm p-4"
+          onClick={loading ? undefined : onCancel}
+        >
+          <motion.div
+            variants={sheetPanel} initial="hidden" animate="show" exit="exit"
+            className="w-full max-w-sm rounded-3xl border border-surface-4 bg-surface shadow-modal p-6 text-center"
+            onClick={e => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-bold text-ink mb-2">{title}</h3>
+            <p className="text-sm text-ink-muted mb-6">{description}</p>
+            <div className="flex items-center gap-3 w-full">
+              <button 
+                onClick={onCancel} disabled={loading}
+                className="flex-1 btn-secondary"
+              >
+                {cancelText}
+              </button>
+              <button 
+                onClick={onConfirm} disabled={loading}
+                className={cn('flex-1 btn-primary text-white', isDanger ? 'bg-danger hover:bg-danger-hover' : '')}
+              >
+                {loading ? 'Wait...' : confirmText}
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}

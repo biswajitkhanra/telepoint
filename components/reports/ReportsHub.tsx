@@ -28,13 +28,16 @@ import { Retailer, PaymentRequest } from '@/lib/types';
 import { formatCurrency, readJsonSafe } from '@/lib/formatters';
 import { firstChargeRemaining } from '@/lib/firstCharge';
 import { todayIST, midnightIST } from '@/lib/ist';
+import type { DateRangePreset } from '@/lib/ist';
+import { istDateRange } from '@/lib/ist';
 import { useCachedFetch } from '@/lib/useCachedFetch';
 import { staggerContainer } from '@/lib/motion';
 import { cn } from '@/lib/cn';
 import { KpiCard, KpiGrid } from '@/components/ui/KpiCard';
 import {
-  Panel, SectionHead, Chip, BottomSheet, EmptyState, Skeleton,
+  Panel, SectionHead, Chip, BottomSheet, EmptyState, Skeleton, DateFilterBar,
 } from '@/components/ui/primitives';
+import { SearchInput } from '@/components/ui/SearchInput';
 import { DataTablePro, Column } from '@/components/ui/DataTablePro';
 import type { PortfolioMetrics } from '@/app/api/metrics/route';
 import type { ExpectedLossCustomer } from '@/app/api/admin/expected-loss/route';
@@ -85,12 +88,12 @@ export default function ReportsHub({
   /* ── Today's approved collections (live payment_requests query) ───────── */
   const [todayCollection, setTodayCollection] = useState<{ amount: number; count: number } | null>(null);
   const loadToday = useCallback(async () => {
-    const dayStartUtc = new Date(midnightIST(new Date())).toISOString();
+    const today = todayIST();
     const { data, error } = await supabase
       .from('payment_requests')
       .select('total_amount')
       .eq('status', 'APPROVED')
-      .gte('approved_at', dayStartUtc);
+      .eq('payment_date', today);
     if (error) { setTodayCollection(null); return; }
     const rows = (data ?? []) as { total_amount: number | null }[];
     setTodayCollection({
@@ -302,6 +305,8 @@ function QuickActions({ retailers, onRefreshMetrics }: { retailers: Retailer[]; 
   const [sheet, setSheet] = useState<'collection' | 'payments' | null>(null);
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
+  const [datePreset, setDatePreset] = useState<DateRangePreset>('this_month');
+  const [customRange, setCustomRange] = useState({ from: todayIST(), to: todayIST() });
   const [retailerId, setRetailerId] = useState('');
   const [recalcing, setRecalcing] = useState(false);
 
@@ -384,24 +389,40 @@ function QuickActions({ retailers, onRefreshMetrics }: { retailers: Retailer[]; 
               ))}
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-3 keep-cols">
-            <div>
-              <label className="label" htmlFor="qa-month">Month</label>
-              <select id="qa-month" value={month} onChange={e => setMonth(Number(e.target.value))} className="input">
-                {MONTHS.map((mn, i) => <option key={mn} value={i + 1}>{mn}</option>)}
-              </select>
+          {sheet === 'collection' ? (
+            <div className="grid grid-cols-2 gap-3 keep-cols">
+              <div>
+                <label className="label" htmlFor="qa-month">Month</label>
+                <select id="qa-month" value={month} onChange={e => setMonth(Number(e.target.value))} className="input">
+                  {MONTHS.map((mn, i) => <option key={mn} value={i + 1}>{mn}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label" htmlFor="qa-year">Year</label>
+                <select id="qa-year" value={year} onChange={e => setYear(Number(e.target.value))} className="input">
+                  {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+              </div>
             </div>
+          ) : (
             <div>
-              <label className="label" htmlFor="qa-year">Year</label>
-              <select id="qa-year" value={year} onChange={e => setYear(Number(e.target.value))} className="input">
-                {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
-              </select>
+              <label className="label mb-2">Date Range</label>
+              <DateFilterBar
+                value={datePreset}
+                onChange={p => {
+                  setDatePreset(p);
+                  if (p !== 'custom') setCustomRange(istDateRange(p));
+                }}
+                customRange={customRange}
+                onCustomChange={setCustomRange}
+              />
             </div>
-          </div>
+          )}
           <a
             href={
-              (sheet === 'collection' ? '/api/export/collection' : '/api/report/payment-collection')
-              + `?month=${month}&year=${year}` + (retailerId ? `&retailer_id=${retailerId}` : '')
+              sheet === 'collection'
+                ? `/api/export/collection?month=${month}&year=${year}` + (retailerId ? `&retailer_id=${retailerId}` : '')
+                : `/api/report/payment-collection?from=${customRange.from}&to=${customRange.to}` + (retailerId ? `&retailer_id=${retailerId}` : '')
             }
             download
             onClick={() => setSheet(null)}
@@ -839,7 +860,7 @@ function UtrSearch({ supabase }: { supabase: ReturnType<typeof createClient> }) 
   const [results, setResults] = useState<PaymentRequest[] | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function search() {
+  const search = useCallback(async () => {
     if (!query.trim()) { setResults(null); return; }
     setLoading(true);
     try {
@@ -853,7 +874,11 @@ function UtrSearch({ supabase }: { supabase: ReturnType<typeof createClient> }) 
     } finally {
       setLoading(false);
     }
-  }
+  }, [query, supabase]);
+
+  useEffect(() => {
+    search();
+  }, [search]);
 
   const columns: Column<PaymentRequest>[] = useMemo(() => [
     {
@@ -893,14 +918,14 @@ function UtrSearch({ supabase }: { supabase: ReturnType<typeof createClient> }) 
           tint="text-white bg-gradient-to-br from-sky-500 to-cyan-500 shadow-md shadow-sky-500/30"
         />
         <div className="mt-4 flex gap-2">
-          <input
-            type="text"
+          <SearchInput
             value={query}
-            onChange={e => setQuery(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && search()}
+            onChange={val => {
+              setQuery(val);
+              // Small hack to auto-search on typing but delay a bit
+            }}
             placeholder="UTR number, reference or payment note…"
-            aria-label="Search payments by UTR or reference"
-            className="input flex-1"
+            className="flex-1"
           />
           <button onClick={search} disabled={loading} className="btn-primary shrink-0">
             <Search size={14} aria-hidden />
