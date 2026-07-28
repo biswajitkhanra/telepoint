@@ -130,6 +130,8 @@ export interface PaymentRequest {
   items?: PaymentRequestItem[];
   collected_by_role?: 'admin' | 'retailer';
   collected_by_user_id?: string;
+  /** IST calendar date (YYYY-MM-DD) when the payment was actually collected. */
+  payment_date?: string;
   created_at: string;
   updated_at: string;
 }

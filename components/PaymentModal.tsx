@@ -5,7 +5,7 @@ import CountUp from '@/components/motion/CountUp';
 import { Customer, EMISchedule, DueBreakdown } from '@/lib/types';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
-import { diffDaysIST } from '@/lib/ist';
+import { diffDaysIST, todayIST, validatePaymentDate } from '@/lib/ist';
 import { calculateSingleEmiFine, calculateTotalFineFromEmis } from '@/lib/fineCalc';
 import FineSummaryPanel from './FineSummaryPanel';
 import { formatCurrency, readJsonSafe } from '@/lib/formatters';
@@ -92,6 +92,9 @@ export default function PaymentModal({
   const [showReceipt,     setShowReceipt    ] = useState(false);
   const [receiptId,       setReceiptId      ] = useState('');
   const [showFineSummary, setShowFineSummary] = useState(false);
+  // ── Payment date — the actual IST calendar date the payment occurred ──────
+  const [paymentDate,     setPaymentDate    ] = useState(todayIST());
+  const paymentDateError = validatePaymentDate(paymentDate);
   // Gullak celebration — coins pour from the gullak into the record button
   // right after a successful submit, then the receipt takes over.
   const [celebrateAmt,    setCelebrateAmt   ] = useState<number | null>(null);
@@ -158,7 +161,7 @@ export default function PaymentModal({
 
   const missingRetailPin = !isAdmin && !retailerPin.trim();
   const missingUtr       = mode === 'UPI' && !utr.trim();
-  const cannotSubmit     = loading || total <= 0 || missingRetailPin || missingUtr || (collectEmi && !selectedEmi);
+  const cannotSubmit     = loading || total <= 0 || missingRetailPin || missingUtr || (collectEmi && !selectedEmi) || !!paymentDateError;
 
   // ── Effects ──────────────────────────────────────────────────────────────────
 
@@ -237,6 +240,7 @@ export default function PaymentModal({
           fine_due_date:            primaryFineEmi ? primaryFineEmi.due_date : undefined,
           collected_by_role:        isAdmin ? 'admin' : 'retailer',
           collect_type:             getCollectType(),
+          payment_date:             paymentDate,
         }),
       });
       const data = await readJsonSafe<{ error?: string; request_id?: string }>(res) || { error: 'Server error' };
@@ -529,6 +533,38 @@ export default function PaymentModal({
               )}
             </div>
           )}
+
+          {/* ── PAYMENT DATE ─────────────────────────────────────────────── */}
+          <div>
+            <label className="label" htmlFor="payment-date">📅 Payment Date *</label>
+            <div className="relative">
+              <input
+                id="payment-date"
+                type="date"
+                value={paymentDate}
+                max={todayIST()}
+                onChange={e => setPaymentDate(e.target.value)}
+                className={`input w-full py-3 text-sm font-semibold ${
+                  paymentDateError
+                    ? 'border-danger text-danger'
+                    : paymentDate !== todayIST()
+                    ? 'border-warning bg-warning-light/30'
+                    : 'border-success'
+                }`}
+                aria-describedby="payment-date-hint"
+              />
+              {paymentDate !== todayIST() && !paymentDateError && (
+                <p id="payment-date-hint" className="text-[11px] text-warning mt-1 flex items-center gap-1">
+                  <span>📅</span> Recording payment for a past date
+                </p>
+              )}
+              {paymentDateError && (
+                <p className="text-[11px] text-danger mt-1 flex items-center gap-1">
+                  <span>⚠</span> {paymentDateError}
+                </p>
+              )}
+            </div>
+          </div>
 
           {/* ── PAYMENT MODE ────────────────────────────────────────────────── */}
           <div>

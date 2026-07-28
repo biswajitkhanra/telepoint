@@ -16,6 +16,7 @@ import {
   Download, Search, Inbox, ChevronDown,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { SearchInput } from '@/components/ui/SearchInput';
 
 export interface Column<Row> {
   key: string;
@@ -107,16 +108,12 @@ export function DataTablePro<Row>({
     <div className="flex flex-wrap items-center gap-2 px-4 sm:px-5 py-3 border-b border-surface-4">
       {title && <p className="text-xs font-bold uppercase tracking-wider text-ink-muted mr-auto">{title}</p>}
       {searchable && (
-        <label className="relative flex-1 min-w-[150px] sm:flex-none sm:w-56">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted/70" aria-hidden />
-          <input
-            value={query}
-            onChange={e => { setQuery(e.target.value); setPage(0); }}
-            placeholder="Search…"
-            aria-label={`Search ${title ?? 'table'}`}
-            className="w-full rounded-lg border border-surface-4 bg-surface-2 pl-8 pr-3 py-1.5 text-xs text-ink placeholder-ink-muted/60 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/25"
-          />
-        </label>
+        <SearchInput
+          value={query}
+          onChange={val => { setQuery(val); setPage(0); }}
+          placeholder={`Search ${title ?? 'table'}…`}
+          className="flex-1 min-w-[150px] sm:flex-none sm:w-56"
+        />
       )}
       {exportName && (
         <button

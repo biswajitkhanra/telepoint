@@ -103,7 +103,7 @@ export async function GET(req: NextRequest) {
 
   // ── Fine settings + customers + approved payments — independent reads, so
   // they run IN PARALLEL instead of three sequential round-trip stacks.
-  type PayReqRow = { fine_amount: number | null; approved_at: string | null; created_at: string | null };
+  type PayReqRow = { fine_amount: number | null; payment_date: string | null; approved_at: string | null; created_at: string | null };
   const [fsRes, customers, payReqs] = await Promise.all([
     svc.from('fine_settings').select('default_fine_amount, weekly_fine_increment').eq('id', 1).single(),
     fetchAllPaged<CustomerRow>((from, to) => {
@@ -120,7 +120,7 @@ export async function GET(req: NextRequest) {
     fetchAllPaged<PayReqRow>((from, to) => {
       let q = svc
         .from('payment_requests')
-        .select('fine_amount, approved_at, created_at')
+        .select('fine_amount, payment_date, approved_at, created_at')
         .eq('status', 'APPROVED')
         .order('id')
         .range(from, to);
@@ -136,13 +136,18 @@ export async function GET(req: NextRequest) {
   for (const p of payReqs) {
     const amt = Number(p.fine_amount || 0);
     if (amt <= 0) continue;
-    const when = p.approved_at || p.created_at;
-    if (!when) continue;
-    // Bucket by IST calendar month (server runs UTC; the portal is IST) so a
-    // fine taken just after IST midnight on the 1st lands in the right month.
-    const istDate = toISTDateString(when);
-    if (!istDate) continue;
-    const ym = istDate.slice(0, 7); // "YYYY-MM"
+    // Use payment_date (IST calendar date) for bucketing. Fall back to
+    // approved_at/created_at (converted to IST) for legacy rows.
+    let ym: string;
+    if (p.payment_date && /^\d{4}-\d{2}/.test(p.payment_date)) {
+      ym = p.payment_date.slice(0, 7); // "YYYY-MM" directly from DATE column
+    } else {
+      const when = p.approved_at || p.created_at;
+      if (!when) continue;
+      const istDate = toISTDateString(when);
+      if (!istDate) continue;
+      ym = istDate.slice(0, 7);
+    }
     fineCollectedByMonth[ym] = (fineCollectedByMonth[ym] || 0) + amt;
   }
 
