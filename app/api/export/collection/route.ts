@@ -229,10 +229,8 @@ export async function GET(req: NextRequest) {
           'first_emi_charge_amount, first_emi_charge_paid_amount, first_emi_charge_paid_at',
         )
         .eq('retailer_id', retailer.id)
-        // RUNNING + NPA: NPA accounts are defaulted but still owe money, so they
-        // belong on a collection sheet. (Previously RUNNING-only, which silently
-        // dropped defaulted customers that still show up in search.)
-        .in('status', ['RUNNING', 'NPA'])
+        // Only include RUNNING (active) customers. Exclude NPA and SETTLEMENT.
+        .eq('status', 'RUNNING')
         .order('id')
         .range(from, to) as unknown as PromiseLike<{ data: CustomerRow[] | null; error: { message: string } | null }>,
     );
