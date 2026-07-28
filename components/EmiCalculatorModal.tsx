@@ -17,8 +17,8 @@ import type { FormData as CustomerFormData } from '@/components/CustomerFormModa
 // ₹800–₹1500 processing-fee list (EXISTING is left exactly as the original).
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const FEES_NEW = [800, 900, 1000, 1100, 1200, 1300, 1400, 1500];
-const FEES_EXISTING = [500, 600, 700, 800, 900];
+// Flat processing-fee list applied to every customer type (per request #4).
+const FEES_LIST = [800, 900, 1000, 1100, 1200, 1300, 1400, 1500];
 
 function ordinal(i: number): string {
   const j = i % 10, k = i % 100;
@@ -79,16 +79,17 @@ export default function EmiCalculatorModal({ onClose, onCreateCustomer }: Props)
   const [shareHeading, setShareHeading] = useState('LOAN DETAILS');
   const shareRef = useRef<HTMLDivElement | null>(null);
 
-  // Processing-fee options — type-based, exactly like the original (NEW widened).
+  // Processing-fee options — one flat ₹800–₹1500 list for all customer types.
+  // Low Credit Score still locks it to ₹1000 (matches the original override).
   const feeOptions = useMemo(() => {
     if (lockProcessing) return [1000];
-    return customerType === 'new' ? FEES_NEW : FEES_EXISTING;
-  }, [customerType, lockProcessing]);
+    return FEES_LIST;
+  }, [lockProcessing]);
 
   function onCustomerTypeChange(next: 'new' | 'existing') {
     setCustomerType(next);
     setLockProcessing(false);
-    setProcessingFee(next === 'new' ? '1000' : '900'); // original defaults
+    setProcessingFee('1000'); // shared default
   }
 
   // ── Calculation engine — identical formulas to index.html ───────────────────
