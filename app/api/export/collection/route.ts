@@ -78,7 +78,8 @@ function buildRetailerSection(
     SECTION_HEADER,
   ];
 
-  // Every active (RUNNING/NPA) customer belongs on their retailer's collection
+  // Include only RUNNING customers. Exclude NPA and Settlement customers.
+  // Every active (RUNNING) customer belongs on their retailer's collection
   // sheet, so the roster is complete. The old code only kept customers with an
   // EMI due this month OR a prior overdue EMI, which silently dropped active
   // accounts that still owe money in other ways — principal cleared but a fine
@@ -147,7 +148,7 @@ function buildRetailerSection(
 }
 
 export async function GET(req: NextRequest) {
-  // ── Auth ────────────────────────────────────────────────────────────────
+  // ── Auth ─────────────────────────────────────────────────────────────[...]
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -165,7 +166,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden — superadmin only' }, { status: 403 });
   }
 
-  // ── Params ───────────────────────────────────────────────────────────────
+  // ── Params ────────────────────────────────────────────────────────────[...]
   const svc = createServiceClient();
   const { searchParams } = new URL(req.url);
 
@@ -216,7 +217,7 @@ export async function GET(req: NextRequest) {
     retailerList = (all ?? []) as { id: string; name: string }[];
   }
 
-  // ── Build CSV ─────────────────────────────────────────────────────────────
+  // ── Build CSV ───────────────────────────────────────────────────────────[...]
   const allLines: string[] = [];
   let isFirstSection = true;
 
@@ -229,8 +230,14 @@ export async function GET(req: NextRequest) {
           'first_emi_charge_amount, first_emi_charge_paid_amount, first_emi_charge_paid_at',
         )
         .eq('retailer_id', retailer.id)
+<<<<<<< HEAD
         // Only include RUNNING (active) customers. Exclude NPA and SETTLEMENT.
         .eq('status', 'RUNNING')
+=======
+        // RUNNING only: Include only active (RUNNING) customers.
+        // Exclude NPA and Settlement customers from the collection sheet.
+        .in('status', ['RUNNING'])
+>>>>>>> 794cb21d015f70493a22e15964236122c142d192
         .order('id')
         .range(from, to) as unknown as PromiseLike<{ data: CustomerRow[] | null; error: { message: string } | null }>,
     );
