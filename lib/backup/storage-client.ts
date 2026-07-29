@@ -1,145 +1,156 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // lib/backup/storage-client.ts
 //
-// S3-compatible storage factory. Supports:
-//   - Cloudflare R2 (STORAGE_PROVIDER=r2)
-//   - AWS S3       (STORAGE_PROVIDER=s3)
+// Google Drive storage backend for database backups.
 //
-// All configuration comes from environment variables. Never hardcode credentials.
+// Authentication uses a Google Cloud Service Account — no browser OAuth needed.
+// The service account's credentials are stored entirely in environment variables.
+//
+// Required env vars:
+//   GOOGLE_SERVICE_ACCOUNT_JSON  – full contents of the service account key JSON
+//   GOOGLE_DRIVE_FOLDER_ID       – ID of the Drive folder to upload backups into
+//
+// The folder must be shared with the service account email (Editor access).
 // ─────────────────────────────────────────────────────────────────────────────
 
-import {
-  S3Client,
-  PutObjectCommand,
-  ListObjectsV2Command,
-  DeleteObjectCommand,
-  type ListObjectsV2CommandOutput,
-} from '@aws-sdk/client-s3';
+import { google } from 'googleapis';
+import { Readable } from 'stream';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export interface StorageObject {
+  /** File name in Drive (e.g. backup-2026-07-29.sql.gz) */
   key: string;
+  /** Google Drive file ID */
+  driveId: string;
+  /** When the file was created in Drive */
   lastModified: Date;
+  /** File size in bytes */
   sizeBytes: number;
 }
 
 export interface StorageClient {
-  /** Upload a Buffer with the given object key and content type. */
-  upload(key: string, body: Buffer, contentType: string): Promise<void>;
-  /** List all objects under a given prefix. */
-  list(prefix: string): Promise<StorageObject[]>;
-  /** Delete a single object by key. */
-  remove(key: string): Promise<void>;
-  /** The bucket name (for logging). */
-  bucketName: string;
+  /** Upload a Buffer as a file into the configured Drive folder. */
+  upload(filename: string, body: Buffer, contentType: string): Promise<void>;
+  /** List all backup files in the Drive folder. */
+  list(): Promise<StorageObject[]>;
+  /** Delete a file by its Google Drive file ID. */
+  remove(driveId: string): Promise<void>;
+  /** Human-readable label for logging. */
+  label: string;
 }
 
 // ── Factory ──────────────────────────────────────────────────────────────────
 
 /**
- * Returns a configured StorageClient based on STORAGE_PROVIDER env var.
- * Throws if required env vars are missing.
+ * Returns a StorageClient backed by Google Drive.
+ * Throws immediately if required env vars are missing.
  */
 export function createStorageClient(): StorageClient {
-  const provider = (process.env.STORAGE_PROVIDER || '').toLowerCase();
+  const serviceAccountJson = requireEnv('GOOGLE_SERVICE_ACCOUNT_JSON');
+  const folderId = requireEnv('GOOGLE_DRIVE_FOLDER_ID');
 
-  if (provider === 'r2') {
-    return createR2Client();
-  } else if (provider === 's3') {
-    return createS3Client();
-  } else {
+  // Parse the service account credentials
+  let credentials: {
+    client_email: string;
+    private_key: string;
+  };
+  try {
+    credentials = JSON.parse(serviceAccountJson);
+  } catch {
     throw new Error(
-      `STORAGE_PROVIDER env var must be "r2" or "s3", got: "${provider || '(unset)'}"`,
+      'GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON. ' +
+      'Paste the entire contents of the service account key file.',
     );
   }
-}
 
-// ── Cloudflare R2 ─────────────────────────────────────────────────────────────
+  if (!credentials.client_email || !credentials.private_key) {
+    throw new Error(
+      'GOOGLE_SERVICE_ACCOUNT_JSON is missing client_email or private_key fields.',
+    );
+  }
 
-function createR2Client(): StorageClient {
-  const accountId = requireEnv('R2_ACCOUNT_ID');
-  const accessKeyId = requireEnv('R2_ACCESS_KEY_ID');
-  const secretAccessKey = requireEnv('R2_SECRET_ACCESS_KEY');
-  const bucketName = requireEnv('R2_BUCKET_NAME');
-
-  const client = new S3Client({
-    region: 'auto',
-    endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
-    credentials: { accessKeyId, secretAccessKey },
+  // Build the authenticated Drive client
+  const auth = new google.auth.GoogleAuth({
+    credentials,
+    scopes: ['https://www.googleapis.com/auth/drive.file'],
   });
+  const drive = google.drive({ version: 'v3', auth });
 
-  return buildClient(client, bucketName);
-}
-
-// ── AWS S3 ───────────────────────────────────────────────────────────────────
-
-function createS3Client(): StorageClient {
-  const accessKeyId = requireEnv('AWS_ACCESS_KEY_ID');
-  const secretAccessKey = requireEnv('AWS_SECRET_ACCESS_KEY');
-  const region = requireEnv('AWS_REGION');
-  const bucketName = requireEnv('S3_BUCKET_NAME');
-
-  const client = new S3Client({
-    region,
-    credentials: { accessKeyId, secretAccessKey },
-  });
-
-  return buildClient(client, bucketName);
-}
-
-// ── Shared implementation ────────────────────────────────────────────────────
-
-function buildClient(client: S3Client, bucketName: string): StorageClient {
   return {
-    bucketName,
+    label: `Google Drive folder ${folderId}`,
 
-    async upload(key: string, body: Buffer, contentType: string): Promise<void> {
-      await client.send(
-        new PutObjectCommand({
-          Bucket: bucketName,
-          Key: key,
-          Body: body,
-          ContentType: contentType,
-          ContentLength: body.length,
-        }),
-      );
+    // ── Upload ──────────────────────────────────────────────────────────────
+    async upload(filename: string, body: Buffer, contentType: string): Promise<void> {
+      // Check if a file with the same name already exists in the folder
+      // (idempotent: overwrite if today's backup already exists)
+      const existing = await drive.files.list({
+        q: `'${folderId}' in parents and name = '${filename}' and trashed = false`,
+        fields: 'files(id)',
+        spaces: 'drive',
+      });
+
+      const existingId = existing.data.files?.[0]?.id;
+
+      const media = {
+        mimeType: contentType,
+        body: Readable.from(body),
+      };
+
+      if (existingId) {
+        // Update the existing file (same name, new content)
+        await drive.files.update({
+          fileId: existingId,
+          media,
+          fields: 'id',
+        });
+      } else {
+        // Create a new file in the backup folder
+        await drive.files.create({
+          requestBody: {
+            name: filename,
+            parents: [folderId],
+          },
+          media,
+          fields: 'id',
+        });
+      }
     },
 
-    async list(prefix: string): Promise<StorageObject[]> {
+    // ── List ────────────────────────────────────────────────────────────────
+    async list(): Promise<StorageObject[]> {
       const objects: StorageObject[] = [];
-      let continuationToken: string | undefined;
+      let pageToken: string | undefined;
 
-      // Paginate through all results (S3/R2 returns max 1000 per call)
       do {
-        const res: ListObjectsV2CommandOutput = await client.send(
-          new ListObjectsV2Command({
-            Bucket: bucketName,
-            Prefix: prefix,
-            ContinuationToken: continuationToken,
-          }),
-        );
+        const res = await drive.files.list({
+          q: `'${folderId}' in parents and name contains 'backup-' and trashed = false`,
+          fields: 'nextPageToken, files(id, name, createdTime, size)',
+          orderBy: 'createdTime',
+          spaces: 'drive',
+          pageToken,
+        });
 
-        for (const obj of res.Contents ?? []) {
-          if (obj.Key && obj.LastModified) {
+        for (const file of res.data.files ?? []) {
+          if (file.id && file.name && file.createdTime) {
             objects.push({
-              key: obj.Key,
-              lastModified: obj.LastModified,
-              sizeBytes: obj.Size ?? 0,
+              key: file.name,
+              driveId: file.id,
+              lastModified: new Date(file.createdTime),
+              sizeBytes: parseInt(file.size ?? '0', 10),
             });
           }
         }
 
-        continuationToken = res.NextContinuationToken;
-      } while (continuationToken);
+        pageToken = res.data.nextPageToken ?? undefined;
+      } while (pageToken);
 
       return objects;
     },
 
-    async remove(key: string): Promise<void> {
-      await client.send(
-        new DeleteObjectCommand({ Bucket: bucketName, Key: key }),
-      );
+    // ── Remove ──────────────────────────────────────────────────────────────
+    async remove(driveId: string): Promise<void> {
+      await drive.files.delete({ fileId: driveId });
     },
   };
 }
