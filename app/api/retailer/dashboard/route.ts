@@ -45,7 +45,6 @@ type PayReqRow = {
   total_emi_amount: number | null;
   fine_amount: number | null;
   first_emi_charge_amount: number | null;
-  payment_date: string | null;
   approved_at: string | null;
   created_at: string | null;
 };
@@ -140,15 +139,14 @@ export async function GET(req: NextRequest) {
   );
 
   // ── Approved collections in range (count + money) ──────────────────────────
-  // Use payment_date (IST calendar date) for range filtering instead of approved_at
   const payReqs = await fetchAllPaged<PayReqRow>((f, t) =>
     svc
       .from('payment_requests')
-      .select('total_amount, total_emi_amount, fine_amount, first_emi_charge_amount, payment_date, approved_at, created_at')
+      .select('total_amount, total_emi_amount, fine_amount, first_emi_charge_amount, approved_at, created_at')
       .eq('retailer_id', retailerId as string)
       .eq('status', 'APPROVED')
-      .gte('payment_date', from)
-      .lte('payment_date', to)
+      .gte('approved_at', startUtc)
+      .lte('approved_at', endUtc)
       .order('id')
       .range(f, t) as unknown as PromiseLike<{ data: PayReqRow[] | null; error: { message: string } | null }>,
   );

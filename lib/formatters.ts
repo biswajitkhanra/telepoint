@@ -94,9 +94,11 @@ export function fromDateTimeLocalInput(value?: string | null): string | null {
   } catch { return null; }
 }
 
-/**
- * Re-export todayIST from the canonical source (lib/ist.ts).
- * Previously duplicated here — now a single source of truth.
- */
-export { todayIST } from './ist';
-
+/** Get today's date string in YYYY-MM-DD format (IST) */
+export function todayIST(): string {
+  const now = new Date(Date.now() + IST_OFFSET_MS);
+  const yr  = now.getUTCFullYear();
+  const mo  = String(now.getUTCMonth() + 1).padStart(2, '0');
+  const dy  = String(now.getUTCDate()).padStart(2, '0');
+  return `${yr}-${mo}-${dy}`;
+}
