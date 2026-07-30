@@ -32,12 +32,8 @@ export default function BottomNav({ role, pendingCount = 0 }: { role: 'admin' | 
   return (
     <>
       <div className="h-20 sm:hidden" />
-      <motion.nav
-        initial={{ y: 80 }}
-        animate={{ y: 0 }}
-        transition={{ ...SPRING, delay: 0.1 }}
-        className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-surface/95 backdrop-blur-md border-t border-surface-4 sm:hidden no-print safe-bottom"
-        style={{ boxShadow: '0 -4px 24px rgba(59,130,246,0.06)' }}
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-40 bg-white/90 dark:bg-surface/90 backdrop-blur-md border-t border-surface-4 shadow-[0_-2px_10px_rgba(0,0,0,0.03)] sm:hidden no-print safe-bottom"
       >
         <div className="flex items-center justify-around h-16 px-2 max-w-lg mx-auto">
           {tabs.map(t => {
@@ -79,7 +75,7 @@ export default function BottomNav({ role, pendingCount = 0 }: { role: 'admin' | 
             );
           })}
         </div>
-      </motion.nav>
+      </nav>
     </>
   );
 }

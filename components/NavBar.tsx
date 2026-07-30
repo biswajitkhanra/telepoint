@@ -74,20 +74,10 @@ export default function NavBar({ role, pendingCount = 0 }: NavBarProps) {
   };
 
   return (
-    <motion.header
-      initial={{ y: -24, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={SPRING}
-      className="sticky top-0 z-40 bg-white/90 dark:bg-surface/90 backdrop-blur-md border-b border-surface-4 shadow-sm no-print"
-    >
+    <header className="sticky top-0 z-40 bg-white/80 dark:bg-surface/80 backdrop-blur-md border-b border-surface-4 no-print transition-colors">
       <div className="max-w-6xl mx-auto px-3 sm:px-4 h-14 flex items-center justify-between gap-2">
         {/* Logo + wordmark */}
-        <motion.div
-          className="flex items-center gap-2 flex-shrink-0"
-          initial={{ opacity: 0, x: -12 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ ...SPRING, delay: 0.08 }}
-        >
+        <div className="flex items-center gap-2 flex-shrink-0">
           <motion.div whileHover={{ rotate: -8, scale: 1.08 }} whileTap={{ scale: 0.92 }} transition={SPRING}>
             <Logo size={32} className="rounded-lg shadow-sm" />
           </motion.div>
@@ -100,7 +90,7 @@ export default function NavBar({ role, pendingCount = 0 }: NavBarProps) {
           }`}>
             {role === 'admin' ? 'Admin' : 'Retailer'}
           </span>
-        </motion.div>
+        </div>
 
         {/* Desktop nav links */}
         <nav className="hidden sm:flex items-center gap-1">
@@ -138,6 +128,6 @@ export default function NavBar({ role, pendingCount = 0 }: NavBarProps) {
           <span className="hidden sm:inline">Logout</span>
         </motion.button>
       </div>
-    </motion.header>
+    </header>
   );
 }
