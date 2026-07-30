@@ -148,7 +148,7 @@ export function DataTablePro<Row>({
   );
 
   return (
-    <div className="rounded-[20px] border border-surface-4/80 bg-surface shadow-card overflow-hidden dark:border-surface-3">
+    <div className="rounded-xl border border-surface-4 bg-surface shadow-sm overflow-hidden">
       {headControls}
 
       {/* Desktop / tablet table */}
@@ -158,20 +158,20 @@ export function DataTablePro<Row>({
             <tr>
               {renderExpanded && <th className="w-9 bg-surface-2 border-b border-surface-4" aria-label="Expand" />}
               {columns.map((c, i) => (
-                <th
-                  key={c.key}
-                  scope="col"
-                  aria-sort={sortKey === c.key ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  className={cn(
-                    'bg-surface-2 border-b border-surface-4 px-4 py-2.5 text-[11px] font-bold uppercase tracking-wide text-ink-muted whitespace-nowrap',
-                    c.align === 'right' ? 'text-right' : 'text-left',
-                    i === 0 && 'sticky left-0 z-10',
-                  )}
-                >
+                  <th
+                    key={c.key}
+                    scope="col"
+                    aria-sort={sortKey === c.key ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className={cn(
+                      'bg-surface-2 border-b border-surface-4 px-4 py-2.5 text-xs font-semibold text-ink-muted whitespace-nowrap',
+                      c.align === 'right' ? 'text-right' : 'text-left',
+                      i === 0 && 'sticky left-0 z-10'
+                    )}
+                  >
                   <button
                     onClick={() => toggleSort(c.key)}
                     className={cn(
-                      'inline-flex items-center gap-1 hover:text-ink transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 rounded',
+                      'inline-flex items-center gap-1 hover:text-ink transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded',
                       c.align === 'right' && 'flex-row-reverse',
                     )}
                   >
@@ -194,7 +194,7 @@ export function DataTablePro<Row>({
                     onClick={onRowClick ? () => onRowClick(row) : undefined}
                     className={cn(
                       'border-b border-surface-3 transition-colors',
-                      onRowClick && 'cursor-pointer hover:bg-indigo-50/60 dark:hover:bg-indigo-500/10',
+                      onRowClick && 'cursor-pointer hover:bg-surface-2',
                     )}
                   >
                     {renderExpanded && (
