@@ -230,14 +230,9 @@ export async function GET(req: NextRequest) {
           'first_emi_charge_amount, first_emi_charge_paid_amount, first_emi_charge_paid_at',
         )
         .eq('retailer_id', retailer.id)
-<<<<<<< HEAD
-        // Only include RUNNING (active) customers. Exclude NPA and SETTLEMENT.
-        .eq('status', 'RUNNING')
-=======
         // RUNNING only: Include only active (RUNNING) customers.
         // Exclude NPA and Settlement customers from the collection sheet.
         .in('status', ['RUNNING'])
->>>>>>> 794cb21d015f70493a22e15964236122c142d192
         .order('id')
         .range(from, to) as unknown as PromiseLike<{ data: CustomerRow[] | null; error: { message: string } | null }>,
     );
