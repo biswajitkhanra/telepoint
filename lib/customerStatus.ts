@@ -7,9 +7,9 @@
  * --------------------
  * EMI completion status and fine status are INDEPENDENT obligations:
  *
- *   ï¿½ A customer is "EMI-complete" when every EMI installment is APPROVED
+ *   • A customer is "EMI-complete" when every EMI installment is APPROVED
  *     AND the First-EMI Charge (if any) is fully settled.
- *   ï¿½ A customer is "fine-clear" when every non-waived fine is fully paid.
+ *   • A customer is "fine-clear" when every non-waived fine is fully paid.
  *
  * The customer`s `status` field tracks only the EMI lifecycle:
  *   RUNNING  ? active, EMIs in progress
@@ -72,7 +72,7 @@ export function totalPendingFine(emis: EmiStatusRow[]): number {
 
 /**
  * Returns true when every EMI installment is fully approved.
- * Does NOT consider fine status ï¿½ fine is a separate obligation.
+ * Does NOT consider fine status — fine is a separate obligation.
  */
 export function allEmisApproved(emis: EmiStatusRow[]): boolean {
   if (!emis.length) return false;

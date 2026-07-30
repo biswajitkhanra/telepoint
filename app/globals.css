@@ -30,7 +30,7 @@
 html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; overflow-x: hidden; }
 body {
   background: rgb(var(--tp-surface-2)); color: rgb(var(--tp-ink-light));
-  font-family: 'Inter', system-ui, -apple-system, sans-serif; line-height: 1.5;
+  font-family: 'Inter', 'Noto Sans Bengali', 'Noto Sans Devanagari', system-ui, sans-serif; line-height: 1.5;
   overflow-x: hidden;
   -webkit-tap-highlight-color: transparent;
 }
@@ -61,83 +61,80 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 /* ── Component layer ─────────────────────────────────────── */
 @layer components {
 
-  /* Cards — clean solid surface with crisp borders */
-  .card { @apply rounded-xl shadow-sm border border-surface-4 bg-surface; }
+  /* Cards */
+  .card { @apply rounded-2xl shadow-card border border-surface-4 bg-gradient-to-br from-surface to-surface-2; }
   .card-hover {
-    @apply card cursor-pointer transition-all duration-200;
+    @apply card cursor-pointer;
+    transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s ease;
   }
-  .card-hover:hover { @apply shadow-md border-brand-300; transform: translateY(-1px); }
-  .card-hover:active { transform: scale(0.99); }
+  .card-hover:hover { transform: translateY(-3px); @apply shadow-card-hover; }
+  .card-hover:active { transform: translateY(-1px) scale(.995); }
 
-  /* Buttons — premium SaaS aesthetic */
+  /* Buttons — all have minimum touch target + tactile spring feedback. */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 font-medium rounded-lg text-sm transition-all duration-200
-           disabled:opacity-50 disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50;
+    @apply inline-flex items-center justify-center gap-2 font-semibold rounded-xl
+           text-sm
+           disabled:opacity-50 disabled:cursor-not-allowed;
     min-height: 44px;
+    transition: transform .18s cubic-bezier(.34,1.56,.64,1),
+                box-shadow .2s ease, background-color .15s ease,
+                color .15s ease, border-color .15s ease, opacity .15s ease;
     will-change: transform;
   }
-  .btn:active:not(:disabled) { transform: scale(0.98); }
+  .btn:hover:not(:disabled) { transform: translateY(-2px); }
+  .btn:active:not(:disabled) { transform: translateY(0) scale(.94); transition-duration: .08s; }
 
-  /* Primary — crisp solid blue, subtle shadow */
+  /* Primary — vibrant blue gradient with crisp white text */
   .btn-primary {
-    @apply btn px-5 py-2.5 text-white bg-brand-600 hover:bg-brand-700
-           shadow-sm hover:shadow-md border border-transparent;
+    @apply btn px-5 py-2.5 text-white font-bold shadow-md shadow-blue-500/30
+           bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600
+           hover:from-blue-600 hover:via-blue-600 hover:to-indigo-700
+           hover:shadow-lg hover:shadow-blue-500/45;
   }
-  
-  /* Secondary — crisp white/surface, delicate border */
   .btn-secondary {
-    @apply btn px-5 py-2.5 text-ink bg-surface border border-surface-4 hover:border-surface-4 hover:bg-surface-2
-           shadow-sm hover:shadow;
+    @apply btn px-5 py-2.5 text-ink border border-surface-4 shadow-sm
+           bg-gradient-to-br from-surface to-surface-3 hover:from-surface-2 hover:to-surface-4
+           hover:border-brand-300 hover:shadow-md;
   }
-  
-  /* Danger — solid red for destructive actions */
   .btn-danger {
-    @apply btn px-5 py-2.5 text-white bg-rose-600 hover:bg-rose-700
-           shadow-sm hover:shadow-md border border-transparent;
+    @apply btn px-5 py-2.5 text-white font-semibold shadow-md shadow-rose-500/30
+           bg-gradient-to-br from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700
+           hover:shadow-lg hover:shadow-rose-500/45;
   }
-  
-  /* Success — solid emerald */
   .btn-success {
-    @apply btn px-5 py-2.5 text-white bg-emerald-600 hover:bg-emerald-700
-           shadow-sm hover:shadow-md border border-transparent;
+    @apply btn px-5 py-2.5 text-white font-semibold shadow-md shadow-emerald-500/30
+           bg-gradient-to-br from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700
+           hover:shadow-lg hover:shadow-emerald-500/45;
   }
-  
-  /* Ghost — no background until hover */
-  .btn-ghost { 
-    @apply btn px-4 py-2 text-ink-muted hover:text-ink hover:bg-surface-2 bg-transparent border-transparent; 
-  }
-  
-  /* Icon — square aspect */
-  .btn-icon { 
-    @apply btn p-2 rounded-lg text-ink-muted hover:text-ink hover:bg-surface-2 bg-transparent border-transparent; 
-    min-width: 44px; 
-  }
+  .btn-ghost { @apply btn px-4 py-2 text-ink-muted hover:text-ink hover:bg-surface-3; }
+  .btn-icon { @apply btn p-2 rounded-xl text-ink-muted hover:text-ink hover:bg-surface-3; min-width: 44px; }
 
   /* Inputs — proper mobile sizing */
   .input {
-    @apply w-full rounded-lg border border-surface-4 bg-surface px-4 py-2.5 text-sm text-ink
-           placeholder-ink-muted/50 transition-all duration-200 shadow-sm
-           focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/20;
+    @apply w-full rounded-xl border border-surface-4 bg-surface px-4 py-2.5 text-sm text-ink
+           placeholder-ink-muted/50 transition-all duration-200
+           focus:outline-none focus:border-brand-400 focus:ring-4 focus:ring-brand-400/25;
     min-height: 44px;
     font-size: 16px; /* Prevents iOS zoom on focus */
   }
-  .label { @apply block text-sm font-medium text-ink-muted mb-1.5; }
+  .input:focus { box-shadow: 0 0 0 4px rgba(59,130,246,0.15), 0 2px 8px rgba(37,99,235,0.10); }
+  .label { @apply block text-xs font-semibold text-ink-muted uppercase tracking-wide mb-1.5; }
 
-  /* Badges — clean, high-contrast pills without gradients */
-  .badge { @apply inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-semibold; }
-  .badge-green  { @apply badge text-emerald-700 bg-emerald-50 border border-emerald-200/50; }
-  .badge-blue   { @apply badge text-brand-700 bg-brand-50 border border-brand-200/50; }
-  .badge-yellow { @apply badge text-amber-700 bg-amber-50 border border-amber-200/50; }
-  .badge-red    { @apply badge text-rose-700 bg-rose-50 border border-rose-200/50; }
-  .badge-gray   { @apply badge text-ink-muted bg-surface-2 border border-surface-4; }
+  /* Badges — soft gradient pills with bold, high-contrast text */
+  .badge { @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold; }
+  .badge-green  { @apply badge text-emerald-800 border border-success-border bg-gradient-to-r from-emerald-50 to-green-100; }
+  .badge-blue   { @apply badge text-blue-800    border border-info-border    bg-gradient-to-r from-sky-50     to-blue-100; }
+  .badge-yellow { @apply badge text-amber-800   border border-warning-border bg-gradient-to-r from-amber-50   to-yellow-100; }
+  .badge-red    { @apply badge text-rose-800    border border-danger-border  bg-gradient-to-r from-rose-50    to-red-100; }
+  .badge-gray   { @apply badge text-ink-muted   border border-surface-4      bg-gradient-to-r from-surface-2  to-surface-3; }
 
-  /* Alerts — gentle solid washes */
-  .alert-warning { @apply rounded-lg border border-amber-200/50 p-4 bg-amber-50 text-amber-800 text-sm; }
-  .alert-danger  { @apply rounded-lg border border-rose-200/50  p-4 bg-rose-50 text-rose-800 text-sm; }
-  .alert-info    { @apply rounded-lg border border-brand-200/50 p-4 bg-brand-50 text-brand-800 text-sm; }
-  .alert-success { @apply rounded-lg border border-emerald-200/50 p-4 bg-emerald-50 text-emerald-800 text-sm; }
+  /* Alerts — gentle gradient washes, dark text kept for legibility */
+  .alert-warning { @apply rounded-xl border border-warning-border p-4 bg-gradient-to-br from-amber-50 to-yellow-100; }
+  .alert-danger  { @apply rounded-xl border border-danger-border  p-4 bg-gradient-to-br from-rose-50  to-red-100; }
+  .alert-info    { @apply rounded-xl border border-info-border    p-4 bg-gradient-to-br from-sky-50   to-blue-100; }
+  .alert-success { @apply rounded-xl border border-success-border p-4 bg-gradient-to-br from-emerald-50 to-green-100; }
 
-  .form-section { @apply text-sm font-semibold text-ink mb-3 mt-1; }
+  .form-section { @apply text-xs font-bold text-ink-muted uppercase tracking-widest mb-3 mt-1; }
 
   /* Modal — slide up from bottom on mobile */
   .modal-backdrop {
@@ -152,22 +149,22 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 
   /* Table — responsive */
   .tbl { @apply w-full text-sm; }
-  .tbl th { @apply text-left text-xs font-semibold text-ink-muted uppercase tracking-wider py-3 px-4 border-b border-surface-4 bg-surface-2; }
+  .tbl th { @apply text-left text-xs font-bold text-ink-muted uppercase tracking-wide py-3 px-4 border-b border-surface-4 bg-gradient-to-b from-surface-2 to-surface-3; }
   .tbl td { @apply py-3 px-4 border-b border-surface-3 text-ink; }
   .tbl tr:last-child td { @apply border-0; }
-  .tbl tbody tr:nth-child(even) td { @apply bg-surface-2/40; }
+  .tbl tbody tr:nth-child(even) td { @apply bg-surface-2/60; }
   .tbl tbody tr { transition: background-color .15s ease; }
-  .tbl tbody tr:hover td { @apply bg-surface-3/30; }
+  .tbl tbody tr:hover td { @apply bg-brand-50; }
 
   .divider { @apply h-px bg-surface-4 my-6; }
 
-  /* Nav links — crisp modern active indicator */
-  .nav-link { @apply flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-2 transition-colors; min-height: 44px; }
-  .nav-link-active { @apply nav-link font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 hover:text-brand-800; }
+  /* Nav links — blue active indicator instead of amber */
+  .nav-link { @apply flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-3 transition-colors; min-height: 44px; }
+  .nav-link-active { @apply nav-link font-bold text-blue-700 shadow-sm shadow-blue-500/20 bg-gradient-to-r from-blue-50 to-indigo-100 hover:from-blue-100 hover:to-indigo-200 hover:text-blue-800; }
 
-  /* Stat cards — clean minimal surface */
-  .stat-card { @apply card p-5 transition-all duration-200; }
-  .stat-card:hover { transform: translateY(-1px); @apply shadow-md border-brand-200; }
+  /* Stat cards — now with blue-tinted brand gradient */
+  .stat-card { @apply card p-5 bg-gradient-to-br from-white via-brand-50/40 to-brand-100/70; transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s ease; }
+  .stat-card:hover { transform: translateY(-2px); @apply shadow-card-hover; }
 
   /* Tabular numeric display — clean zero, no slashed/dotted 0 */
   .num {
