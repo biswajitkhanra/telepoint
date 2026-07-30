@@ -12,7 +12,6 @@ import LoanStatementModal from './LoanStatementModal';
 import { SPRING, fadeUp, staggerContainer } from '@/lib/motion';
 import { customerCodeOf } from '@/lib/customerCode';
 import { firstChargeRemaining, firstChargePaid, firstChargeStatus } from '@/lib/firstCharge';
-import { deriveFineBadge } from '@/lib/customerStatus';
 
 // Per-cell entrance for the detail grid — small upward drift, no scale (keeps
 // the hairline `gap-px` dividers crisp during the animation).
@@ -43,10 +42,6 @@ export default function CustomerDetailPanel({ customer, paidCount, totalEmis, is
   const [shareOpen, setShareOpen] = useState(false);
   const [showStatement, setShowStatement] = useState(false);
   const progress = totalEmis > 0 ? (paidCount / totalEmis) * 100 : 0;
-
-  // Derive the Fine Pending badge. Only shown for COMPLETE customers with
-  // outstanding (non-waived) fines. Never affects the customer status chip.
-  const fineBadge = deriveFineBadge(customer.status, emis ?? []);
   const retailer = customer.retailer as Retailer | null;
 
   const phones = [
@@ -171,28 +166,17 @@ export default function CustomerDetailPanel({ customer, paidCount, totalEmis, is
                 </span>
               )}
             </div>
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className={`badge ${
-                customer.status === 'RUNNING' ? 'badge-green' :
-                customer.status === 'SETTLED' ? 'bg-warning-light text-warning border border-warning-border' :
-                customer.status === 'NPA' ? 'bg-danger-light text-danger border border-danger-border' :
-                'badge-blue'
-              }`}>
-                {customer.status === 'RUNNING' ? '● Running' :
-                 customer.status === 'SETTLED' ? '⚖ Settled' :
-                 customer.status === 'NPA' ? '⚠ NPA' :
-                 '✓ Complete'}
-              </span>
-              {/* Fine Pending badge — COMPLETE customers only, auto-cleared when fine is paid */}
-              {fineBadge && (
-                <span
-                  title="This customer has completed all EMI installments but has an outstanding fine amount."
-                  className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300 animate-pulse-subtle"
-                >
-                  ⚠ Fine Pending
-                </span>
-              )}
-            </div>
+            <span className={`badge ${
+              customer.status === 'RUNNING' ? 'badge-green' :
+              customer.status === 'SETTLED' ? 'bg-warning-light text-warning border border-warning-border' :
+              customer.status === 'NPA' ? 'bg-danger-light text-danger border border-danger-border' :
+              'badge-blue'
+            }`}>
+              {customer.status === 'RUNNING' ? '● Running' :
+               customer.status === 'SETTLED' ? '⚖ Settled' :
+               customer.status === 'NPA' ? '⚠ NPA' :
+               '✓ Complete'}
+            </span>
           </div>
 
           {/* Phone Lock — read-only status here; the toggle lives in the top action
