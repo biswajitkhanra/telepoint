@@ -21,7 +21,11 @@ import { firstChargePaid } from '@/lib/firstCharge';
 
 export const dynamic = 'force-dynamic';
 
-const COUNTED_STATUSES = ['RUNNING', 'NPA', 'SETTLED'] as const;
+// RUNNING, NPA, and SETTLED are counted for deficit (unrecovered money).
+// COMPLETE is included ONLY for counts/display — their deficit is zero by
+// definition (all EMIs recovered) and they don't inflate the deficit figure.
+const DEFICIT_STATUSES = ['RUNNING', 'NPA', 'SETTLED'] as const;
+const ALL_COUNTED_STATUSES = ['RUNNING', 'NPA', 'SETTLED', 'COMPLETE'] as const;
 
 type CustomerRow = {
   id: string;
@@ -53,6 +57,8 @@ export interface RetailerSummaryRow {
   runningCount: number;
   npaCount: number;
   settledCount: number;
+  completedCount: number;
+  totalCustomers: number;
   loanGiven: number;
   emiCollected: number;
   fineCollected: number;
@@ -74,13 +80,15 @@ export async function GET() {
   const svc = createServiceClient();
 
   // Retailer list and customer scan are independent — run them in parallel.
+  // Fetch ALL_COUNTED_STATUSES (includes COMPLETE) so we can show
+  // per-retailer customer counts correctly in the UI.
   const [{ data: retailers, error: rErr }, customers] = await Promise.all([
     svc.from('retailers').select('id, name, is_active').order('name'),
     fetchAllPaged<CustomerRow>((from, to) =>
       svc
         .from('customers')
         .select('id, retailer_id, status, purchase_value, down_payment, settlement_amount, settlement_date, completion_date, first_emi_charge_amount, first_emi_charge_paid_amount, first_emi_charge_paid_at')
-        .in('status', [...COUNTED_STATUSES])
+        .in('status', [...ALL_COUNTED_STATUSES])
         .order('id')
         .range(from, to) as unknown as PromiseLike<{ data: CustomerRow[] | null; error: { message: string } | null }>,
     ),
@@ -116,7 +124,7 @@ export async function GET() {
   for (const r of (retailers ?? []) as { id: string; name: string; is_active: boolean }[]) {
     byRetailer.set(r.id, {
       retailerId: r.id, name: r.name, isActive: !!r.is_active,
-      runningCount: 0, npaCount: 0, settledCount: 0,
+      runningCount: 0, npaCount: 0, settledCount: 0, completedCount: 0, totalCustomers: 0,
       loanGiven: 0, emiCollected: 0, fineCollected: 0,
       firstChargeCollected: 0, totalCollected: 0, deficit: 0,
     });
@@ -129,7 +137,12 @@ export async function GET() {
 
     if (c.status === 'NPA') row.npaCount += 1;
     else if (c.status === 'SETTLED') row.settledCount += 1;
+    else if (c.status === 'COMPLETE') row.completedCount += 1;
     else row.runningCount += 1;
+
+    // COMPLETE customers are NOT included in deficit (their loans are recovered).
+    // They are counted above for display but don't affect financial totals.
+    if (c.status === 'COMPLETE') continue;
 
     row.loanGiven += Math.max(0, Number(c.purchase_value || 0) - Number(c.down_payment || 0));
 
@@ -159,10 +172,11 @@ export async function GET() {
   const rows = [...byRetailer.values()]
     .map(r => {
       const totalCollected = r.emiCollected + r.fineCollected + r.firstChargeCollected;
-      return { ...r, totalCollected, deficit: r.loanGiven - totalCollected };
+      const totalCustomers = r.runningCount + r.npaCount + r.settledCount + r.completedCount;
+      return { ...r, totalCollected, deficit: r.loanGiven - totalCollected, totalCustomers };
     })
-    // Only list retailers actually carrying exposure (running / NPA / settled).
-    .filter(r => r.runningCount + r.npaCount + r.settledCount > 0)
+    // Only list retailers with at least one customer across any status.
+    .filter(r => r.totalCustomers > 0)
     .sort((a, b) => b.deficit - a.deficit);
 
   return NextResponse.json({ rows }, { headers: { 'Cache-Control': 'no-store' } });

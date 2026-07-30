@@ -41,6 +41,7 @@ import { SearchInput } from '@/components/ui/SearchInput';
 import { DataTablePro, Column } from '@/components/ui/DataTablePro';
 import type { PortfolioMetrics } from '@/app/api/metrics/route';
 import type { ExpectedLossCustomer } from '@/app/api/admin/expected-loss/route';
+import RetailerDeficitPanel from '@/components/reports/RetailerDeficitPanel';
 
 const fmt = formatCurrency;
 const fmtShort = (n: number) =>
@@ -294,6 +295,9 @@ export default function ReportsHub({
 
       {/* ═══ UTR / payment reference search ═══ */}
       <UtrSearch supabase={supabase} />
+
+      {/* ═══ Retailer-wise deficit checklist ═══ */}
+      <RetailerDeficitPanel />
     </motion.div>
   );
 }
@@ -663,6 +667,7 @@ function ProfitAndRisk({
   const [showEl, setShowEl] = useState(false);
   const [elRows, setElRows] = useState<ExpectedLossCustomer[] | null>(null);
   const [elLoading, setElLoading] = useState(false);
+  const [elTotalFineDue, setElTotalFineDue] = useState(0);
 
   const profitBy = metrics?.profitByYear ?? {};
   const lossBy = metrics?.lossBookedByYear ?? {};
@@ -695,6 +700,7 @@ function ProfitAndRisk({
         }
         const d = await res.json();
         setElRows(d.rows ?? []);
+        setElTotalFineDue(d.totalFineDue ?? 0);
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Could not load expected-loss customers');
         setShowEl(false);
@@ -705,9 +711,28 @@ function ProfitAndRisk({
   }, [showEl, elRows, elLoading]);
 
   const elColumns: Column<ExpectedLossCustomer>[] = useMemo(() => [
-    { key: 'name', header: 'Customer', accessor: r => r.name },
-    { key: 'mobile', header: 'Mobile', accessor: r => r.mobile, numeric: true },
-    { key: 'retailer', header: 'Retailer', accessor: r => r.retailerName },
+    {
+      key: 'name', header: 'Customer', accessor: r => r.name,
+      cell: r => (
+        <div className="min-w-0">
+          <p className="font-semibold text-ink text-sm leading-tight truncate">{r.name}</p>
+          <p className="num text-[10px] text-ink-muted">{r.mobile}</p>
+        </div>
+      ),
+    },
+    {
+      key: 'retailer', header: 'Retailer', accessor: r => r.retailerName,
+      cell: r => (
+        <div>
+          <p className="text-sm text-ink">{r.retailerName}</p>
+          {r.customerStatus === 'NPA' && (
+            <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0 text-[10px] font-extrabold bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300 border border-rose-200 dark:border-rose-500/30">
+              NPA
+            </span>
+          )}
+        </div>
+      ),
+    },
     {
       key: 'overdue', header: 'Overdue', accessor: r => r.daysOverdue, align: 'right', numeric: true,
       cell: r => (
@@ -723,9 +748,15 @@ function ProfitAndRisk({
     },
     {
       key: 'since', header: 'Oldest Due', accessor: r => r.oldestDueDate,
-      cell: r => <span className="num text-xs text-ink-muted">{r.oldestDueDate ? format(new Date(r.oldestDueDate), 'd MMM yy') : '—'}</span>,
+      cell: r => <span className="num text-xs text-ink-muted">{r.oldestDueDate ? format(new Date(r.oldestDueDate), 'd MMM yy') : '\u2014'}</span>,
     },
     { key: 'due', header: 'EMI Due', accessor: r => r.emiDue, align: 'right', numeric: true, cell: r => <span className="num font-bold text-rose-600 dark:text-rose-400">{fmt(r.emiDue)}</span> },
+    {
+      key: 'fine', header: 'Fine Due', accessor: r => r.fineDue, align: 'right', numeric: true,
+      cell: r => r.fineDue > 0
+        ? <span className="num font-semibold text-amber-600 dark:text-amber-400">{fmt(r.fineDue)}</span>
+        : <span className="text-xs text-ink-muted">—</span>,
+    },
   ], []);
 
   return (
@@ -804,10 +835,10 @@ function ProfitAndRisk({
               </span>
               <div>
                 <p className="text-base font-bold text-ink">Expected loss (live)</p>
-                <p className="text-xs text-ink-muted">Running customers with an EMI unpaid over 3 months</p>
+                <p className="text-xs text-ink-muted">Running &amp; NPA customers with an EMI unpaid over 3 months</p>
               </div>
             </div>
-            <div className="flex items-center gap-5 ml-auto">
+            <div className="flex items-center gap-4 ml-auto flex-wrap justify-end">
               <div className="text-right">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">Accounts</p>
                 <p className="num text-lg font-extrabold text-amber-600 dark:text-amber-300">{metrics?.expectedLossCount ?? 0}</p>
@@ -816,6 +847,12 @@ function ProfitAndRisk({
                 <p className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">EMI Due</p>
                 <p className="num text-lg font-extrabold text-amber-600 dark:text-amber-300">{fmt(metrics?.expectedLossEmiDue ?? 0)}</p>
               </div>
+              {elTotalFineDue > 0 && (
+                <div className="text-right">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">Fine Due</p>
+                  <p className="num text-lg font-extrabold text-orange-600 dark:text-orange-300">{fmt(elTotalFineDue)}</p>
+                </div>
+              )}
               <motion.span animate={{ rotate: showEl ? 180 : 0 }} className="text-ink-muted" aria-hidden>▾</motion.span>
             </div>
           </button>

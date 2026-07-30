@@ -1,4 +1,5 @@
 import { toNumber } from './formatters';
+import { isFirstChargeSettled } from './customerStatus';
 
 type Svc = any;
 
@@ -270,10 +271,10 @@ export async function reverseApprovedRequestEffects(svc: Svc, request: RequestRo
 }
 
 export async function recomputeCustomerCompletion(svc: Svc, customerId: string) {
-  // Persist any accrued late fine first so the completion decision below reads
-  // a fresh stored fine_amount rather than a stale one (which could otherwise
-  // mark a customer COMPLETE while a fine is still outstanding).
-  await svc.rpc('recalc_customer_fines', { p_customer_id: customerId }).then(() => null).catch(() => null);
+  // Note: fine recalc is intentionally NOT called here anymore.
+  // Fine status is an independent obligation and must never gate EMI completion.
+  // Calling recalc_customer_fines here was the root cause of the COMPLETE→RUNNING
+  // regression: after recalc, finePending=true triggered the else-if branch below.
 
   const { data: customer } = await svc.from('customers')
     .select('id, status, first_emi_charge_amount, first_emi_charge_paid_amount, first_emi_charge_paid_at')
@@ -281,26 +282,46 @@ export async function recomputeCustomerCompletion(svc: Svc, customerId: string) 
     .maybeSingle();
   if (!customer) return;
 
+  // ── Terminal status guard ─────────────────────────────────────────────────
+  // SETTLED and NPA are explicitly set by admin actions (settlement API /
+  // mark-complete with unpaid EMIs). This function must never override them.
+  if (customer.status === 'SETTLED' || customer.status === 'NPA') return;
+
+  // ── Check EMI completion (fine status is intentionally excluded) ──────────
   const { count: openEmiCount } = await svc.from('emi_schedule')
     .select('id', { count: 'exact', head: true })
     .eq('customer_id', customerId)
     .in('status', ['UNPAID', 'PENDING_APPROVAL', 'PARTIALLY_PAID']);
 
-  const { data: fineRows } = await svc.from('emi_schedule')
-    .select('fine_amount, fine_paid_amount, fine_waived')
-    .eq('customer_id', customerId);
-  const finePending = (fineRows || []).some((row: any) => !row.fine_waived && toNumber(row.fine_amount) > toNumber(row.fine_paid_amount));
-  // Charge is still pending unless the running paid balance covers the full
-  // amount (a set paid-at timestamp also means fully paid, incl. legacy rows).
-  const firstChargeTotal = toNumber(customer.first_emi_charge_amount);
-  const firstChargePaidAmt = customer.first_emi_charge_paid_at
-    ? firstChargeTotal
-    : Math.max(0, toNumber(customer.first_emi_charge_paid_amount));
-  const firstChargePending = firstChargeTotal > 0 && firstChargePaidAmt < firstChargeTotal;
+  // First-EMI Charge must be fully settled for auto-COMPLETE.
+  // Fine status is NOT part of this check — a customer with all EMIs paid
+  // but an outstanding fine is still COMPLETE; the fine is tracked separately.
+  const firstChargePending = !isFirstChargeSettled(customer);
 
-  if ((openEmiCount || 0) === 0 && !finePending && !firstChargePending) {
-    await svc.from('customers').update({ status: 'COMPLETE', completion_date: new Date().toISOString().split('T')[0] }).eq('id', customerId);
-  } else if (customer.status === 'COMPLETE') {
-    await svc.from('customers').update({ status: 'RUNNING', completion_date: null }).eq('id', customerId);
+  const allEmisClosed = (openEmiCount || 0) === 0;
+
+  if (allEmisClosed && !firstChargePending) {
+    // All EMIs paid and first charge settled → auto-promote to COMPLETE.
+    // Idempotent: safe to call even if already COMPLETE (no extra write).
+    if (customer.status !== 'COMPLETE') {
+      await svc.from('customers').update({
+        status: 'COMPLETE',
+        completion_date: new Date().toISOString().split('T')[0],
+      }).eq('id', customerId);
+    }
+    return;
   }
+
+  // ── Revert COMPLETE → RUNNING ONLY when EMIs/charge are genuinely open ────
+  // This handles the case where an admin reverses a payment, re-opening EMIs.
+  // It does NOT fire because of pending fines — that regression is now fixed.
+  if (customer.status === 'COMPLETE') {
+    await svc.from('customers').update({
+      status: 'RUNNING',
+      completion_date: null,
+    }).eq('id', customerId);
+  }
+
+  // If status is RUNNING and EMIs/charge are still open, no change needed.
 }
+
