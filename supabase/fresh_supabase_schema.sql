@@ -532,12 +532,10 @@ BEGIN
     END IF;
   END LOOP;
 
-  SELECT * INTO v_customer FROM customers WHERE id = p_customer_id;
-  IF FOUND AND v_customer.status = 'COMPLETE' AND v_pending_fine THEN
-    UPDATE customers
-    SET status = 'RUNNING', completion_date = NULL, updated_at = NOW()
-    WHERE id = p_customer_id;
-  END IF;
+  -- NOTE: Deliberately NO status change here. A pending fine must never move a
+  -- COMPLETE customer back to RUNNING — completion depends only on EMI payment.
+  -- (v_pending_fine / v_customer are retained for backward compatibility only.)
+  PERFORM 1;
 
   RETURN v_updated;
 END;
@@ -733,7 +731,8 @@ BEGIN
                                ELSE COALESCE(v_cust.first_emi_charge_paid_amount, 0) END)
                          < COALESCE(v_cust.first_emi_charge_amount, 0);
 
-    IF v_unpaid_count = 0 AND NOT v_fine_pending AND NOT v_charge_pending THEN
+    -- A pending fine is NOT a blocker — status depends only on EMI completion.
+    IF v_unpaid_count = 0 AND NOT v_charge_pending THEN
       UPDATE customers
       SET status = 'COMPLETE', completion_date = v_now::DATE, updated_at = v_now
       WHERE id = v_request.customer_id AND status = 'RUNNING';
@@ -1095,12 +1094,10 @@ BEGIN
     END IF;
   END LOOP;
 
-  SELECT * INTO v_customer FROM customers WHERE id = p_customer_id;
-  IF FOUND AND v_customer.status = 'COMPLETE' AND v_pending_fine THEN
-    UPDATE customers
-    SET status = 'RUNNING', completion_date = NULL, updated_at = NOW()
-    WHERE id = p_customer_id;
-  END IF;
+  -- NOTE: Deliberately NO status change here. A pending fine must never move a
+  -- COMPLETE customer back to RUNNING — completion depends only on EMI payment.
+  -- (v_pending_fine / v_customer are retained for backward compatibility only.)
+  PERFORM 1;
 
   RETURN v_updated;
 END;
@@ -1244,7 +1241,8 @@ BEGIN
                                THEN COALESCE(v_cust.first_emi_charge_amount, 0)
                                ELSE COALESCE(v_cust.first_emi_charge_paid_amount, 0) END)
                          < COALESCE(v_cust.first_emi_charge_amount, 0);
-      IF NOT v_fine_pending AND NOT v_charge_pending THEN
+      -- A pending fine is NOT a blocker — status depends only on EMI completion.
+      IF NOT v_charge_pending THEN
         UPDATE customers SET status = 'COMPLETE', completion_date = v_now::DATE, updated_at = v_now
         WHERE id = v_request.customer_id AND status = 'RUNNING';
       END IF;

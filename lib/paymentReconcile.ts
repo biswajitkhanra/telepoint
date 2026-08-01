@@ -270,9 +270,9 @@ export async function reverseApprovedRequestEffects(svc: Svc, request: RequestRo
 }
 
 export async function recomputeCustomerCompletion(svc: Svc, customerId: string) {
-  // Persist any accrued late fine first so the completion decision below reads
-  // a fresh stored fine_amount rather than a stale one (which could otherwise
-  // mark a customer COMPLETE while a fine is still outstanding).
+  // Persist any accrued late fine first so downstream fine indicators read a
+  // fresh stored fine_amount. A pending fine must NOT influence the completion
+  // decision below — customer status depends only on EMI completion.
   await svc.rpc('recalc_customer_fines', { p_customer_id: customerId }).then(() => null).catch(() => null);
 
   const { data: customer } = await svc.from('customers')
@@ -286,10 +286,6 @@ export async function recomputeCustomerCompletion(svc: Svc, customerId: string) 
     .eq('customer_id', customerId)
     .in('status', ['UNPAID', 'PENDING_APPROVAL', 'PARTIALLY_PAID']);
 
-  const { data: fineRows } = await svc.from('emi_schedule')
-    .select('fine_amount, fine_paid_amount, fine_waived')
-    .eq('customer_id', customerId);
-  const finePending = (fineRows || []).some((row: any) => !row.fine_waived && toNumber(row.fine_amount) > toNumber(row.fine_paid_amount));
   // Charge is still pending unless the running paid balance covers the full
   // amount (a set paid-at timestamp also means fully paid, incl. legacy rows).
   const firstChargeTotal = toNumber(customer.first_emi_charge_amount);
@@ -298,7 +294,12 @@ export async function recomputeCustomerCompletion(svc: Svc, customerId: string) 
     : Math.max(0, toNumber(customer.first_emi_charge_paid_amount));
   const firstChargePending = firstChargeTotal > 0 && firstChargePaidAmt < firstChargeTotal;
 
-  if ((openEmiCount || 0) === 0 && !finePending && !firstChargePending) {
+  // Completion depends ONLY on EMI (and first-charge) completion. An
+  // outstanding fine is surfaced as a "Fine Pending" indicator in the UI but
+  // never keeps a customer out of — or drags them back from — the Completed
+  // section. Likewise, a customer only returns to RUNNING when a real EMI is
+  // still open, never because a fine is unpaid.
+  if ((openEmiCount || 0) === 0 && !firstChargePending) {
     await svc.from('customers').update({ status: 'COMPLETE', completion_date: new Date().toISOString().split('T')[0] }).eq('id', customerId);
   } else if (customer.status === 'COMPLETE') {
     await svc.from('customers').update({ status: 'RUNNING', completion_date: null }).eq('id', customerId);

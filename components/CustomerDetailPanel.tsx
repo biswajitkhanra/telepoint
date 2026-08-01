@@ -44,6 +44,14 @@ export default function CustomerDetailPanel({ customer, paidCount, totalEmis, is
   const progress = totalEmis > 0 ? (paidCount / totalEmis) * 100 : 0;
   const retailer = customer.retailer as Retailer | null;
 
+  // Outstanding late fine across the schedule. A pending fine never changes the
+  // customer's status — it is surfaced purely as a "Fine Pending" indicator so
+  // a COMPLETE customer with an unpaid fine stays in the Completed section.
+  const outstandingFine = (emis || []).reduce((sum, e) => {
+    if (e.fine_waived) return sum;
+    return sum + Math.max(0, (e.fine_amount || 0) - (e.fine_paid_amount || 0));
+  }, 0);
+
   const phones = [
     { label: 'Primary', num: customer.mobile },
     ...(customer.alternate_number_1 ? [{ label: 'Alt 1', num: customer.alternate_number_1 }] : []),
@@ -166,17 +174,27 @@ export default function CustomerDetailPanel({ customer, paidCount, totalEmis, is
                 </span>
               )}
             </div>
-            <span className={`badge ${
-              customer.status === 'RUNNING' ? 'badge-green' :
-              customer.status === 'SETTLED' ? 'bg-warning-light text-warning border border-warning-border' :
-              customer.status === 'NPA' ? 'bg-danger-light text-danger border border-danger-border' :
-              'badge-blue'
-            }`}>
-              {customer.status === 'RUNNING' ? '● Running' :
-               customer.status === 'SETTLED' ? '⚖ Settled' :
-               customer.status === 'NPA' ? '⚠ NPA' :
-               '✓ Complete'}
-            </span>
+            <div className="flex flex-wrap items-center justify-end gap-1.5">
+              <span className={`badge ${
+                customer.status === 'RUNNING' ? 'badge-green' :
+                customer.status === 'SETTLED' ? 'bg-warning-light text-warning border border-warning-border' :
+                customer.status === 'NPA' ? 'bg-danger-light text-danger border border-danger-border' :
+                'badge-blue'
+              }`}>
+                {customer.status === 'RUNNING' ? '● Running' :
+                 customer.status === 'SETTLED' ? '⚖ Settled' :
+                 customer.status === 'NPA' ? '⚠ NPA' :
+                 '✓ Complete'}
+              </span>
+              {/* Fine Pending — shown alongside (never in place of) the status
+                  badge. A completed customer with an unpaid fine stays Complete
+                  and is simply flagged here. */}
+              {customer.status === 'COMPLETE' && outstandingFine > 0 && (
+                <span className="badge bg-danger-light text-danger border border-danger-border" title={`Outstanding fine: ${fmt(outstandingFine)}`}>
+                  ⚠ Fine Pending · {fmt(outstandingFine)}
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Phone Lock — read-only status here; the toggle lives in the top action
