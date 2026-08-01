@@ -448,17 +448,14 @@ BEGIN
     AND status IN ('UNPAID', 'PENDING_APPROVAL', 'PARTIALLY_PAID');
 
   IF v_unpaid_count = 0 THEN
-    DECLARE v_cust RECORD; v_fine_pending BOOLEAN; v_charge_pending BOOLEAN;
+    -- Status depends only on EMI completion + the one-time First EMI Charge.
+    -- A pending fine is intentionally NOT a completion gate.
+    DECLARE v_cust RECORD; v_charge_pending BOOLEAN;
     BEGIN
       SELECT * INTO v_cust FROM customers WHERE id = v_request.customer_id;
-      v_fine_pending := EXISTS (
-        SELECT 1 FROM emi_schedule
-        WHERE customer_id = v_request.customer_id AND fine_waived = FALSE
-          AND fine_amount > COALESCE(fine_paid_amount, 0)
-      );
       v_charge_pending := COALESCE(v_cust.first_emi_charge_amount, 0) > 0
                        AND v_cust.first_emi_charge_paid_at IS NULL;
-      IF NOT v_fine_pending AND NOT v_charge_pending THEN
+      IF NOT v_charge_pending THEN
         UPDATE customers SET status = 'COMPLETE', completion_date = v_now::DATE, updated_at = v_now
         WHERE id = v_request.customer_id AND status = 'RUNNING';
       END IF;
@@ -764,12 +761,9 @@ BEGIN
     END IF;
   END LOOP;
 
-  SELECT * INTO v_customer FROM customers WHERE id = p_customer_id;
-  IF FOUND AND v_customer.status = 'COMPLETE' AND v_pending_fine THEN
-    UPDATE customers
-    SET status = 'RUNNING', completion_date = NULL, updated_at = NOW()
-    WHERE id = p_customer_id;
-  END IF;
+  -- Customer status depends solely on EMI completion. A pending fine is only an
+  -- indicator ("Fine Pending") and must never move a COMPLETE customer back to
+  -- RUNNING, so the old fine-based reopen has been removed.
 
   RETURN v_updated;
 END;
@@ -888,17 +882,14 @@ BEGIN
     AND status IN ('UNPAID', 'PENDING_APPROVAL', 'PARTIALLY_PAID');
 
   IF v_unpaid_count = 0 THEN
-    DECLARE v_cust RECORD; v_fine_pending BOOLEAN; v_charge_pending BOOLEAN;
+    -- Status depends only on EMI completion + the one-time First EMI Charge.
+    -- A pending fine is intentionally NOT a completion gate.
+    DECLARE v_cust RECORD; v_charge_pending BOOLEAN;
     BEGIN
       SELECT * INTO v_cust FROM customers WHERE id = v_request.customer_id;
-      v_fine_pending := EXISTS (
-        SELECT 1 FROM emi_schedule
-        WHERE customer_id = v_request.customer_id AND fine_waived = FALSE
-          AND fine_amount > COALESCE(fine_paid_amount, 0)
-      );
       v_charge_pending := COALESCE(v_cust.first_emi_charge_amount, 0) > 0
                        AND v_cust.first_emi_charge_paid_at IS NULL;
-      IF NOT v_fine_pending AND NOT v_charge_pending THEN
+      IF NOT v_charge_pending THEN
         UPDATE customers SET status = 'COMPLETE', completion_date = v_now::DATE, updated_at = v_now
         WHERE id = v_request.customer_id AND status = 'RUNNING';
       END IF;

@@ -12,6 +12,7 @@ import LoanStatementModal from './LoanStatementModal';
 import { SPRING, fadeUp, staggerContainer } from '@/lib/motion';
 import { customerCodeOf } from '@/lib/customerCode';
 import { firstChargeRemaining, firstChargePaid, firstChargeStatus } from '@/lib/firstCharge';
+import { calculateTotalFineFromEmis } from '@/lib/fineCalc';
 
 // Per-cell entrance for the detail grid — small upward drift, no scale (keeps
 // the hairline `gap-px` dividers crisp during the animation).
@@ -43,6 +44,14 @@ export default function CustomerDetailPanel({ customer, paidCount, totalEmis, is
   const [showStatement, setShowStatement] = useState(false);
   const progress = totalEmis > 0 ? (paidCount / totalEmis) * 100 : 0;
   const retailer = customer.retailer as Retailer | null;
+
+  // Outstanding fine (if the schedule is available). A pending fine never
+  // changes the customer's status — it is only surfaced as an indicator next
+  // to the COMPLETE badge so completed customers stay in the Completed section.
+  const outstandingFine = emis && emis.length > 0
+    ? calculateTotalFineFromEmis(emis, baseFine, weeklyIncrement)
+    : 0;
+  const showFinePending = customer.status === 'COMPLETE' && outstandingFine > 0;
 
   const phones = [
     { label: 'Primary', num: customer.mobile },
@@ -166,17 +175,27 @@ export default function CustomerDetailPanel({ customer, paidCount, totalEmis, is
                 </span>
               )}
             </div>
-            <span className={`badge ${
-              customer.status === 'RUNNING' ? 'badge-green' :
-              customer.status === 'SETTLED' ? 'bg-warning-light text-warning border border-warning-border' :
-              customer.status === 'NPA' ? 'bg-danger-light text-danger border border-danger-border' :
-              'badge-blue'
-            }`}>
-              {customer.status === 'RUNNING' ? '● Running' :
-               customer.status === 'SETTLED' ? '⚖ Settled' :
-               customer.status === 'NPA' ? '⚠ NPA' :
-               '✓ Complete'}
-            </span>
+            <div className="flex flex-col items-end gap-1.5">
+              <span className={`badge ${
+                customer.status === 'RUNNING' ? 'badge-green' :
+                customer.status === 'SETTLED' ? 'bg-warning-light text-warning border border-warning-border' :
+                customer.status === 'NPA' ? 'bg-danger-light text-danger border border-danger-border' :
+                'badge-blue'
+              }`}>
+                {customer.status === 'RUNNING' ? '● Running' :
+                 customer.status === 'SETTLED' ? '⚖ Settled' :
+                 customer.status === 'NPA' ? '⚠ NPA' :
+                 '✓ Complete'}
+              </span>
+              {/* Completed customers with an outstanding fine keep the Complete
+                  status and get a clear "Fine Pending" indicator — they never
+                  move back to Running. */}
+              {showFinePending && (
+                <span className="badge bg-warning-light text-warning border border-warning-border whitespace-nowrap">
+                  ⚠ Fine Pending · <span className="num">{fmt(outstandingFine)}</span>
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Phone Lock — read-only status here; the toggle lives in the top action
