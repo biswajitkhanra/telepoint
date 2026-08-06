@@ -42,6 +42,13 @@ export async function POST(req: NextRequest) {
   if (retailer.retail_pin !== retail_pin)
     return NextResponse.json({ error: 'Incorrect PIN' }, { status: 401 });
 
+  // SECURITY: Derive collected_by_role from the authenticated user's actual role,
+  // NOT from the request body. A retailer could previously set collected_by_role='admin'
+  // to bypass EMI sequence enforcement.
+  const { data: callerProfile } = await supabase
+    .from('profiles').select('role').eq('user_id', user.id).single();
+  const actualCollectedByRole = callerProfile?.role === 'super_admin' ? 'admin' : 'retailer';
+
   // ── OWNERSHIP CHECK: customer must belong to this retailer ────────────────
   const { data: custOwner } = await svc
     .from('customers')
@@ -51,9 +58,10 @@ export async function POST(req: NextRequest) {
   if (!custOwner || custOwner.retailer_id !== retailer.id)
     return NextResponse.json({ error: 'Customer does not belong to your account' }, { status: 403 });
 
+
   // ── SEQUENCE ENFORCEMENT: retailers must pay EMIs in order ────────────────
-  // Super admin (collected_by_role === 'admin') bypasses this check.
-  if (!noEmi && emi_nos?.length && collected_by_role !== 'admin') {
+  // Super admin (actualCollectedByRole === 'admin') bypasses this check.
+  if (!noEmi && emi_nos?.length && actualCollectedByRole !== 'admin') {
     const { data: allUnpaid } = await svc
       .from('emi_schedule')
       .select('emi_no')
@@ -118,7 +126,7 @@ export async function POST(req: NextRequest) {
       fine_for_emi_no:         fine_for_emi_no || null,
       fine_due_date:           fine_due_date || null,
       fine_breakdown:          Array.isArray(fine_breakdown) ? fine_breakdown : null,
-      collected_by_role:       collected_by_role || 'retailer',
+      collected_by_role:       actualCollectedByRole,
       collected_by_user_id:    user.id,
       payment_date:            resolvedPaymentDate,
     })

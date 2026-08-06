@@ -6,6 +6,12 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
 
+  // SECURITY: Only super_admin can create retailers
+  const { data: callerProfile } = await supabase
+    .from('profiles').select('role').eq('user_id', user.id).single();
+  if (callerProfile?.role !== 'super_admin')
+    return NextResponse.json({ error: 'Forbidden — admin only' }, { status: 403 });
+
   const body = await req.json();
   const { name, username, password, retail_pin, mobile } = body;
 
@@ -61,6 +67,12 @@ export async function PATCH(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
 
+  // SECURITY: Only super_admin can modify retailers
+  const { data: callerProfile } = await supabase
+    .from('profiles').select('role').eq('user_id', user.id).single();
+  if (callerProfile?.role !== 'super_admin')
+    return NextResponse.json({ error: 'Forbidden — admin only' }, { status: 403 });
+
   const body = await req.json();
   const { id, name, password, retail_pin, is_active, mobile } = body;
   if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 });
@@ -99,6 +111,15 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  // SECURITY: Authenticate and require super_admin role
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+  const { data: callerProfile } = await supabase
+    .from('profiles').select('role').eq('user_id', user.id).single();
+  if (callerProfile?.role !== 'super_admin')
+    return NextResponse.json({ error: 'Forbidden — admin only' }, { status: 403 });
+
   const serviceClient = createServiceClient();
   const { searchParams } = new URL(req.url);
   const id = searchParams.get('id');

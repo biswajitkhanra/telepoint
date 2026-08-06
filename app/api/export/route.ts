@@ -171,7 +171,7 @@ function buildRowsForStatus(
         'SR NO.': sr,
         'CUST NAME': c.customer_name,
         'FATHER NAME': c.father_name ?? '',
-        'AADHAAR': c.aadhaar ? "'" + c.aadhaar : '',
+        'AADHAAR': c.aadhaar ? "'XXXX-XXXX-" + c.aadhaar.slice(-4) : '',
         'VOTER ID': c.voter_id ?? '',
         'CUSTOMER NUMBER': c.mobile,
         'ALTARNET NUMBER': c.alternate_number_1 ?? '',

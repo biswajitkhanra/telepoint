@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 import { fetchAllPaged } from '@/lib/dbFetch';
+import { timingSafeEqual } from 'crypto';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Backup feed for the Google Sheets mirror.
@@ -12,9 +13,9 @@ import { fetchAllPaged } from '@/lib/dbFetch';
 //   GET /api/backup                          → manifest: table names + row counts
 //   GET /api/backup?table=customers          → every row of that table (JSON)
 //
-// Auth: send the shared secret as `Authorization: Bearer <BACKUP_TOKEN>` or
-// `?token=<BACKUP_TOKEN>`. Set BACKUP_TOKEN in the server environment. Without
-// it configured the endpoint refuses to serve (fail-closed).
+// Auth: send the shared secret as `Authorization: Bearer <BACKUP_TOKEN>`.
+// Set BACKUP_TOKEN in the server environment. Without it configured the
+// endpoint refuses to serve (fail-closed).
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const dynamic = 'force-dynamic';
@@ -37,18 +38,23 @@ const TABLES: Record<string, string> = {
   audit_log:             'id',
 };
 
+// SECURITY: Constant-time token comparison to prevent timing attacks.
+// Only Bearer header is accepted; query-string tokens are rejected to prevent
+// token leakage in URL logs, proxy logs, and Vercel function logs.
 function authorize(req: NextRequest): boolean {
   const expected = process.env.BACKUP_TOKEN;
   if (!expected) return false; // fail-closed when unconfigured
   const header = req.headers.get('authorization') || '';
-  const bearer = header.toLowerCase().startsWith('bearer ')
-    ? header.slice(7).trim()
-    : '';
-  const queryToken = req.nextUrl.searchParams.get('token') || '';
-  const provided = bearer || queryToken;
-  // Constant-ish comparison (length check first); tokens are high-entropy.
-  return provided.length > 0 && provided === expected;
+  if (!header.toLowerCase().startsWith('bearer ')) return false;
+  const provided = header.slice(7).trim();
+  if (provided.length === 0) return false;
+  try {
+    return timingSafeEqual(Buffer.from(provided), Buffer.from(expected));
+  } catch {
+    return false; // different lengths
+  }
 }
+
 
 export async function GET(req: NextRequest) {
   if (!authorize(req)) {

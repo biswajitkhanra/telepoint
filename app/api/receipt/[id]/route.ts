@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 
+/** Escape user-controlled strings before embedding in HTML (XSS prevention). */
+function esc(str: unknown): string {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 function fmt(n: number) {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
@@ -41,6 +51,12 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  // SECURITY: Validate UUID format to reduce enumeration surface
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(params.id)) {
+    return new NextResponse('Not found', { status: 404 });
+  }
+
   const serviceClient = createServiceClient();
 
   const { data: request, error } = await serviceClient
@@ -176,9 +192,9 @@ export async function GET(
       <div class="customer-row">
         ${photoHtml}
         <div>
-          <p style="font-weight:700;font-size:0.95rem;">${customer?.customer_name ?? '—'}</p>
-          <p style="font-size:0.78rem;color:#64748b;margin-top:0.2rem;">${retailer?.name ?? '—'}</p>
-          ${retailer?.mobile ? `<p style="font-size:0.72rem;color:#94a3b8;font-family:monospace;">${retailer.mobile}</p>` : ''}
+          <p style="font-weight:700;font-size:0.95rem;">${esc(customer?.customer_name ?? '—')}</p>
+          <p style="font-size:0.78rem;color:#64748b;margin-top:0.2rem;">${esc(retailer?.name ?? '—')}</p>
+          ${retailer?.mobile ? `<p style="font-size:0.72rem;color:#94a3b8;font-family:monospace;">${esc(retailer.mobile)}</p>` : ''}
         </div>
       </div>
 
@@ -191,8 +207,8 @@ export async function GET(
       <div class="total-row"><span class="total-label">Total Paid</span><span class="total-value">${fmt(totalAmount)}</span></div>
 
       <div class="section-title">Transaction</div>
-      <div class="kv"><span class="kv-label">Payment Mode</span><span class="kv-value bold" style="color:${request.mode === 'UPI' ? '#1d4ed8' : '#16a34a'};">${request.mode}</span></div>
-      ${request.utr ? `<div class="kv"><span class="kv-label">UTR / Reference</span><span class="kv-value mono" style="font-size:0.72rem;">${request.utr}</span></div>` : ''}
+      <div class="kv"><span class="kv-label">Payment Mode</span><span class="kv-value bold" style="color:${request.mode === 'UPI' ? '#1d4ed8' : '#16a34a'};">${esc(request.mode)}</span></div>
+      ${request.utr ? `<div class="kv"><span class="kv-label">UTR / Reference</span><span class="kv-value mono" style="font-size:0.72rem;">${esc(request.utr)}</span></div>` : ''}
       <div class="kv"><span class="kv-label">Date & Time</span><span class="kv-value mono" style="font-size:0.72rem;">${fmtDate(request.created_at)}</span></div>
       <div class="kv"><span class="kv-label">Status</span><span class="kv-value bold" style="color:${statusColor};">${statusLabel}</span></div>
       ${request.approved_at ? `<div class="kv"><span class="kv-label">Approved</span><span class="kv-value mono" style="font-size:0.72rem;">${fmtDate(request.approved_at)}</span></div>` : ''}
@@ -202,7 +218,7 @@ export async function GET(
         : `<div class="next-emi" style="background:#eff6ff;border-color:#93c5fd;"><p style="color:#1d4ed8;">✅ No Further EMI Due</p><span style="color:#1e40af;">All EMIs completed</span></div>`
       }
 
-      ${request.rejection_reason ? `<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:0.6rem;padding:0.6rem 0.75rem;margin-top:0.75rem;"><p style="font-size:0.65rem;color:#991b1b;font-weight:700;text-transform:uppercase;margin-bottom:0.2rem;">Rejection Reason</p><p style="font-size:0.8rem;color:#991b1b;">${request.rejection_reason}</p></div>` : ''}
+      ${request.rejection_reason ? `<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:0.6rem;padding:0.6rem 0.75rem;margin-top:0.75rem;"><p style="font-size:0.65rem;color:#991b1b;font-weight:700;text-transform:uppercase;margin-bottom:0.2rem;">Rejection Reason</p><p style="font-size:0.8rem;color:#991b1b;">${esc(request.rejection_reason)}</p></div>` : ''}
 
       <div class="footer">
         <p>TelePoint EMI Portal · Thank you</p>

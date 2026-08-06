@@ -89,7 +89,7 @@ export function KpiCard({
 
   if (loading) {
     return (
-      <div className={cn('rounded-[20px] border border-surface-4/80 bg-surface p-4 sm:p-5 shadow-card', className)}>
+      <div className={cn('rounded-xl border border-surface-4 bg-surface p-4 sm:p-5 shadow-sm', className)}>
         <div className="flex items-start justify-between">
           <Skeleton className="w-9 h-9 rounded-xl" />
           <Skeleton className="w-16 h-4 rounded-md" />
@@ -105,10 +105,10 @@ export function KpiCard({
   return (
     <motion.div
       variants={cardRise}
-      whileHover={{ y: -5, scale: 1.015, transition: SPRING }}
+      whileHover={{ y: -2, transition: SPRING }}
       className={cn(
-        'group relative overflow-hidden rounded-[20px] border border-surface-4/80 bg-surface p-4 sm:p-5 shadow-card',
-        'transition-[border-color,box-shadow] hover:shadow-card-hover dark:border-surface-3',
+        'group relative overflow-hidden rounded-xl border border-surface-4 bg-surface p-4 sm:p-5 shadow-sm',
+        'transition-all duration-200 hover:shadow-md dark:border-surface-3',
         t.ring, className,
       )}
       role="group" aria-label={label}

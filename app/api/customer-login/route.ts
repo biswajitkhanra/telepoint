@@ -1,6 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 
+// ── RATE LIMITING (in-memory; for production use Redis/Upstash) ───────────
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
+const RATE_LIMIT_MAX = 5; // 5 attempts per minute per IP
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return true;
+  }
+  entry.count += 1;
+  return entry.count <= RATE_LIMIT_MAX;
+}
+
+// Clean up stale entries every 5 minutes to prevent memory leak
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of rateLimitMap) {
+    if (now > entry.resetAt) rateLimitMap.delete(key);
+  }
+}, 5 * 60_000);
+
 // Curated customer payload for the read-only customer portal.
 // `customer_code` (migration 025) is requested first; if the column is not
 // deployed yet the query is retried without it so login never breaks.
@@ -32,13 +56,33 @@ type CustRow = Record<string, unknown> & {
 };
 
 export async function POST(req: NextRequest) {
+  // SECURITY: Rate limiting to prevent Aadhaar/mobile brute-force
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  if (!checkRateLimit(ip)) {
+    return NextResponse.json(
+      { error: 'Too many attempts. Please try again later.' },
+      { status: 429 }
+    );
+  }
+
+  // Artificial delay to slow automated attacks
+  await new Promise(resolve => setTimeout(resolve, 500));
+
   const body = await req.json();
   const { aadhaar, mobile, customer_id } = body as { aadhaar?: string; mobile?: string; customer_id?: string };
 
   const serviceClient = createServiceClient();
 
   // Direct load by customer_id (from multi-loan selection)
+  // SECURITY: Still require credential verification to prevent IDOR
   if (customer_id) {
+    const cleanAadhaar = (aadhaar ?? '').replace(/\D/g, '');
+    const cleanMobile = (mobile ?? '').replace(/\D/g, '');
+
+    if (!cleanAadhaar && !cleanMobile) {
+      return NextResponse.json({ error: 'Credentials required' }, { status: 400 });
+    }
+
     const first = await serviceClient
       .from('customers')
       .select(CUSTOMER_COLS_WITH_CODE)
@@ -52,6 +96,13 @@ export async function POST(req: NextRequest) {
         .eq('id', customer_id)
         .single();
       customer = retry.data as unknown as CustRow | null;
+    }
+
+    // Verify credential matches the customer record
+    if (customer) {
+      const aadhaarMatch = !cleanAadhaar || (customer as Record<string, unknown>).aadhaar === cleanAadhaar;
+      const mobileMatch = !cleanMobile || customer.mobile === cleanMobile;
+      if (!aadhaarMatch || !mobileMatch) customer = null;
     }
 
     if (!customer) {
@@ -79,6 +130,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ customer, emis: emis || [], breakdown, broadcasts: broadcasts || [] });
   }
+
 
   const cleanAadhaar = (aadhaar ?? '').replace(/\D/g, '');
   const cleanMobile = (mobile ?? '').replace(/\D/g, '');

@@ -24,9 +24,9 @@ export function Panel({
   const body = (
     <div
       className={cn(
-        'rounded-[20px] border border-surface-4/80 bg-surface shadow-card',
+        'rounded-xl border border-surface-4 bg-surface shadow-sm',
         'dark:border-surface-3',
-        hover && 'transition-shadow hover:shadow-card-hover',
+        hover && 'transition-shadow hover:shadow-md',
         className,
       )}
     >
@@ -220,10 +220,10 @@ export function BottomSheet({
             variants={reduce ? undefined : sheetPanel}
             initial="hidden" animate="show" exit="exit"
             role="dialog" aria-modal="true" aria-label={title}
-            className="w-full sm:max-w-lg max-h-[88vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl border border-surface-4 bg-surface shadow-modal safe-bottom"
+            className="w-full sm:max-w-lg max-h-[88vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl border border-surface-4 bg-surface shadow-modal safe-bottom"
             onClick={e => e.stopPropagation()}
           >
-            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-5 py-4 border-b border-surface-4 bg-surface/95 backdrop-blur rounded-t-3xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-5 py-4 border-b border-surface-4 bg-surface/95 backdrop-blur rounded-t-2xl">
               <span className="sm:hidden absolute left-1/2 -translate-x-1/2 top-2 w-10 h-1 rounded-full bg-surface-4" aria-hidden />
               <h3 className="text-sm font-bold text-ink">{title}</h3>
               <button onClick={onClose} aria-label="Close" className="btn-icon !min-h-0 !p-1.5">
@@ -355,7 +355,7 @@ export function ConfirmDialog({
         >
           <motion.div
             variants={sheetPanel} initial="hidden" animate="show" exit="exit"
-            className="w-full max-w-sm rounded-3xl border border-surface-4 bg-surface shadow-modal p-6 text-center"
+            className="w-full max-w-sm rounded-2xl border border-surface-4 bg-surface shadow-modal p-6 text-center"
             onClick={e => e.stopPropagation()}
           >
             <h3 className="text-lg font-bold text-ink mb-2">{title}</h3>

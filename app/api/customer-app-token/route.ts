@@ -15,8 +15,18 @@ export async function POST(req: NextRequest) {
   if (!customer_id) return NextResponse.json({ error: 'customer_id required' }, { status: 400 });
 
   const svc = createServiceClient();
-  const { data: customer } = await svc.from('customers').select('id, customer_name, mobile').eq('id', customer_id).single();
+  const { data: customer } = await svc.from('customers').select('id, customer_name, mobile, retailer_id').eq('id', customer_id).single();
   if (!customer) return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
+
+  // SECURITY: Retailers can only generate tokens for their OWN customers
+  if (profile?.role === 'retailer') {
+    const { data: retailer } = await svc
+      .from('retailers').select('id').eq('auth_user_id', user.id).single();
+    if (!retailer || customer.retailer_id !== retailer.id) {
+      return NextResponse.json({ error: 'Customer not in your portfolio' }, { status: 403 });
+    }
+  }
+
 
   // Generate unique token
   const token = crypto.randomUUID().replace(/-/g, '') + Date.now().toString(36);

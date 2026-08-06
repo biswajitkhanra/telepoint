@@ -1,5 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServiceClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
+
+/** Escape user-controlled strings before embedding in HTML. */
+function esc(str: unknown): string {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
 
 function fmt(n: number) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(n);
@@ -10,10 +20,32 @@ function fmtDate(d: string) {
 }
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  // SECURITY: Require authentication
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return new NextResponse('Unauthorized', { status: 401 });
+
+  // SECURITY: Verify caller is admin or owning retailer
+  const { data: profile } = await supabase
+    .from('profiles').select('role').eq('user_id', user.id).single();
+
   const svc = createServiceClient();
+
+  if (profile?.role === 'retailer') {
+    const { data: retailer } = await svc
+      .from('retailers').select('id').eq('auth_user_id', user.id).single();
+    const { data: custCheck } = await svc
+      .from('customers').select('retailer_id').eq('id', params.id).single();
+    if (!retailer || !custCheck || custCheck.retailer_id !== retailer.id) {
+      return new NextResponse('Forbidden', { status: 403 });
+    }
+  } else if (profile?.role !== 'super_admin') {
+    return new NextResponse('Forbidden', { status: 403 });
+  }
+
   const { data: customer } = await svc
     .from('customers')
     .select('*, retailer:retailers(name, mobile)')
@@ -59,12 +91,13 @@ export async function GET(
 
     <p style="font-size:.85rem;color:#64748b;margin-bottom:1rem">Date: ${fmtDate(customer.settlement_date || customer.completion_date || new Date().toISOString())}</p>
 
-    <div class="kv"><span>Customer Name</span><span>${customer.customer_name}</span></div>
-    ${customer.father_name ? `<div class="kv"><span>Father / C/O</span><span>${customer.father_name}</span></div>` : ''}
-    <div class="kv"><span>Mobile</span><span>${customer.mobile}</span></div>
-    <div class="kv"><span>IMEI</span><span style="font-family:monospace;font-size:.8rem">${customer.imei}</span></div>
-    ${customer.model_no ? `<div class="kv"><span>Device</span><span>${customer.model_no}</span></div>` : ''}
-    <div class="kv"><span>Retailer</span><span>${retailer?.name || '—'}</span></div>
+    <div class="kv"><span>Customer Name</span><span>${esc(customer.customer_name)}</span></div>
+    ${customer.father_name ? `<div class="kv"><span>Father / C/O</span><span>${esc(customer.father_name)}</span></div>` : ''}
+    <div class="kv"><span>Mobile</span><span>${esc(customer.mobile)}</span></div>
+    <div class="kv"><span>IMEI</span><span style="font-family:monospace;font-size:.8rem">${esc(customer.imei)}</span></div>
+    ${customer.model_no ? `<div class="kv"><span>Device</span><span>${esc(customer.model_no)}</span></div>` : ''}
+    <div class="kv"><span>Retailer</span><span>${esc(retailer?.name || '—')}</span></div>
+
 
     <div class="divider"></div>
 

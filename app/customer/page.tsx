@@ -162,6 +162,7 @@ export default function CustomerPortal() {
       setSession(newSession);
       if (data.broadcasts?.length) setBroadcastMessages((data.broadcasts || []) as typeof broadcastMessages);
       localStorage.setItem(SESSION_KEY, JSON.stringify(newSession));
+      localStorage.setItem('emi_customer_creds', JSON.stringify({ aadhaar: aadhaar || undefined, mobile: mobile || undefined }));
     } catch {
       toast.error('Something went wrong. Please try again.');
     } finally {
@@ -175,7 +176,7 @@ export default function CustomerPortal() {
       const res = await fetch('/api/customer-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customer_id: customerId }),
+        body: JSON.stringify({ customer_id: customerId, aadhaar: aadhaar || undefined, mobile: mobile || undefined }),
       });
       const data = await readJsonSafe<{ error?: string; customer?: unknown; emis?: unknown[]; breakdown?: unknown; multi?: boolean; customers?: unknown[]; broadcasts?: unknown[] }>(res) || {};
       if (!res.ok) { toast.error(data.error); return; }
@@ -188,6 +189,7 @@ export default function CustomerPortal() {
       setMultiLoans(null);
       if (data.broadcasts?.length) setBroadcastMessages((data.broadcasts || []) as typeof broadcastMessages);
       localStorage.setItem(SESSION_KEY, JSON.stringify(newSession));
+      localStorage.setItem('emi_customer_creds', JSON.stringify({ aadhaar: aadhaar || undefined, mobile: mobile || undefined }));
     } catch {
       toast.error('Something went wrong.');
     } finally {
@@ -209,10 +211,17 @@ export default function CustomerPortal() {
         const res = await fetch('/api/customer-app-token?token=' + token, { cache: 'no-store' });
         data = await readJsonSafe(res);
       } else if (sessionCustomerId) {
+        // Retrieve stored credentials for refresh — session stores them after login
+        const storedCreds = (() => {
+          try {
+            const raw = localStorage.getItem('emi_customer_creds');
+            return raw ? JSON.parse(raw) as { aadhaar?: string; mobile?: string } : {};
+          } catch { return {}; }
+        })();
         const res = await fetch('/api/customer-login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ customer_id: sessionCustomerId }),
+          body: JSON.stringify({ customer_id: sessionCustomerId, ...storedCreds }),
         });
         if (res.ok) data = await readJsonSafe(res);
       }
@@ -247,6 +256,7 @@ export default function CustomerPortal() {
     setShowUpcomingAlert(false);
     setMultiLoans(null);
     localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem('emi_customer_creds');
     setAadhaar('');
     setMobile('');
   }

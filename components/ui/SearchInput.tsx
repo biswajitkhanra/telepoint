@@ -41,7 +41,7 @@ export function SearchInput({
         onChange={e => setLocalValue(e.target.value)}
         placeholder={placeholder}
         autoFocus={autoFocus}
-        className="w-full rounded-lg border border-surface-4 bg-surface-2 pl-8 pr-8 py-1.5 text-xs text-ink placeholder-ink-muted/60 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/25"
+        className="w-full rounded-lg border border-surface-4 bg-surface-2 pl-8 pr-8 py-1.5 text-xs text-ink placeholder-ink-muted/60 focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all duration-200"
       />
       {localValue && (
         <button
