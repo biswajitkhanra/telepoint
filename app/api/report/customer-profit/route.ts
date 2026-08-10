@@ -1,10 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { csvRow } from '@/lib/csv';
 import { firstChargePaid } from '@/lib/firstCharge';
 export async function GET(req: NextRequest) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  // SECURITY: whole-portfolio report — super admin only. Without this check any
+  // authenticated retailer could download every retailer's customers (name,
+  // IMEI, mobile) and financials. Matches /api/report/payment-collection.
+  const { data: profile } = await supabase
+    .from('profiles').select('role').eq('user_id', user.id).single();
+  if (profile?.role !== 'super_admin') {
+    return NextResponse.json({ error: 'Forbidden — superadmin only' }, { status: 403 });
+  }
+
   const svc = createServiceClient();
   const { data: customers } = await svc.from('customers').select('id, customer_name, imei, mobile, purchase_value, down_payment, disburse_amount, emi_amount, emi_tenure, first_emi_charge_amount, first_emi_charge_paid_amount, first_emi_charge_paid_at, status, retailer:retailers(name)').order('customer_name');
   const rows: string[][] = [['Retailer','Customer','IMEI','Mobile','Purchase Value','Down Payment','Disburse','EMI Amount','Tenure','Total EMI Value','1st Charge','Total Paid EMI','Total Paid Fine','Total Paid Charge','Total Collected','Profit (Collected - Disburse)','Status']];
@@ -20,6 +31,6 @@ export async function GET(req: NextRequest) {
     const rn = (c.retailer as {name?:string})?.name || '';
     rows.push([rn, c.customer_name, "'" + c.imei, c.mobile, String(c.purchase_value), String(c.down_payment), String(disburse), String(c.emi_amount), String(c.emi_tenure), String(c.emi_amount * c.emi_tenure), String(c.first_emi_charge_amount || 0), String(totalEmiPaid), String(totalFinePaid), String(chargePaid), String(totalCollected), String(profit), c.status]);
   }
-  const csv = rows.map(r => r.join(',')).join('\r\n');
+  const csv = rows.map(r => csvRow(r)).join('\r\n');
   return new NextResponse(csv, { headers: { 'Content-Type': 'text/csv', 'Content-Disposition': 'attachment; filename="Customer_Wise_Profit.csv"' } });
 }

@@ -7,16 +7,41 @@
 
 const BOM = '﻿';
 
+// SECURITY: CSV/Excel formula injection.
+// A stored value that begins with =, +, -, @, TAB or CR is interpreted by
+// Excel / LibreOffice / Google Sheets as a FORMULA, not text. Customer and
+// retailer names, remarks and device models are attacker-supplied free text,
+// so a name like `=HYPERLINK("http://evil","click")` would execute in the
+// spreadsheet of whoever opens an exported report.
+//
+// Neutralised by prefixing a single quote, which spreadsheets treat as the
+// "this cell is literal text" marker. Plain numbers (including NEGATIVE
+// amounts like -500, which legitimately start with '-') are left untouched, so
+// every numeric column in every report keeps its exact existing value and
+// stays numeric.
+const FORMULA_LEAD = /^[=+\-@\t\r]/;
+const NUMERIC = /^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/;
+
+function neutralizeFormula(s: string): string {
+  if (!FORMULA_LEAD.test(s)) return s;
+  if (NUMERIC.test(s)) return s; // real number (e.g. "-500") — keep as-is
+  return "'" + s;
+}
+
 export function csvCell(value: unknown): string {
   if (value === null || value === undefined) return '';
   const s = String(value);
   if (s === '') return '';
-  // Quote when the value contains a delimiter, quote, CR, or LF — or
-  // when it has leading/trailing whitespace that Excel would trim.
-  if (/[",\r\n]/.test(s) || /^\s|\s$/.test(s)) {
-    return '"' + s.replace(/"/g, '""') + '"';
+  // Decide quoting from the ORIGINAL value so the pre-existing rules are
+  // unchanged: quote when it contains a delimiter, quote, CR or LF — or when
+  // it has leading/trailing whitespace that Excel would otherwise trim. (The
+  // formula prefix below would hide a leading tab/space from that test.)
+  const needsQuote = /[",\r\n]/.test(s) || /^\s|\s$/.test(s);
+  const out = neutralizeFormula(s);
+  if (needsQuote) {
+    return '"' + out.replace(/"/g, '""') + '"';
   }
-  return s;
+  return out;
 }
 
 export function csvRow(cells: unknown[]): string {

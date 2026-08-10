@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { csvRow } from '@/lib/csv';
 import { istMonthRange, toISTDateString } from '@/lib/ist';
 
 /**
@@ -19,6 +20,16 @@ export async function GET(req: NextRequest) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  // SECURITY: cross-retailer profit report — super admin only. Without this
+  // check any authenticated retailer could read every other retailer's
+  // disbursal, collection and profit figures.
+  const { data: profile } = await supabase
+    .from('profiles').select('role').eq('user_id', user.id).single();
+  if (profile?.role !== 'super_admin') {
+    return NextResponse.json({ error: 'Forbidden — superadmin only' }, { status: 403 });
+  }
+
   const svc = createServiceClient();
   const m = parseInt(req.nextUrl.searchParams.get('month') || String(new Date().getMonth() + 1));
   const y = parseInt(req.nextUrl.searchParams.get('year') || String(new Date().getFullYear()));
@@ -77,7 +88,7 @@ export async function GET(req: NextRequest) {
   }
 
   rows.push(['TOTAL', '', '', '', '', '', '', '', '' + realizedTotal, '' + projectedTotal]);
-  const csv = rows.map(r => r.join(',')).join('\r\n');
+  const csv = rows.map(r => csvRow(r)).join('\r\n');
   const mn = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'][m - 1];
   return new NextResponse(csv, { headers: { 'Content-Type': 'text/csv', 'Content-Disposition': `attachment; filename="Retail_Monthly_Profit_${mn}_${y}.csv"`, 'Cache-Control': 'no-store' } });
 }

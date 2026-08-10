@@ -60,7 +60,7 @@ export async function GET(
 
   const html = `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Settlement Letter - ${customer.customer_name}</title>
+<title>Settlement Letter - ${esc(customer.customer_name)}</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   body{font-family:Georgia,serif;background:#f8fafc;padding:2rem 1rem;color:#1e293b}
@@ -127,6 +127,9 @@ export async function GET(
 </div></body></html>`;
 
   return new NextResponse(html, {
-    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    // SECURITY: this document carries a named customer's loan and settlement
+    // figures. Without no-store a shared/CDN cache could hand one retailer's
+    // settlement letter to the next requester of the same URL.
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
   });
 }

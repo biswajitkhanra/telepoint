@@ -135,7 +135,7 @@ export async function GET(
   // Customer photo — handle IBB and direct URLs
   const photoUrl = ibbDirect(customer?.customer_photo_url ?? '');
   const photoHtml = photoUrl
-    ? `<img src="${photoUrl}" alt="Customer Photo" style="width:80px;height:80px;border-radius:12px;object-fit:cover;border:2px solid #e2e8f0;display:block;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+    ? `<img src="${esc(photoUrl)}" alt="Customer Photo" style="width:80px;height:80px;border-radius:12px;object-fit:cover;border:2px solid #e2e8f0;display:block;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
        <div style="display:none;width:80px;height:80px;border-radius:12px;background:#f1f5f9;border:2px solid #e2e8f0;align-items:center;justify-content:center;color:#94a3b8;font-size:0.7rem;text-align:center;">No<br>Photo</div>`
     : `<div style="width:80px;height:80px;border-radius:12px;background:#f1f5f9;border:2px solid #e2e8f0;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:0.7rem;text-align:center;">No<br>Photo</div>`;
 

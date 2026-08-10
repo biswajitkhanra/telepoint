@@ -1,9 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { csvRow } from '@/lib/csv';
 export async function GET(req: NextRequest) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  // SECURITY: whole-portfolio report — super admin only. Without this check any
+  // authenticated retailer could read every retailer's outstanding fines and
+  // customer contact details. Matches /api/report/payment-collection.
+  const { data: profile } = await supabase
+    .from('profiles').select('role').eq('user_id', user.id).single();
+  if (profile?.role !== 'super_admin') {
+    return NextResponse.json({ error: 'Forbidden — superadmin only' }, { status: 403 });
+  }
+
   const svc = createServiceClient();
   const { data: emis } = await svc.from('emi_schedule').select('emi_no, due_date, amount, fine_amount, fine_paid_amount, fine_waived, customer:customers(customer_name, imei, mobile, retailer:retailers(name))').gt('fine_amount', 0).eq('fine_waived', false).order('due_date');
   const rows: string[][] = [['Retailer','Customer','IMEI','Mobile','EMI #','Due Date','EMI Amount','Fine Amount','Fine Paid','Fine Remaining','Days Overdue']];
@@ -20,6 +31,6 @@ export async function GET(req: NextRequest) {
       String(remaining), String(days)
     ]);
   }
-  const csv = rows.map(r => r.join(',')).join('\r\n');
+  const csv = rows.map(r => csvRow(r)).join('\r\n');
   return new NextResponse(csv, { headers: { 'Content-Type': 'text/csv', 'Content-Disposition': 'attachment; filename="Fine_Due_Report.csv"' } });
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { csvRow } from '@/lib/csv';
 import { fetchAllByIds, fetchAllPaged } from '@/lib/dbFetch';
 import { toISTDateString } from '@/lib/ist';
 
@@ -114,7 +115,7 @@ export async function GET(req: NextRequest) {
     if (tot > 0) rows.push([r.name, String(emi), String(fine), String(charge), String(tot), String(custSet.size)]);
   }
 
-  const csv = rows.map(r => r.join(',')).join('\r\n');
+  const csv = rows.map(r => csvRow(r)).join('\r\n');
   const mn  = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'][m - 1];
   return new NextResponse(csv, {
     headers: {
