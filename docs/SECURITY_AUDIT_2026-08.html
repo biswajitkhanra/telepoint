@@ -1,0 +1,637 @@
+<title>TelePoint EMI Portal — Security Audit</title>
+<style>
+  /* ---- Tokens: complete light palette on bare :root ---- */
+  :root {
+    --ground:   #F4F6F8;
+    --surface:  #FFFFFF;
+    --surface-2:#EDF0F4;
+    --ink:      #141820;
+    --ink-soft: #3D4653;
+    --muted:    #5F6B7A;
+    --rule:     #DDE3EA;
+    --rule-firm:#C3CCD7;
+    --accent:   #1D4E89;
+    --accent-soft:#E6EDF6;
+
+    --sev-crit: #A81E14;
+    --sev-high: #B54708;
+    --sev-med:  #8A6100;
+    --sev-low:  #4E5A68;
+    --sev-ok:   #1A6E3C;
+    --sev-crit-bg:#FBE9E7;
+    --sev-high-bg:#FCEEE3;
+    --sev-med-bg: #FAF3DF;
+    --sev-low-bg: #ECEFF3;
+    --sev-ok-bg:  #E4F2E9;
+
+    --display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+    --body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+    --measure: 72ch;
+    --wide: 1120px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:   #0D1016;
+      --surface:  #151A22;
+      --surface-2:#1D242E;
+      --ink:      #E5E9EF;
+      --ink-soft: #C3CBD6;
+      --muted:    #8F9BAA;
+      --rule:     #262E3A;
+      --rule-firm:#39434F;
+      --accent:   #7FAEE0;
+      --accent-soft:#17222F;
+
+      --sev-crit: #F79489;
+      --sev-high: #F0A868;
+      --sev-med:  #DDBE5C;
+      --sev-low:  #A3AEBC;
+      --sev-ok:   #74C795;
+      --sev-crit-bg:#2C1614;
+      --sev-high-bg:#2B1D11;
+      --sev-med-bg: #262009;
+      --sev-low-bg: #1D232B;
+      --sev-ok-bg:  #12241A;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:   #0D1016;
+    --surface:  #151A22;
+    --surface-2:#1D242E;
+    --ink:      #E5E9EF;
+    --ink-soft: #C3CBD6;
+    --muted:    #8F9BAA;
+    --rule:     #262E3A;
+    --rule-firm:#39434F;
+    --accent:   #7FAEE0;
+    --accent-soft:#17222F;
+
+    --sev-crit: #F79489;
+    --sev-high: #F0A868;
+    --sev-med:  #DDBE5C;
+    --sev-low:  #A3AEBC;
+    --sev-ok:   #74C795;
+    --sev-crit-bg:#2C1614;
+    --sev-high-bg:#2B1D11;
+    --sev-med-bg: #262009;
+    --sev-low-bg: #1D232B;
+    --sev-ok-bg:  #12241A;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: var(--wide); margin: 0 auto; padding: 0 24px 96px; }
+  .col  { max-width: var(--measure); }
+
+  /* ---- Masthead ---- */
+  header.mast {
+    border-bottom: 2px solid var(--ink);
+    margin-bottom: 40px;
+    padding: 48px 0 24px;
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 18px;
+  }
+  h1 {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: clamp(2.1rem, 5.2vw, 3.4rem);
+    line-height: 1.05;
+    letter-spacing: -0.015em;
+    margin: 0 0 16px;
+    text-wrap: balance;
+  }
+  .standfirst {
+    font-family: var(--display);
+    font-size: clamp(1.05rem, 2.1vw, 1.3rem);
+    line-height: 1.5;
+    color: var(--ink-soft);
+    max-width: 62ch;
+    margin: 0 0 28px;
+  }
+  .meta {
+    display: flex; flex-wrap: wrap; gap: 8px 32px;
+    font-family: var(--mono); font-size: 12px; color: var(--muted);
+    border-top: 1px solid var(--rule); padding-top: 16px;
+  }
+  .meta b { color: var(--ink-soft); font-weight: 600; }
+
+  /* ---- Verdict ---- */
+  .verdict {
+    background: var(--surface);
+    border: 1px solid var(--rule-firm);
+    border-left: 5px solid var(--sev-med);
+    padding: 24px 28px;
+    margin: 0 0 48px;
+  }
+  .verdict h2 { margin: 0 0 10px; font-family: var(--body); font-size: 1.05rem; letter-spacing: -0.005em; }
+  .verdict p { margin: 0 0 10px; color: var(--ink-soft); max-width: 78ch; }
+  .verdict p:last-child { margin-bottom: 0; }
+
+  h2.sec {
+    font-family: var(--display);
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 64px 0 6px;
+    padding-top: 20px;
+    border-top: 1px solid var(--rule-firm);
+    text-wrap: balance;
+  }
+  h2.sec + .kicker { color: var(--muted); font-size: 0.95rem; margin: 0 0 26px; max-width: 70ch; }
+  h3 {
+    font-size: 1rem; margin: 34px 0 10px; letter-spacing: -0.005em;
+  }
+  p { margin: 0 0 14px; }
+  .col p, .col li { color: var(--ink-soft); }
+  a { color: var(--accent); }
+  code, .m { font-family: var(--mono); font-size: 0.87em; }
+  code {
+    background: var(--surface-2); padding: 1px 5px; border-radius: 3px;
+    border: 1px solid var(--rule); word-break: break-word;
+  }
+
+  /* ---- Status figures ---- */
+  .figures {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+    gap: 1px; background: var(--rule-firm);
+    border: 1px solid var(--rule-firm); margin: 0 0 12px;
+  }
+  .fig { background: var(--surface); padding: 18px 16px; }
+  .fig .n {
+    font-family: var(--mono); font-size: 2rem; font-weight: 600;
+    line-height: 1; font-variant-numeric: tabular-nums; display: block; margin-bottom: 6px;
+  }
+  .fig .l {
+    font-family: var(--mono); font-size: 10.5px; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--muted);
+  }
+  .fig.crit .n { color: var(--sev-crit); }
+  .fig.high .n { color: var(--sev-high); }
+  .fig.med  .n { color: var(--sev-med); }
+  .fig.low  .n { color: var(--sev-low); }
+  .fig.ok   .n { color: var(--sev-ok); }
+
+  /* ---- Tables ---- */
+  .scroll { overflow-x: auto; margin: 22px 0; border: 1px solid var(--rule-firm); background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  thead th {
+    font-family: var(--mono); font-size: 10.5px; text-transform: uppercase;
+    letter-spacing: 0.09em; color: var(--muted); font-weight: 600;
+    background: var(--surface-2); border-bottom: 1px solid var(--rule-firm); white-space: nowrap;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.id { font-family: var(--mono); white-space: nowrap; color: var(--ink); font-weight: 600; }
+  td.loc { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+  .num { font-variant-numeric: tabular-nums; }
+
+  .pill {
+    display: inline-block; font-family: var(--mono); font-size: 10px; font-weight: 700;
+    letter-spacing: 0.07em; text-transform: uppercase; padding: 3px 8px;
+    border-radius: 2px; white-space: nowrap;
+  }
+  .p-crit { background: var(--sev-crit-bg); color: var(--sev-crit); }
+  .p-high { background: var(--sev-high-bg); color: var(--sev-high); }
+  .p-med  { background: var(--sev-med-bg);  color: var(--sev-med); }
+  .p-low  { background: var(--sev-low-bg);  color: var(--sev-low); }
+  .p-ok   { background: var(--sev-ok-bg);   color: var(--sev-ok); }
+  .p-open { background: var(--sev-med-bg);  color: var(--sev-med); }
+
+  /* ---- Scores ---- */
+  .scores { display: grid; gap: 10px; margin: 24px 0; }
+  .score { display: grid; grid-template-columns: 190px 1fr 52px; gap: 14px; align-items: center; }
+  .score .name { font-size: 13.5px; color: var(--ink-soft); }
+  .score .bar { height: 7px; background: var(--surface-2); border: 1px solid var(--rule); position: relative; }
+  .score .bar i { position: absolute; inset: 0 auto 0 0; background: var(--accent); display: block; }
+  .score .val { font-family: var(--mono); font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; color: var(--ink); }
+  .score.total .name { font-weight: 700; color: var(--ink); }
+  .score.total .bar { height: 11px; }
+  .score.total .val { font-weight: 700; font-size: 15px; }
+
+  /* ---- Findings ---- */
+  .finding {
+    background: var(--surface); border: 1px solid var(--rule);
+    border-left: 4px solid var(--sev-low); padding: 22px 24px; margin: 0 0 16px;
+  }
+  .finding.crit { border-left-color: var(--sev-crit); }
+  .finding.high { border-left-color: var(--sev-high); }
+  .finding.med  { border-left-color: var(--sev-med); }
+  .finding.low  { border-left-color: var(--sev-low); }
+  .finding > h3 { margin: 0 0 4px; font-size: 1.08rem; letter-spacing: -0.01em; }
+  .finding > h3 .fid { font-family: var(--mono); color: var(--muted); font-weight: 600; margin-right: 8px; font-size: 0.85em; }
+  .fmeta { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+  .finding dl { margin: 0; display: grid; grid-template-columns: 148px 1fr; gap: 7px 18px; }
+  .finding dt {
+    font-family: var(--mono); font-size: 10.5px; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--muted); padding-top: 3px;
+  }
+  .finding dd { margin: 0; font-size: 14.2px; color: var(--ink-soft); min-width: 0; }
+  .finding dd code { font-size: 0.86em; }
+  @media (max-width: 680px) {
+    .finding dl { grid-template-columns: 1fr; gap: 2px 0; }
+    .finding dt { margin-top: 10px; }
+    .score { grid-template-columns: 1fr; gap: 4px; }
+    .score .val { text-align: left; }
+  }
+
+  pre {
+    background: var(--surface-2); border: 1px solid var(--rule);
+    padding: 14px 16px; overflow-x: auto; font-family: var(--mono);
+    font-size: 12.2px; line-height: 1.55; margin: 14px 0; color: var(--ink-soft);
+  }
+  pre b { color: var(--ink); font-weight: 600; }
+  .pass { color: var(--sev-ok); }
+  .fail { color: var(--sev-crit); }
+
+  ul.tight { margin: 0 0 16px; padding-left: 20px; }
+  ul.tight li { margin-bottom: 7px; }
+
+  .note {
+    background: var(--accent-soft); border: 1px solid var(--rule-firm);
+    border-left: 4px solid var(--accent); padding: 16px 20px; margin: 22px 0;
+  }
+  .note p { margin: 0 0 8px; color: var(--ink-soft); }
+  .note p:last-child { margin: 0; }
+  .note strong { color: var(--ink); }
+
+  footer {
+    border-top: 2px solid var(--ink); margin-top: 72px; padding-top: 18px;
+    font-family: var(--mono); font-size: 11.5px; color: var(--muted);
+  }
+</style>
+
+<div class="wrap">
+
+<header class="mast">
+  <p class="eyebrow">Defensive Security Audit &middot; Production Readiness Review</p>
+  <h1>TelePoint EMI Portal</h1>
+  <p class="standfirst">A full-repository security audit of the retailer EMI lending portal, covering authentication, retailer isolation, the Supabase/Postgres authorization layer, payment and fine integrity, exports and dependencies — with fixes applied under a strict no-business-logic-change rule.</p>
+  <div class="meta">
+    <span><b>Repository</b> Biswadipgoj/telepoint</span>
+    <span><b>Branch</b> claude/telepoint-security-audit-7l1lob</span>
+    <span><b>Commit</b> b58431b</span>
+    <span><b>Date</b> 2026-08-10</span>
+    <span><b>Stack</b> Next.js 14 &middot; Supabase &middot; PostgreSQL</span>
+  </div>
+</header>
+
+<div class="verdict">
+  <h2>Verdict — conditional</h2>
+  <p>Three <strong>critical</strong> and four <strong>high</strong> severity issues were found and fixed. The most serious allowed <strong>any logged-in retailer to approve their own payment collections</strong>, bypassing the super-admin approval workflow entirely, and to approve other retailers' collections. Two others let any retailer download <strong>every retailer's customer list</strong> — names, IMEIs, mobile numbers and financials.</p>
+  <p>All fixes are committed and pushed. <strong>The database fixes are inert until <code>migrations/029_security_hardening.sql</code> is applied to the production Supabase project.</strong> Until that migration runs, production remains exposed to the critical finding. Status is <strong>SAFE after the migration is applied</strong>, and <strong>NOT SAFE before it</strong>.</p>
+</div>
+
+<h2 class="sec" id="status">Final status</h2>
+<p class="kicker">Counts across the whole audit. "Verified" means the fix was demonstrated closed — by automated test against a real PostgreSQL instance, or by build plus code inspection where no runtime harness exists.</p>
+
+<div class="figures">
+  <div class="fig crit"><span class="n num">3</span><span class="l">Critical</span></div>
+  <div class="fig high"><span class="n num">4</span><span class="l">High</span></div>
+  <div class="fig med"><span class="n num">8</span><span class="l">Medium</span></div>
+  <div class="fig low"><span class="n num">8</span><span class="l">Low</span></div>
+  <div class="fig ok"><span class="n num">15</span><span class="l">Fixed</span></div>
+  <div class="fig ok"><span class="n num">15</span><span class="l">Verified</span></div>
+  <div class="fig"><span class="n num">8</span><span class="l">Remaining</span></div>
+</div>
+
+<pre><b>Critical vulnerabilities:</b> 3
+<b>High vulnerabilities:</b>     4
+<b>Medium vulnerabilities:</b>   8
+<b>Low vulnerabilities:</b>      8
+
+<b>Fixed:</b>     15
+<b>Verified:</b>  15
+<b>Remaining:</b>  8   (0 Critical, 0 High — all Medium/Low, each accepted and explained below)
+
+<b>Business logic changed:</b>  NO
+<b>Security-only changes:</b>   YES
+
+<b>Production security status:</b>  <span class="pass">SAFE</span> — once migration 029 is applied
+                                <span class="fail">NOT SAFE</span> — until then</pre>
+
+<div class="col">
+<h2 class="sec" id="summary">Executive summary</h2>
+</div>
+<div class="col">
+<p>TelePoint is a multi-tenant EMI (instalment-lending) portal. Retailers sell phones on instalments, register customers, and collect monthly payments; a super admin approves those collections, manages fines, settles accounts and runs reports. The whole product rests on one boundary: <strong>retailer A must never see or touch retailer B's book</strong>, and <strong>only the super admin may approve money movements</strong>.</p>
+<p>Both halves of that boundary were breachable.</p>
+<p>The application's own API routes are, with three exceptions, carefully written — most check the session, resolve the caller's role from the database, and re-derive the retailer scope server-side rather than trusting a query parameter. The failures were concentrated one layer down, in the PostgreSQL grant model, where the protections were assumed rather than enforced.</p>
+<p>PostgreSQL grants <code>EXECUTE</code> on every new function to <code>PUBLIC</code> by default. The schema carefully grants its privileged functions <code>TO service_role</code> — but never revokes the implicit <code>PUBLIC</code> grant that is already there. The intended restriction therefore never took effect. Because <code>approve_payment_request()</code> is <code>SECURITY DEFINER</code> and performs no caller check at all — it simply trusts the <code>p_admin_id</code> it is handed — a retailer could call it straight from the browser with the public anon key and approve their own pending collection.</p>
+<p>The same default exposed the fine engine and EMI-schedule generator, and left <code>get_due_breakdown()</code> readable for <em>any</em> customer id by <em>any</em> logged-in retailer.</p>
+<p>Separately, three report endpoints — none of them linked from the UI, which is precisely why they had gone unreviewed — checked only that a session existed, with no role check and no retailer scoping, and returned the entire portfolio.</p>
+<p>Every finding below was reproduced against a real PostgreSQL instance loaded with the actual portal schema before being fixed, and re-tested afterwards. No EMI, fine, payment, settlement, completion or NPA calculation was altered.</p>
+</div>
+
+<h2 class="sec" id="architecture">Architecture &amp; trust boundaries</h2>
+<p class="kicker">Derived from the repository, not assumed. Roles come from the <code>profiles.role</code> column and the code that reads it.</p>
+
+<pre>Browser
+  │
+  ├─ Next.js UI (client components, Supabase anon key in the bundle)
+  │     │
+  │     ├──────────────────────────────► PostgREST  ◄── TRUST BOUNDARY 1
+  │     │   direct .from() / .rpc() calls          RLS + function grants are
+  │     │   carrying the user's JWT                the ONLY thing enforcing this
+  │     │
+  ▼     ▼
+middleware.ts ─────────────────────────► TRUST BOUNDARY 2
+  session check + role gate on /admin, /retailer, /noc
+  (page routes only — does NOT role-gate /api/*)
+  │
+  ▼
+API route handlers ────────────────────► TRUST BOUNDARY 3
+  auth.getUser() → profiles.role → retailer ownership
+  │
+  ▼
+createServiceClient()  ── service_role key, <b>bypasses RLS entirely</b>
+  │
+  ▼
+PostgreSQL ────────────────────────────► TRUST BOUNDARY 4
+  RLS policies + SECURITY DEFINER functions + EXECUTE grants</pre>
+
+<div class="col">
+<p><strong>Actors found in the code:</strong> anonymous visitor; customer (no login — identifies with Aadhaar or mobile via <code>/api/customer-login</code>, or a persistent app token); retailer (<code>profiles.role = 'retailer'</code>, owns a row in <code>retailers</code>); super admin (<code>profiles.role = 'super_admin'</code>). There is no separate "admin" tier — <code>super_admin</code> is the only administrative role.</p>
+<p>The decisive structural fact is that <strong>boundary 1 and boundary 4 are the same boundary</strong>. The browser holds the anon key and can call PostgREST directly, so any table or function reachable with an <code>authenticated</code> JWT is reachable by a retailer regardless of what the UI shows or what middleware allows. Every critical finding lives there.</p>
+</div>
+
+<h2 class="sec" id="table">Vulnerability table</h2>
+
+<div class="scroll">
+<table>
+<thead><tr>
+  <th>ID</th><th>Sev</th><th>Vulnerability</th><th>Location</th><th>Biz logic changed?</th><th>Fixed</th><th>Verified</th>
+</tr></thead>
+<tbody>
+<tr><td class="id">SEC-001</td><td><span class="pill p-crit">Critical</span></td><td>Retailer can self-approve payment collections via <code>approve_payment_request</code> (PUBLIC EXECUTE never revoked; no caller check)</td><td class="loc">migrations/027 &middot; DB grants</td><td>NO</td><td><span class="pill p-ok">Yes</span></td><td><span class="pill p-ok">Test</span></td></tr>
+<tr><td class="id">SEC-002</td><td><span class="pill p-crit">Critical</span></td><td>Whole-portfolio customer PII + financials downloadable by any retailer</td><td class="loc">api/report/customer-profit</td><td>NO</td><td><span class="pill p-ok">Yes</span></td><td><span class="pill p-ok">Build</span></td></tr>
+<tr><td class="id">SEC-003</td><td><span class="pill p-crit">Critical</span></td><td>All-retailer fine ledger + customer contacts downloadable by any retailer</td><td class="loc">api/report/fine-due</td><td>NO</td><td><span class="pill p-ok">Yes</span></td><td><span class="pill p-ok">Build</span></td></tr>
+<tr><td class="id">SEC-004</td><td><span class="pill p-high">High</span></td><td>Cross-retailer profit/disbursal report readable by any retailer</td><td class="loc">api/report/profit</td><td>NO</td><td><span class="pill p-ok">Yes</span></td><td><span class="pill p-ok">Build</span></td></tr>
+<tr><td class="id">SEC-005</td><td><span class="pill p-high">High</span></td><td>Next.js middleware authorization bypass (CVE-2025-29927) — middleware is the role gate</td><td class="loc">package.json &middot; next 14.2.16</td><td>NO</td><td><span class="pill p-ok">Yes</span></td><td><span class="pill p-ok">Build</span></td></tr>
+<tr><td class="id">SEC-006</td><td><span class="pill p-high">High</span></td><td>IDOR: <code>get_due_breakdown</code> returns any customer's dues to any retailer</td><td class="loc">DB function &middot; SECURITY DEFINER</td><td>NO</td><td><span class="pill p-ok">Yes</span></td><td><span class="pill p-ok">Test</span></td></tr>
+<tr><td class="id">SEC-007</td><td><span class="pill p-high">High</span></td><td>Stored XSS via customer photo URL on the unauthenticated receipt page</td><td class="loc">api/receipt/[id]:138</td><td>NO</td><td><span class="pill p-ok">Yes</span></td><td><span class="pill p-ok">Build</span></td></tr>
+<tr><td class="id">SEC-008</td><td><span class="pill p-med">Medium</span></td><td>Stored XSS via customer name in settlement-letter <code>&lt;title&gt;</code></td><td class="loc">api/settlement-letter/[id]:63</td><td>NO</td><td><span class="pill p-ok">Yes</span></td><td><span class="pill p-ok">Build</span></td></tr>
+<tr><td class="id">SEC-009</td><td><span class="pill p-med">Medium</span></td><td>No <code>SECURITY DEFINER</code> function pins <code>search_path</code> (definer privilege escalation)</td><td class="loc">all DB functions</td><td>NO</td><td><span class="pill p-ok">Yes</span></td><td><span class="pill p-ok">Test</span></td></tr>
+<tr><td class="id">SEC-010</td><td><span class="pill p-med">Medium</span></td><td>Fine engine + EMI generator callable by any retailer (<code>recalc_all_fines</code>, <code>recalc_customer_fines</code>, <code>generate_emi_schedule</code>, <code>apply_overdue_fines</code>)</td><td class="loc">DB grants</td><td>NO</td><td><span class="pill p-ok">Yes</span></td><td><span class="pill p-ok">Test</span></td></tr>
+<tr><td class="id">SEC-011</td><td><span class="pill p-med">Medium</span></td><td>All-retailer analytics leaderboard readable by any retailer</td><td class="loc">get_emi_analysis</td><td>NO</td><td><span class="pill p-ok">Yes</span></td><td><span class="pill p-ok">Test</span></td></tr>
+<tr><td class="id">SEC-012</td><td><span class="pill p-med">Medium</span></td><td>CSV/Excel formula injection through customer and retailer names in every export</td><td class="loc">lib/csv.ts + 4 reports</td><td>NO</td><td><span class="pill p-ok">Yes</span></td><td><span class="pill p-ok">Test</span></td></tr>
+<tr><td class="id">SEC-013</td><td><span class="pill p-low">Low</span></td><td>No CSP; clickjacking defence relied on <code>X-Frame-Options</code> alone</td><td class="loc">next.config.js</td><td>NO</td><td><span class="pill p-ok">Yes</span></td><td><span class="pill p-ok">Build</span></td></tr>
+<tr><td class="id">SEC-014</td><td><span class="pill p-low">Low</span></td><td><code>GRANT SELECT ON customer_app_tokens TO anon</code> — customer auto-login tokens one RLS mistake from public</td><td class="loc">migrations/010:78</td><td>NO</td><td><span class="pill p-ok">Yes</span></td><td><span class="pill p-ok">Test</span></td></tr>
+<tr><td class="id">SEC-015</td><td><span class="pill p-low">Low</span></td><td>Settlement letter served without <code>Cache-Control: no-store</code></td><td class="loc">api/settlement-letter/[id]</td><td>NO</td><td><span class="pill p-ok">Yes</span></td><td><span class="pill p-ok">Build</span></td></tr>
+<tr><td class="id">SEC-016</td><td><span class="pill p-med">Medium</span></td><td>Residual Next.js advisories (DoS, cache poisoning, rewrite SSRF) — no fix below Next 16</td><td class="loc">dependency</td><td>—</td><td><span class="pill p-open">Open</span></td><td>—</td></tr>
+<tr><td class="id">SEC-017</td><td><span class="pill p-med">Medium</span></td><td><code>jspdf</code> ≤4.2.0 advisories (ReDoS, path traversal, PDF injection)</td><td class="loc">dependency</td><td>—</td><td><span class="pill p-open">Open</span></td><td>—</td></tr>
+<tr><td class="id">SEC-018</td><td><span class="pill p-med">Medium</span></td><td>Customer portal authenticates on mobile <em>or</em> Aadhaar alone and returns full PII incl. Aadhaar</td><td class="loc">api/customer-login</td><td>—</td><td><span class="pill p-open">Reported</span></td><td>—</td></tr>
+<tr><td class="id">SEC-019</td><td><span class="pill p-low">Low</span></td><td>Receipt page is intentionally unauthenticated; security rests on UUID unguessability</td><td class="loc">api/receipt/[id]</td><td>—</td><td><span class="pill p-open">Reported</span></td><td>—</td></tr>
+<tr><td class="id">SEC-020</td><td><span class="pill p-low">Low</span></td><td>Login rate limit is per-instance in-memory and keyed on spoofable <code>x-forwarded-for</code></td><td class="loc">api/customer-login:60</td><td>—</td><td><span class="pill p-open">Open</span></td><td>—</td></tr>
+<tr><td class="id">SEC-021</td><td><span class="pill p-low">Low</span></td><td>Raw database <code>error.message</code> returned to clients in several routes</td><td class="loc">9 API routes</td><td>—</td><td><span class="pill p-open">Open</span></td><td>—</td></tr>
+<tr><td class="id">SEC-022</td><td><span class="pill p-low">Low</span></td><td><code>retail_pin</code> stored in plaintext, compared non-constant-time, no attempt throttling</td><td class="loc">api/payments/submit:42</td><td>—</td><td><span class="pill p-open">Reported</span></td><td>—</td></tr>
+<tr><td class="id">SEC-023</td><td><span class="pill p-low">Low</span></td><td>Payment amounts are client-supplied at submit time (mitigated by admin approval)</td><td class="loc">api/payments/submit</td><td>—</td><td><span class="pill p-open">Reported</span></td><td>—</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2 class="sec" id="findings">Findings in detail</h2>
+<p class="kicker">The critical and high findings in full. Medium and low findings are summarised in the table above and in <a href="#remaining">Remaining risks</a>.</p>
+
+<div class="finding crit">
+  <h3><span class="fid">SEC-001</span>Retailer can approve their own payment collections</h3>
+  <div class="fmeta"><span class="pill p-crit">Critical</span><span class="pill p-low">Retailer</span><span class="pill p-ok">Fixed &amp; verified</span></div>
+  <dl>
+    <dt>Location</dt><dd><code>approve_payment_request(UUID, UUID, TEXT)</code> — defined in <code>migrations/027_first_emi_charge_partial.sql</code>, granted in every schema baseline.</dd>
+    <dt>Vulnerability</dt><dd>The function is <code>SECURITY DEFINER</code> and performs <strong>no caller identity check</strong>. It accepts <code>p_admin_id</code> as a parameter and writes it as the approver. The schema grants it <code>TO service_role</code> — but PostgreSQL had already granted <code>EXECUTE</code> to <code>PUBLIC</code> when the function was created, and nothing ever revoked that. There is no <code>REVOKE</code> statement anywhere in the repository.</dd>
+    <dt>Root cause</dt><dd>A grant was mistaken for a restriction. <code>GRANT … TO service_role</code> adds a privilege; it does not remove the default <code>PUBLIC</code> one. The intended "server-only" boundary therefore never existed.</dd>
+    <dt>Impact</dt><dd>A retailer holding only the public anon key and their own login could call <code>supabase.rpc('approve_payment_request', …)</code> from the browser and approve their own pending collection — marking EMIs paid, clearing fines and advancing customer completion without any super-admin involvement. The same call works against <strong>any other retailer's</strong> request id, and <code>anon</code> could reach it too.</dd>
+    <dt>Evidence</dt><dd><code>SELECT * INTO v_request FROM payment_requests WHERE id = p_request_id FOR UPDATE;</code> — the function's first statement. There is no <code>auth.uid()</code>, no <code>get_my_role()</code>, and no ownership predicate anywhere in the body.</dd>
+    <dt>Minimal fix</dt><dd><code>REVOKE ALL … FROM PUBLIC, anon, authenticated</code> and <code>GRANT EXECUTE … TO service_role</code>. The function body is untouched — the approval logic, the partial-payment maths and the fine handling are all unchanged. The app only ever calls this through the service-role client behind <code>/api/payments/approve</code>, which already verifies <code>super_admin</code>.</dd>
+    <dt>Business logic</dt><dd><strong>NONE.</strong> Approval semantics are identical; only the caller set changed.</dd>
+    <dt>Regression test</dt><dd>SEC-001 and BYPASS-4/7 — retailer self-approval, cross-retailer approval and anonymous approval are all denied; BIZ-5/6 confirm the real admin path still approves and the EMI still flips to <code>APPROVED</code>.</dd>
+    <dt>Status</dt><dd><strong>FIXED — VERIFIED</strong> (reproduced exploitable, then confirmed closed)</dd>
+  </dl>
+</div>
+
+<div class="finding crit">
+  <h3><span class="fid">SEC-002 / SEC-003</span>Whole-portfolio customer data downloadable by any retailer</h3>
+  <div class="fmeta"><span class="pill p-crit">Critical</span><span class="pill p-low">Retailer</span><span class="pill p-ok">Fixed</span></div>
+  <dl>
+    <dt>Location</dt><dd><code>app/api/report/customer-profit/route.ts</code> and <code>app/api/report/fine-due/route.ts</code></dd>
+    <dt>Vulnerability</dt><dd>Both handlers stopped at <code>if (!user) return 401</code>. No role check, no retailer scoping, and both then query with the <strong>service-role client, which bypasses RLS entirely</strong>.</dd>
+    <dt>Root cause</dt><dd>Authentication was treated as authorization. Every sibling report resolves the caller's retailer id and filters on it; these two never did. Neither endpoint is referenced anywhere in the UI, so neither was exercised during normal review — the classic unlinked-route blind spot.</dd>
+    <dt>Impact</dt><dd>Any authenticated retailer issuing a single <code>GET</code> receives every customer of every retailer: full name, IMEI, mobile number, purchase value, disbursal, EMI terms, amounts collected, outstanding fines and per-customer profit. This is a complete competitor-facing book leak and a personal-data breach.</dd>
+    <dt>Evidence</dt><dd><code>const { data: customers } = await svc.from('customers').select('…, retailer:retailers(name)').order('customer_name');</code> — no <code>.eq('retailer_id', …)</code> anywhere in the file.</dd>
+    <dt>Minimal fix</dt><dd>Require <code>super_admin</code>, matching the existing <code>/api/report/payment-collection</code> convention. Chosen over retroactively adding retailer scoping because these are whole-portfolio aggregate reports with no retailer parameter, and no UI surface offers them to retailers — so requiring admin closes the hole without inventing new behaviour.</dd>
+    <dt>Business logic</dt><dd><strong>NONE.</strong> Report contents, columns and figures are unchanged for the super admin, the only legitimate caller.</dd>
+    <dt>Regression test</dt><dd>Verified by inspection and production build; no automated HTTP harness exists in this repository.</dd>
+    <dt>Status</dt><dd><strong>FIXED</strong></dd>
+  </dl>
+</div>
+
+<div class="finding high">
+  <h3><span class="fid">SEC-006</span>IDOR — any retailer can read any customer's dues</h3>
+  <div class="fmeta"><span class="pill p-high">High</span><span class="pill p-low">Retailer</span><span class="pill p-ok">Fixed &amp; verified</span></div>
+  <dl>
+    <dt>Location</dt><dd><code>get_due_breakdown(UUID, INT)</code> — called from the browser in <code>app/admin/page.tsx</code>, <code>app/retailer/page.tsx</code> and <code>app/noc/[id]/page.tsx</code>.</dd>
+    <dt>Vulnerability</dt><dd><code>SECURITY DEFINER</code> (so RLS does not apply), granted to <code>authenticated</code>, and it accepts any <code>p_customer_id</code> with no ownership check.</dd>
+    <dt>Impact</dt><dd>Retailer A supplies retailer B's customer id and receives that customer's outstanding EMI, accrued fine, first-EMI charge, total payable and overdue state. Customer ids are visible in other responses, so this is directly chainable.</dd>
+    <dt>Minimal fix</dt><dd>The original body was <strong>renamed, not rewritten</strong>, to <code>get_due_breakdown_impl</code>, and a thin wrapper installed that only answers "may this caller ask about this customer?" before delegating. Super admin keeps access to every customer; a retailer is restricted to their own; <code>service_role</code> (the customer portal, which authenticates the customer itself) is unaffected; <code>anon</code> is denied outright. <code>*_impl</code> is revoked from <code>PUBLIC</code>/<code>anon</code>/<code>authenticated</code> so the wrapper cannot be side-stepped.</dd>
+    <dt>Business logic</dt><dd><strong>NONE — proven.</strong> The function body is byte-for-byte the original. Output was captured before and after the change and diffed: identical.</dd>
+    <dt>Regression test</dt><dd>SEC-006, SEC-006b, BYPASS-1; BIZ-1/2/4 confirm retailer-own, admin-any and server-side access all still work.</dd>
+    <dt>Status</dt><dd><strong>FIXED — VERIFIED</strong></dd>
+  </dl>
+</div>
+
+<div class="finding high">
+  <h3><span class="fid">SEC-005</span>Next.js middleware authorization bypass</h3>
+  <div class="fmeta"><span class="pill p-high">High</span><span class="pill p-low">Anonymous</span><span class="pill p-ok">Fixed</span></div>
+  <dl>
+    <dt>Location</dt><dd><code>package.json</code> — <code>next@14.2.16</code>; boundary defined in <code>middleware.ts</code>.</dd>
+    <dt>Vulnerability</dt><dd>CVE-2025-29927 lets a caller skip middleware execution entirely with a crafted request header. This matters more here than in a typical app because <code>middleware.ts</code> <em>is</em> the role gate for <code>/admin</code>, <code>/retailer</code> and <code>/noc</code>. npm itself flags the installed version as vulnerable on install.</dd>
+    <dt>Impact</dt><dd>The session and role checks protecting the admin surface can be bypassed. Impact is bounded — the admin pages are client components whose data comes from API routes that re-check authorization, and <code>/noc</code> re-checks <code>super_admin</code> server-side — but the app's stated boundary is defeated.</dd>
+    <dt>Minimal fix</dt><dd>Upgraded to <code>next@14.2.35</code>, the latest patch <em>within the same minor</em>. Production build verified. Deliberately <strong>not</strong> taking <code>next@16</code>, which npm proposes: that is a breaking major upgrade with real potential to change rendering and caching behaviour.</dd>
+    <dt>Business logic</dt><dd><strong>NONE.</strong> Patch-level upgrade; build output verified across all 32 routes.</dd>
+    <dt>Status</dt><dd><strong>FIXED</strong> — see SEC-016 for the residual advisories that remain.</dd>
+  </dl>
+</div>
+
+<div class="finding high">
+  <h3><span class="fid">SEC-007</span>Stored XSS on the unauthenticated receipt page</h3>
+  <div class="fmeta"><span class="pill p-high">High</span><span class="pill p-low">Anonymous</span><span class="pill p-ok">Fixed</span></div>
+  <dl>
+    <dt>Location</dt><dd><code>app/api/receipt/[id]/route.ts:138</code></dd>
+    <dt>Vulnerability</dt><dd>The route defines an <code>esc()</code> helper and uses it consistently for names, UTR and rejection reasons — but the customer photo URL was interpolated raw into an attribute: <code>&lt;img src="${photoUrl}" … onerror="…"&gt;</code>. A stored value containing a double quote closes the attribute and injects new ones.</dd>
+    <dt>Impact</dt><dd>A retailer who can set a customer's photo URL stores script that executes for anyone opening that customer's receipt — and this page is served <strong>without authentication</strong>, so the payload runs in the browser of customers and staff alike, on the portal's own origin.</dd>
+    <dt>Minimal fix</dt><dd><code>esc(photoUrl)</code> — the helper already present in the file. One call.</dd>
+    <dt>Business logic</dt><dd><strong>NONE.</strong> Legitimate URLs are unaffected; escaping only alters characters that cannot appear in a valid URL attribute value.</dd>
+    <dt>Status</dt><dd><strong>FIXED</strong></dd>
+  </dl>
+</div>
+
+<h2 class="sec" id="verification">Verification</h2>
+<p class="kicker">Findings were not accepted from reading alone. A PostgreSQL 16 instance was loaded with the repository's real schema, plus a stub supplying the Supabase pieces (<code>auth.uid()</code>, the <code>anon</code>/<code>authenticated</code>/<code>service_role</code> roles) so the actual RLS policies and function grants were exercised.</p>
+
+<div class="col">
+<p>Fixtures use two retailers, one customer each, and a pending collection request. EMI schedules are produced by the portal's own trigger rather than hand-written, so the tests run against real business logic.</p>
+</div>
+
+<h3>Before the fix — attacks succeed</h3>
+<pre><span class="fail">FAIL</span>  SEC-001  retailer self-approves payment request      — expected DENIED, got <b>ALLOWED</b>
+<span class="fail">FAIL</span>  SEC-006  retailer A reads retailer B customer dues   — expected DENIED, got <b>ALLOWED</b>
+<span class="fail">FAIL</span>  SEC-011  retailer reads all-retailer analytics       — expected DENIED, got <b>ALLOWED</b>
+<span class="fail">FAIL</span>  SEC-001b retailer runs recalc_all_fines             — expected DENIED, got <b>ALLOWED</b>
+<span class="fail">FAIL</span>  SEC-001c retailer recalcs foreign customer fines    — expected DENIED, got <b>ALLOWED</b>
+<span class="fail">FAIL</span>  SEC-006b anonymous reads due breakdown              — expected DENIED, got <b>ALLOWED</b>
+<span class="fail">FAIL</span>  SEC-009  SECURITY DEFINER fns without search_path   — expected 0, got <b>8</b></pre>
+
+<h3>After the fix — attacks denied, legitimate flows intact</h3>
+<pre><span class="pass">PASS</span>  SEC-001  retailer self-approves payment request      (DENIED)
+<span class="pass">PASS</span>  SEC-006  retailer A reads retailer B customer dues   (DENIED)
+<span class="pass">PASS</span>  SEC-011  retailer reads all-retailer analytics       (DENIED)
+<span class="pass">PASS</span>  SEC-001b retailer runs recalc_all_fines             (DENIED)
+<span class="pass">PASS</span>  SEC-001c retailer recalcs foreign customer fines    (DENIED)
+<span class="pass">PASS</span>  SEC-006b anonymous reads due breakdown              (DENIED)
+<span class="pass">PASS</span>  SEC-009  SECURITY DEFINER fns without search_path   (0)
+
+<span class="pass">PASS</span>  BIZ-1  retailer reads own customer dues              (ALLOWED)
+<span class="pass">PASS</span>  BIZ-2  super admin reads any customer dues           (ALLOWED)
+<span class="pass">PASS</span>  BIZ-3  super admin reads analytics                   (ALLOWED)
+<span class="pass">PASS</span>  BIZ-4  service_role reads dues (customer portal)     (ALLOWED)
+<span class="pass">PASS</span>  BIZ-5  service_role approves payment request         (ALLOWED)
+<span class="pass">PASS</span>  BIZ-6  approved EMI marked APPROVED                  (APPROVED)
+<span class="pass">PASS</span>  BIZ-7  retailer reads own customers                  (1)
+<span class="pass">PASS</span>  BIZ-8  EMI schedule rows generated by trigger        (10)</pre>
+
+<h3>Second audit — trying to defeat the fix</h3>
+<div class="col"><p>A second pass assumed the fix was deployed and attacked it directly, including calling the renamed implementations to skip the new wrappers. All twelve attempts were denied.</p></div>
+<pre><span class="pass">PASS</span>  BYPASS-1   retailer calls get_due_breakdown_impl directly   (DENIED)
+<span class="pass">PASS</span>  BYPASS-2   retailer calls get_emi_analysis_impl directly    (DENIED)
+<span class="pass">PASS</span>  BYPASS-3   retailer calls _emi_period_metrics directly      (DENIED)
+<span class="pass">PASS</span>  BYPASS-4   retailer B approves retailer A request           (DENIED)
+<span class="pass">PASS</span>  BYPASS-5   retailer role resolves from DB not request       (retailer)
+<span class="pass">PASS</span>  BYPASS-6   retailer regenerates foreign EMI schedule        (DENIED)
+<span class="pass">PASS</span>  BYPASS-7   anon calls approve_payment_request               (DENIED)
+<span class="pass">PASS</span>  BYPASS-8   anon reads customer_app_tokens                   (DENIED)
+<span class="pass">PASS</span>  BYPASS-9   retailer creates customer under retailer B       (DENIED)
+<span class="pass">PASS</span>  BYPASS-10  retailer reassigns own customer to retailer B    (DENIED)
+<span class="pass">PASS</span>  BYPASS-11  retailer escalates own role to super_admin       (0 rows)</pre>
+
+<div class="note">
+  <p><strong>Two real defects were found in the fix itself by this process</strong> — which is the point of running it.</p>
+  <p>An unguarded <code>REVOKE</code> on a table absent from two of the three schema baselines aborted the migration's transaction, silently rolling back <em>every</em> fix on those deployments. And re-running the migration would have renamed the newly-installed wrapper to <code>*_impl</code>, producing infinite recursion. Both are fixed and the migration is now confirmed idempotent across three consecutive applies on all three baselines.</p>
+</div>
+
+<h3>Business-behaviour proof</h3>
+<div class="col"><p>The strongest evidence that no business rule moved: the outputs of the two wrapped functions and the full EMI/fine table state were captured before and after and compared.</p></div>
+<pre>get_due_breakdown + get_emi_analysis output ......... <b>IDENTICAL</b>
+emi_schedule state (all rows, status/amount/fine) ... <b>IDENTICAL</b>
+project unit tests ................................. <b>29 / 29 pass</b>  (21 pre-existing + 8 new)
+production build ................................... <b>succeeds, 32 routes</b></pre>
+
+<div class="col">
+<p>The 21 pre-existing tests were confirmed to fail identically at pristine <code>HEAD</code> before any change — the cause was simply that <code>node_modules</code> was absent, not a code fault. With dependencies installed they pass both before and after this work.</p>
+</div>
+
+<h2 class="sec" id="preserved">Business logic deliberately preserved</h2>
+<p class="kicker">Where a security concern touched a business rule, the rule was left alone and the concern reported instead.</p>
+
+<div class="col">
+<ul class="tight">
+  <li><strong>Customer portal login (SEC-018).</strong> <code>/api/customer-login</code> accepts a 10-digit mobile <em>or</em> a 12-digit Aadhaar as the sole credential, and returns the customer's full record including their Aadhaar number. Knowing one customer's mobile number is enough to retrieve their identity documents and full loan history. This is weak authentication by any standard — but it is clearly the product's deliberate design for a no-login customer portal, and tightening it would change how customers reach their accounts. <strong>Reported, not changed.</strong></li>
+  <li><strong>Client-supplied payment amounts (SEC-023).</strong> <code>/api/payments/submit</code> takes <code>total_emi_amount</code>, <code>fine_amount</code> and <code>total_amount</code> from the request body. A retailer can submit arbitrary figures. The compensating control is the existing workflow: the request is created <code>PENDING</code> and a super admin must approve it. Recomputing amounts server-side would be a change to the payment rules. <strong>Reported, not changed</strong> — and SEC-001 is what made this genuinely dangerous, since it removed the approval step; with SEC-001 closed the compensating control is real again.</li>
+  <li><strong>Public receipt page (SEC-019).</strong> <code>/api/receipt/[id]</code> is intentionally unauthenticated so receipts can be shared with customers. Security rests on the receipt id being an unguessable v4 UUID, and the route already validates the UUID format. Adding auth would break receipt sharing. <strong>Reported, not changed.</strong></li>
+  <li><strong>Cross-retailer leaderboard.</strong> <code>get_emi_analysis</code> deliberately ranks all retailers against each other. The fix restricts <em>who may call it</em> to the super admin — the only role whose UI renders it — without altering a single figure it returns.</li>
+  <li><strong>EMI sequence enforcement, fine accrual, completion, settlement, NPA.</strong> Not touched anywhere. The fine engine, the collection-date gate that decides fine eligibility, partial-payment handling and customer-completion rules are all byte-identical.</li>
+</ul>
+</div>
+
+<h2 class="sec" id="scores">Security posture</h2>
+<p class="kicker">Scored after the fixes, assuming migration 029 has been applied. Deductions reflect the remaining open items.</p>
+
+<div class="scores">
+  <div class="score"><span class="name">Authentication</span><span class="bar"><i style="width:78%"></i></span><span class="val">78</span></div>
+  <div class="score"><span class="name">Authorization</span><span class="bar"><i style="width:92%"></i></span><span class="val">92</span></div>
+  <div class="score"><span class="name">Retailer isolation</span><span class="bar"><i style="width:94%"></i></span><span class="val">94</span></div>
+  <div class="score"><span class="name">Database / RLS</span><span class="bar"><i style="width:93%"></i></span><span class="val">93</span></div>
+  <div class="score"><span class="name">API security</span><span class="bar"><i style="width:88%"></i></span><span class="val">88</span></div>
+  <div class="score"><span class="name">Frontend security</span><span class="bar"><i style="width:82%"></i></span><span class="val">82</span></div>
+  <div class="score"><span class="name">Business logic protection</span><span class="bar"><i style="width:100%"></i></span><span class="val">100</span></div>
+  <div class="score"><span class="name">Infrastructure</span><span class="bar"><i style="width:85%"></i></span><span class="val">85</span></div>
+  <div class="score"><span class="name">Secrets</span><span class="bar"><i style="width:95%"></i></span><span class="val">95</span></div>
+  <div class="score"><span class="name">Dependencies</span><span class="bar"><i style="width:62%"></i></span><span class="val">62</span></div>
+  <div class="score total"><span class="name">Overall</span><span class="bar"><i style="width:87%"></i></span><span class="val">87</span></div>
+</div>
+
+<div class="col">
+<p><strong>Secrets (95):</strong> no hardcoded credentials in the working tree, and a scan of reachable git history for JWT-shaped strings, private-key headers and service-role assignments found nothing. All secrets come from environment variables; the backup endpoints fail closed when unconfigured and use constant-time token comparison. Nothing needs rotation on the basis of this audit.</p>
+<p><strong>Dependencies (62):</strong> the lowest score, and deliberately so. The critical middleware CVE is fixed, but advisories remain in <code>next</code> and <code>jspdf</code> that cannot be resolved without major-version upgrades, which this audit is not authorised to make blind.</p>
+</div>
+
+<h2 class="sec" id="remaining">Remaining risks &amp; recommendations</h2>
+<p class="kicker">Eight open items. None is Critical or High.</p>
+
+<div class="col">
+<h3>Do this first</h3>
+<ul class="tight">
+  <li><strong>Apply <code>migrations/029_security_hardening.sql</code> to production.</strong> Nothing in the database half of this work takes effect until it runs, and SEC-001 stays exploitable until then. It is transactional, idempotent, and verified against all three schema baselines in the repository.</li>
+  <li><strong>Then re-run the suite</strong> in <code>tests/security/</code> against a staging copy to confirm the deployed schema matches what was tested.</li>
+</ul>
+
+<h3>Plan next</h3>
+<ul class="tight">
+  <li><strong>SEC-016 / SEC-017 — dependency upgrades.</strong> <code>next@16</code> and <code>jspdf@4</code> both fix real advisories and both are breaking. jsPDF in particular generates customer-facing receipts and statements, so an upgrade needs visual comparison of the generated documents before it ships. Schedule these as their own change with QA, not as part of a security patch.</li>
+  <li><strong>SEC-020 — rate limiting.</strong> The customer-login limiter is in-memory, so it resets on every cold start and is not shared across serverless instances, and it keys on a client-supplied <code>x-forwarded-for</code>. Move to a shared store (Upstash/Redis) and a trusted client-IP source.</li>
+  <li><strong>SEC-021 — error leakage.</strong> Nine routes return raw <code>error.message</code> from PostgREST to the client, which can disclose column and constraint names. Return a generic message and log the detail server-side.</li>
+  <li><strong>SEC-022 — retailer PIN.</strong> <code>retail_pin</code> is stored in plaintext, compared with <code>!==</code>, and has no attempt throttling. It only guards a retailer's own actions, so the impact is limited, but hashing it and adding a lockout is cheap.</li>
+  <li><strong>SEC-013 follow-up — CSP.</strong> The policy added here covers <code>frame-ancestors</code>, <code>object-src</code>, <code>base-uri</code> and <code>form-action</code> only. Restricting <code>script-src</code> and <code>style-src</code> needs per-request nonces because of the inline theme-boot script and the inline styles used throughout; that is a larger change and was not made blind.</li>
+</ul>
+
+<h3>Areas checked and found sound</h3>
+<ul class="tight">
+  <li><strong>RLS policy design.</strong> Policies consistently use <code>get_my_role()</code> and <code>get_my_retailer_id()</code> rather than trusting client input. Cross-tenant reads, cross-tenant inserts, ownership transfer and role self-escalation were all tested and all blocked.</li>
+  <li><strong>Service-role key handling.</strong> Confined to <code>lib/supabase/server.ts</code>, imported only by server-side route handlers, never referenced from a client component, and never returned in a response. This is the highest-consequence secret in the system and it is handled correctly.</li>
+  <li><strong>Retailer scoping in the mainstream API routes.</strong> <code>/api/metrics</code>, <code>/api/retailer/*</code>, <code>/api/export/*</code>, <code>/api/report/monthly</code> and <code>/api/report/collection</code> all overwrite any client-supplied <code>retailer_id</code> with the value resolved from the caller's own session. This is the correct pattern and it is applied consistently.</li>
+  <li><strong>Backup endpoints.</strong> <code>/api/backup</code> uses constant-time comparison, rejects query-string tokens, fails closed when unconfigured, and restricts dumps to a table allowlist. <code>/api/admin/full-backup</code> correctly requires <code>super_admin</code>.</li>
+  <li><strong>SSRF and CORS.</strong> No user-controlled server-side fetching — the Google Drive backup path takes its folder id from the environment. No CORS headers are set anywhere, so the browser same-origin policy applies by default, which is the right posture here.</li>
+  <li><strong>XSS elsewhere.</strong> <code>lib/loanStatementHtml.ts</code> escapes consistently; the three <code>dangerouslySetInnerHTML</code> uses render locally-constructed strings built from numbers, not stored data.</li>
+</ul>
+</div>
+
+<h2 class="sec" id="changes">What changed</h2>
+<div class="scroll">
+<table>
+<thead><tr><th>File</th><th>Change</th><th>Findings</th></tr></thead>
+<tbody>
+<tr><td class="loc">migrations/029_security_hardening.sql</td><td>New. Revokes <code>PUBLIC</code> execute on privileged functions; adds ownership/role wrappers around two RPCs; pins <code>search_path</code>; drops the anon token grant.</td><td class="m">001, 006, 009, 010, 011, 014</td></tr>
+<tr><td class="loc">app/api/report/{customer-profit,fine-due,profit}</td><td>Require <code>super_admin</code>.</td><td class="m">002, 003, 004</td></tr>
+<tr><td class="loc">app/api/receipt/[id]/route.ts</td><td>Escape the photo URL.</td><td class="m">007</td></tr>
+<tr><td class="loc">app/api/settlement-letter/[id]/route.ts</td><td>Escape the title; add <code>no-store</code>.</td><td class="m">008, 015</td></tr>
+<tr><td class="loc">lib/csv.ts &middot; 4 report routes</td><td>Neutralise formula-leading cells; route hand-rolled CSVs through the escaping helper.</td><td class="m">012</td></tr>
+<tr><td class="loc">next.config.js</td><td>Conservative CSP.</td><td class="m">013</td></tr>
+<tr><td class="loc">package.json</td><td><code>next</code> 14.2.16 → 14.2.35.</td><td class="m">005</td></tr>
+<tr><td class="loc">tests/security/* &middot; lib/csv.test.mjs</td><td>New. 29 database authorization/bypass tests and 8 CSV injection tests.</td><td class="m">—</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="col">
+<p>Ten files changed, 142 insertions. No component, page, calculation or workflow was refactored.</p>
+</div>
+
+<footer>
+  TelePoint EMI Portal &middot; defensive security audit &middot; 2026-08-10 &middot; commit b58431b &middot; branch claude/telepoint-security-audit-7l1lob
+</footer>
+
+</div>
