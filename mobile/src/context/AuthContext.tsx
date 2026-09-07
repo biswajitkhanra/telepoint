@@ -13,6 +13,9 @@ interface AuthContextType {
   broadcasts: BroadcastItem[];
   pushToken: string | null;
   isLoading: boolean;
+  deviceRole: 'customer' | 'staff' | null;
+  setRolePreference: (role: 'customer' | 'staff') => Promise<void>;
+  resetRolePreference: () => Promise<void>;
   login: (params: { aadhaar?: string; mobile?: string; customer_id?: string }) => Promise<{
     multi?: boolean;
     customers?: MultiLoanCustomer[];
@@ -30,11 +33,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [broadcasts, setBroadcasts] = useState<BroadcastItem[]>([]);
   const [pushToken, setPushToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [deviceRole, setDeviceRole] = useState<'customer' | 'staff' | null>(null);
 
-  // Restore saved session on launch
+  // Restore saved role & session on launch
   useEffect(() => {
     async function restoreSession() {
       try {
+        // Restore role preference
+        const savedRole = await AsyncStorage.getItem(STORAGE_KEYS.DEVICE_ROLE);
+        if (savedRole === 'customer' || savedRole === 'staff') {
+          setDeviceRole(savedRole);
+        }
+
+        // Restore customer session
         const saved = await AsyncStorage.getItem(STORAGE_KEYS.SESSION);
         if (saved) {
           const parsed = JSON.parse(saved);
@@ -57,6 +68,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     restoreSession();
   }, []);
+
+  async function setRolePreference(role: 'customer' | 'staff') {
+    setDeviceRole(role);
+    await AsyncStorage.setItem(STORAGE_KEYS.DEVICE_ROLE, role);
+  }
+
+  async function resetRolePreference() {
+    setDeviceRole(null);
+    await AsyncStorage.removeItem(STORAGE_KEYS.DEVICE_ROLE);
+  }
 
   async function refreshCustomer(customerId: string) {
     try {
@@ -174,6 +195,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         broadcasts,
         pushToken,
         isLoading,
+        deviceRole,
+        setRolePreference,
+        resetRolePreference,
         login,
         refreshData,
         logout,
