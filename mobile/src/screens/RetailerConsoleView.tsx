@@ -40,6 +40,7 @@ import {
 import { CountUp } from '../components/CountUp';
 import { JellyCard } from '../components/JellyCard';
 import { PressableScale } from '../components/PressableScale';
+import { CustomerDetailModal } from '../components/CustomerDetailModal';
 import { PORTAL_BASE_URL } from '../config';
 import { Colors } from '../constants/colors';
 import { Spacing, Radius, Shadow } from '../constants/design';
@@ -145,6 +146,16 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
   const [upcomingList, setUpcomingList] = useState<UpcomingLoan[]>([]);
   const [customerList, setCustomerList] = useState<CustomerSummary[]>([]);
   const [recentPayments, setRecentPayments] = useState<PaymentRecord[]>([]);
+
+  // Customer Detail Ledger Modal
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [customerModalVisible, setCustomerModalVisible] = useState(false);
+
+  const handleOpenCustomerDetail = (id: string) => {
+    Haptics.selectionAsync();
+    setSelectedCustomerId(id);
+    setCustomerModalVisible(true);
+  };
 
   // Collect Payment Bottom Sheet / Modal
   const [collectModalVisible, setCollectModalVisible] = useState(false);
@@ -535,7 +546,12 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
               </View>
             ) : (
               filteredDue.map(item => (
-                <JellyCard key={item.customer_id} accentColor="#E11D48" style={styles.customerJellyCard}>
+                <JellyCard
+                  key={item.customer_id}
+                  accentColor="#E11D48"
+                  style={styles.customerJellyCard}
+                  onPress={() => handleOpenCustomerDetail(item.customer_id)}
+                >
                   <View style={styles.cardTopRow}>
                     <View>
                       <Text style={styles.customerName}>{item.customer_name}</Text>
@@ -610,7 +626,12 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
               </View>
             ) : (
               filteredUpcoming.map(item => (
-                <JellyCard key={`${item.customer_id}-${item.emi_no}`} accentColor="#1A6FD6" style={styles.customerJellyCard}>
+                <JellyCard
+                  key={`${item.customer_id}-${item.emi_no}`}
+                  accentColor="#1A6FD6"
+                  style={styles.customerJellyCard}
+                  onPress={() => handleOpenCustomerDetail(item.customer_id)}
+                >
                   <View style={styles.cardTopRow}>
                     <View>
                       <Text style={styles.customerName}>{item.customer_name}</Text>
@@ -738,36 +759,53 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
               </View>
             ) : (
               filteredCustomers.map(c => (
-                <View key={c.id} style={styles.customerDirectoryCard}>
-                  <View style={styles.custDirLeft}>
-                    <Text style={styles.custDirName}>{c.customer_name}</Text>
-                    <Text style={styles.custDirSub}>
-                      {c.mobile || 'No Mobile'} • IMEI: {c.imei || 'N/A'}
-                    </Text>
+                <TouchableOpacity
+                  key={c.id}
+                  onPress={() => handleOpenCustomerDetail(c.id)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.customerDirectoryCard}>
+                    <View style={styles.custDirLeft}>
+                      <Text style={styles.custDirName}>{c.customer_name}</Text>
+                      <Text style={styles.custDirSub}>
+                        {c.mobile || 'No Mobile'} • IMEI: {c.imei || 'N/A'}
+                      </Text>
+                    </View>
+                    <View style={styles.custDirRight}>
+                      <PressableScale
+                        onPress={() => handleCallCustomer(c.mobile || '', c.customer_name)}
+                        style={styles.custDirCallBtn}
+                        scaleTo={0.9}
+                      >
+                        <PhoneCall size={14} color="#1A6FD6" />
+                      </PressableScale>
+                      <PressableScale
+                        onPress={() => openCollectModal(c.id, c.customer_name, 1500)}
+                        style={styles.custDirCollectBtn}
+                        scaleTo={0.9}
+                      >
+                        <CreditCard size={14} color="#059669" />
+                      </PressableScale>
+                    </View>
                   </View>
-                  <View style={styles.custDirRight}>
-                    <PressableScale
-                      onPress={() => handleCallCustomer(c.mobile || '', c.customer_name)}
-                      style={styles.custDirCallBtn}
-                      scaleTo={0.9}
-                    >
-                      <PhoneCall size={14} color="#1A6FD6" />
-                    </PressableScale>
-                    <PressableScale
-                      onPress={() => openCollectModal(c.id, c.customer_name, 1500)}
-                      style={styles.custDirCollectBtn}
-                      scaleTo={0.9}
-                    >
-                      <CreditCard size={14} color="#059669" />
-                    </PressableScale>
-                  </View>
-                </View>
+                </TouchableOpacity>
               ))
             )}
           </View>
         )}
         </Animated.View>
       </ScrollView>
+
+      {/* FULL CUSTOMER & LOAN LEDGER DETAIL MODAL */}
+      <CustomerDetailModal
+        visible={customerModalVisible}
+        customerId={selectedCustomerId}
+        onClose={() => setCustomerModalVisible(false)}
+        onCollectPayment={target =>
+          openCollectModal(target.id, target.name, target.dueAmount)
+        }
+        onRefreshParent={loadRetailerData}
+      />
 
       {/* RECORD PAYMENT BOTTOM SHEET MODAL */}
       <Modal

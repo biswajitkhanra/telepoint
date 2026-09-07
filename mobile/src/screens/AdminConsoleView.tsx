@@ -40,6 +40,7 @@ import {
 import { CountUp } from '../components/CountUp';
 import { JellyCard } from '../components/JellyCard';
 import { PressableScale } from '../components/PressableScale';
+import { CustomerDetailModal } from '../components/CustomerDetailModal';
 import { PORTAL_BASE_URL } from '../config';
 import { Colors } from '../constants/colors';
 import { Spacing, Radius, Shadow } from '../constants/design';
@@ -150,6 +151,16 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
   const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
   const [retailers, setRetailers] = useState<RetailerPartner[]>([]);
   const [recentCustomers, setRecentCustomers] = useState<AdminCustomer[]>([]);
+
+  // Customer Detail Ledger Modal
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [customerModalVisible, setCustomerModalVisible] = useState(false);
+
+  const handleOpenCustomerDetail = (id: string) => {
+    Haptics.selectionAsync();
+    setSelectedCustomerId(id);
+    setCustomerModalVisible(true);
+  };
 
   // Action states
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -569,7 +580,11 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
                     accentColor="#F59E0B"
                     style={styles.approvalJellyCard}
                   >
-                    <View style={styles.approvalTop}>
+                    <TouchableOpacity
+                      onPress={() => handleOpenCustomerDetail(item.customer_id)}
+                      activeOpacity={0.8}
+                      style={styles.approvalTop}
+                    >
                       <View style={{ flex: 1 }}>
                         <Text style={styles.approvalCustomer}>{item.customer_name}</Text>
                         <Text style={styles.approvalSub}>
@@ -587,7 +602,7 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
                           <Text style={styles.pendingBadgeText}>PENDING</Text>
                         </View>
                       </View>
-                    </View>
+                    </TouchableOpacity>
 
                     {item.utr ? (
                       <View style={styles.utrBox}>
@@ -697,41 +712,47 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
                 const isCompleted = c.status === 'COMPLETED';
 
                 return (
-                  <View key={c.id} style={styles.borrowerCard}>
-                    <View style={styles.borrowerLeft}>
-                      <Text style={styles.borrowerName}>{c.customer_name}</Text>
-                      <Text style={styles.borrowerSub}>
-                        {c.mobile || 'No Phone'} • Store: {c.retailer_name}
-                      </Text>
-                      <Text style={styles.borrowerImei}>IMEI: {c.imei || 'N/A'}</Text>
-                    </View>
-                    <View style={styles.borrowerRight}>
-                      <View
-                        style={[
-                          styles.statusPill,
-                          isRunning && styles.statusPillRunning,
-                          isCompleted && styles.statusPillCompleted,
-                        ]}
-                      >
-                        <Text
+                  <TouchableOpacity
+                    key={c.id}
+                    onPress={() => handleOpenCustomerDetail(c.id)}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.borrowerCard}>
+                      <View style={styles.borrowerLeft}>
+                        <Text style={styles.borrowerName}>{c.customer_name}</Text>
+                        <Text style={styles.borrowerSub}>
+                          {c.mobile || 'No Phone'} • Store: {c.retailer_name}
+                        </Text>
+                        <Text style={styles.borrowerImei}>IMEI: {c.imei || 'N/A'}</Text>
+                      </View>
+                      <View style={styles.borrowerRight}>
+                        <View
                           style={[
-                            styles.statusPillText,
-                            isRunning && styles.statusPillTextRunning,
-                            isCompleted && styles.statusPillTextCompleted,
+                            styles.statusPill,
+                            isRunning && styles.statusPillRunning,
+                            isCompleted && styles.statusPillCompleted,
                           ]}
                         >
-                          {c.status}
-                        </Text>
+                          <Text
+                            style={[
+                              styles.statusPillText,
+                              isRunning && styles.statusPillTextRunning,
+                              isCompleted && styles.statusPillTextCompleted,
+                            ]}
+                          >
+                            {c.status}
+                          </Text>
+                        </View>
+                        <PressableScale
+                          onPress={() => handleCall(c.mobile, c.customer_name)}
+                          style={styles.borrowerCallBtn}
+                          scaleTo={0.9}
+                        >
+                          <PhoneCall size={14} color="#1A6FD6" />
+                        </PressableScale>
                       </View>
-                      <PressableScale
-                        onPress={() => handleCall(c.mobile, c.customer_name)}
-                        style={styles.borrowerCallBtn}
-                        scaleTo={0.9}
-                      >
-                        <PhoneCall size={14} color="#1A6FD6" />
-                      </PressableScale>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 );
               })
             )}
@@ -739,6 +760,15 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
         )}
         </Animated.View>
       </ScrollView>
+
+      {/* FULL CUSTOMER & LOAN LEDGER DETAIL MODAL */}
+      <CustomerDetailModal
+        visible={customerModalVisible}
+        customerId={selectedCustomerId}
+        onClose={() => setCustomerModalVisible(false)}
+        isAdmin
+        onRefreshParent={loadAdminData}
+      />
 
       {/* REJECT MODAL */}
       <Modal
