@@ -17,46 +17,49 @@ export const STORAGE_KEYS = {
   SESSION: '@telepoint_customer_session',
   TOKEN: '@telepoint_push_token_meta',
   SETTINGS: '@telepoint_settings',
+  DEVICE_ROLE: '@telepoint_device_role', // 'customer' | 'staff'
+  ACTIVE_LOAN: '@telepoint_active_loan_id',
 };
 
 export const THEME = {
   bg: {
-    darkest: '#080B11', // Deep Obsidian Canvas
-    card: '#0E131F', // Titanium Card Surface
-    cardElevated: '#131927', // Elevated Neo-Card
-    surface: '#1A2234', // Secondary Surface
-    glass: 'rgba(14, 19, 31, 0.85)',
-    border: 'rgba(255, 255, 255, 0.08)',
-    borderHighlight: 'rgba(255, 255, 255, 0.16)',
-    borderSubtle: 'rgba(255, 255, 255, 0.05)',
+    darkest: '#F8FAFC', // Clean Pearl Alabaster Canvas (Light Theme)
+    card: '#FFFFFF', // Crisp Pure White Card Surface
+    cardElevated: '#FFFFFF', // Elevated Pure White Card
+    surface: '#F1F5F9', // Subtle Slate Surface
+    glass: 'rgba(255, 255, 255, 0.95)',
+    border: 'rgba(15, 23, 42, 0.08)',
+    borderHighlight: 'rgba(37, 99, 235, 0.25)',
+    borderSubtle: 'rgba(15, 23, 42, 0.04)',
   },
   accent: {
-    primary: '#3B82F6', // Electric Sapphire
-    primaryGlow: '#60A5FA',
+    primary: '#2563EB', // Royal Telepoint Blue
+    primaryGlow: '#3B82F6',
     secondary: '#4F46E5', // Electric Indigo
-    gold: '#F59E0B', // Cyber Amber
-    goldGlow: '#FBBF24',
-    success: '#10B981', // Emerald Mint
+    gold: '#D97706', // Warm Amber
+    goldGlow: '#F59E0B',
+    success: '#10B981', // Vibrant Emerald
     successGlow: '#34D399',
-    warning: '#F59E0B',
-    danger: '#EF4444', // Crimson Red
+    warning: '#D97706',
+    danger: '#EF4444', // Coral Crimson
     dangerGlow: '#F87171',
   },
   text: {
-    primary: '#FFFFFF',
-    secondary: '#94A3B8',
-    muted: '#64748B',
-    gold: '#FDE68A',
-    success: '#6EE7B7',
+    primary: '#0F172A', // Deep Slate / Charcoal
+    secondary: '#334155', // High-contrast subtitle
+    muted: '#64748B', // Label text
+    gold: '#B45309',
+    success: '#059669',
   },
   gradients: {
-    obsidian: ['#0E131F', '#080B11'],
-    titanium: ['#1A2234', '#0E131F'],
-    metallicSheen: ['rgba(255,255,255,0.12)', 'rgba(255,255,255,0.02)'],
+    pearl: ['#FFFFFF', '#F8FAFC'],
+    titanium: ['#FFFFFF', '#F1F5F9'],
+    metallicSheen: ['rgba(255, 255, 255, 0.9)', 'rgba(241, 245, 249, 0.4)'],
     emerald: ['#10B981', '#059669'],
-    indigo: ['#4F46E5', '#3B82F6'],
+    indigo: ['#2563EB', '#1D4ED8'],
     amber: ['#F59E0B', '#D97706'],
     crimson: ['#EF4444', '#DC2626'],
+    obsidian: ['#FFFFFF', '#F8FAFC'], // Compatibility alias
   },
 };
 
