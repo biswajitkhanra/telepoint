@@ -12,6 +12,10 @@ node_modules/
 
 # expo & mobile
 .expo/
+android/
+ios/
+mobile/android/
+mobile/ios/
 *.apk
 *.aab
 google-services.json
