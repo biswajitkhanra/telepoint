@@ -77,7 +77,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         );
       }
     } catch (e) {
-      console.warn('[AuthContext] Background refresh failed:', e);
+      // Offline or network error: retain cached session to enforce persistent login until data cleared
+      console.log('[AuthContext] Background refresh offline/failed; retaining persistent session safely:', e);
     }
   }
 
