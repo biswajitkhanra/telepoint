@@ -18,6 +18,7 @@ import {
   Smartphone,
   Shield,
   ExternalLink,
+  AlertCircle,
 } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import { TelepointLogo } from '../components/TelepointLogo';
@@ -173,6 +174,22 @@ export const StaffPortalScreen = () => {
           console.warn('WebView error: ', nativeEvent);
           setLoading(false);
         }}
+        renderError={(errorDomain, errorCode, errorDesc) => (
+          <View style={styles.errorScreen}>
+            <AlertCircle size={44} color="#EF4444" />
+            <Text style={styles.errorTitle}>Unable to Connect to Portal</Text>
+            <Text style={styles.errorSubtitle}>
+              Could not reach: {PORTAL_BASE_URL}
+            </Text>
+            <Text style={styles.errorDescText}>
+              {errorDesc || 'Please ensure your web server is deployed, or set EXPO_PUBLIC_PORTAL_URL in your environment.'}
+            </Text>
+            <TouchableOpacity style={styles.retryBtn} onPress={handleReload}>
+              <RotateCw size={16} color="#FFFFFF" />
+              <Text style={styles.retryBtnText}>Retry Connection</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       />
     </SafeAreaView>
   );
@@ -298,5 +315,53 @@ const styles = StyleSheet.create({
   webView: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+  errorScreen: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 28,
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginTop: 16,
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  errorSubtitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#2563EB',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  errorDescText: {
+    fontSize: 12,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 24,
+  },
+  retryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    elevation: 2,
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  retryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

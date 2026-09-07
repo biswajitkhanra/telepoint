@@ -33,12 +33,18 @@ export async function loginCustomer(params: {
 
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
+      if (res.status === 404) {
+        throw new Error(`Portal server returned 404 at ${url}. Please verify your portal URL or deployment.`);
+      }
       throw new Error(data.error || `Login failed (HTTP ${res.status})`);
     }
     return data as LoginResponse;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('[API] Login error:', msg);
+    if (msg.includes('Network request failed') || msg.includes('Failed to fetch')) {
+      throw new Error(`Cannot connect to server at ${PORTAL_BASE_URL}. Please check your internet connection or EXPO_PUBLIC_PORTAL_URL.`);
+    }
     throw err;
   }
 }
