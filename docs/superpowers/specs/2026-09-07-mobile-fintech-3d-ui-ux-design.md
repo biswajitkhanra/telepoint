@@ -20,13 +20,20 @@
    - Deep Obsidian/Graphite background (`#080B11`), dark titanium card bodies (`#0E131F`, `#131927`).
    - High-contrast multi-layer border sheen: 1px border with `rgba(255, 255, 255, 0.08)` to `rgba(255, 255, 255, 0.02)`.
    - Metallic holographic foil sheen overlays using `LinearGradient`.
+   - **Telepoint Official Brand Mark**: Native SVG implementation of Telepoint's official navy rounded tile (`#1b3e7d` to `#0a1f44`), electric-blue orbital swoosh, satellite beacon, and 3D faceted "T" glyph. Also generated as crisp Android app icons and splash art.
    - Neo-fintech color hierarchy:
      - **Emerald Mint (`#10B981`, `#34D399`)**: Paid status, verified KYC, completed steps.
      - **Electric Indigo & Sapphire (`#4F46E5`, `#3B82F6`)**: Primary actions, active highlights.
      - **Cyber Amber (`#F59E0B`, `#FBBF24`)**: Dues within 5 days, pending installments.
      - **Crimson Red (`#EF4444`, `#F87171`)**: Overdue warnings, late fines.
 
-3. **Strict Web Isolation**:
+3. **Persistent Forced Login Architecture**:
+   - Once a customer logs in with Aadhaar/Mobile, the session is permanently written to `AsyncStorage` (`@telepoint_customer_session`).
+   - The app stays permanently locked into the authenticated state across app closes, system reboots, and network dropouts.
+   - Background refreshes fail gracefully without evicting the customer session.
+   - The user remains logged in permanently until they explicitly clear the app's storage in Android Settings ("Clear Data") or confirm a guarded sign-out.
+
+4. **Strict Web Isolation**:
    - Zero changes to `/app`, `/components`, `/lib`, `/pages`, or web config.
    - Web application remains 100% as-is.
 
