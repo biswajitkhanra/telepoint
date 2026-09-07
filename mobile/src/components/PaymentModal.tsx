@@ -1,6 +1,7 @@
 // components/PaymentModal.tsx
 // Interactive Neo-Fintech UPI Payment Sheet with Dynamic QR Code Generation
 // Payee VPA: biswajit.khanra82@axl
+// 100% Data Fidelity with Web Engine + Squash & Stretch Jelly Interactions
 
 import React, { useState, useMemo } from 'react';
 import {
@@ -8,12 +9,10 @@ import {
   Text,
   StyleSheet,
   Modal,
-  TouchableOpacity,
   ScrollView,
   TextInput,
   Linking,
   Alert,
-  Platform,
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import * as Clipboard from 'expo-clipboard';
@@ -21,20 +20,20 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   X,
-  Smartphone,
-  CheckCircle2,
   Copy,
   Check,
-  AlertCircle,
-  ExternalLink,
   ShieldCheck,
   Zap,
-  QrCode,
   ArrowRight,
 } from 'lucide-react-native';
 import { Customer, EMIScheduleItem, DueBreakdown } from '../types';
 import { Colors } from '../constants/colors';
 import { Spacing, Radius } from '../constants/design';
+import { PressableScale } from './PressableScale';
+import { getPerEmiFineBreakdown } from '../utils/fineCalc';
+import { firstChargeRemaining } from '../utils/firstCharge';
+import { customerCodeOf } from '../utils/customerCode';
+import { toISTDateString } from '../utils/ist';
 
 interface PaymentModalProps {
   visible: boolean;
@@ -56,66 +55,123 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   breakdown,
   onSubmitUtr,
 }) => {
-  // Find next unpaid EMI (or overdue EMI)
-  const nextUnpaidEmi = useMemo(() => {
-    return emis.find(
-      e => e.status === 'pending' || e.status === 'UNPAID' || e.status === 'overdue' || (e.status !== 'collected' && e.status !== 'APPROVED')
+  // Sorted EMIs by due date
+  const sortedEmis = useMemo(() => {
+    return [...emis].sort(
+      (a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()
     );
   }, [emis]);
 
-  // First EMI
-  const firstEmi = useMemo(() => {
-    return emis[0];
-  }, [emis]);
+  const currentMonth = useMemo(() => toISTDateString(new Date()).slice(0, 7), []);
 
-  // Fine amount
-  const fineAmount = useMemo(() => {
-    return breakdown?.fine_due || 0;
-  }, [breakdown]);
+  // Live Fine Calculation (exact match with web)
+  const fineRows = useMemo(() => getPerEmiFineBreakdown(sortedEmis), [sortedEmis]);
+  const totalFineRemaining = useMemo(
+    () => fineRows.reduce((sum, row) => sum + row.remaining, 0),
+    [fineRows]
+  );
+  const fineEmiNos = useMemo(
+    () => fineRows.filter(r => r.remaining > 0).map(r => r.emi_no),
+    [fineRows]
+  );
 
-  // EMI amount
-  const emiAmount = nextUnpaidEmi?.amount || customer.emi_amount || 0;
+  // First EMI charge (partial-aware)
+  const firstChargeDue = useMemo(
+    () => (customer ? firstChargeRemaining(customer) : 0),
+    [customer]
+  );
+
+  // Unpaid EMIs up to current IST month (or next upcoming if none overdue)
+  const dueEmis = useMemo(() => {
+    let list = sortedEmis.filter(
+      e =>
+        (e.status === 'UNPAID' ||
+          e.status === 'PARTIALLY_PAID' ||
+          e.status === 'overdue' ||
+          (e.status !== 'collected' && e.status !== 'APPROVED')) &&
+        toISTDateString(e.due_date).slice(0, 7) <= currentMonth
+    );
+    if (list.length === 0) {
+      const nextUp = sortedEmis.find(
+        e =>
+          e.status === 'UNPAID' ||
+          e.status === 'PARTIALLY_PAID' ||
+          e.status === 'overdue' ||
+          (e.status !== 'collected' && e.status !== 'APPROVED')
+      );
+      if (nextUp) list = [nextUp];
+    }
+    return list;
+  }, [sortedEmis, currentMonth]);
+
+  const emiDue = useMemo(() => {
+    return dueEmis.reduce(
+      (sum, e) =>
+        sum +
+        Math.max(
+          0,
+          Number(e.amount || 0) - Math.max(0, Number(e.partial_paid_amount || 0))
+        ),
+      0
+    );
+  }, [dueEmis]);
+
+  const totalOutstanding = emiDue + totalFineRemaining + firstChargeDue;
+
+  // Next unpaid single EMI
+  const nextUnpaidEmi = dueEmis[0] || sortedEmis[0];
+  const firstEmi = sortedEmis[0];
 
   // Payment type selection
-  // Options: 'emi' (Current / Next Due EMI), 'fine' (Late Fine Only), 'total' (All Dues), 'first_emi' (1st EMI)
-  const [selectedType, setSelectedType] = useState<'emi' | 'fine' | 'total' | 'first_emi'>(
-    fineAmount > 0 ? 'total' : 'emi'
-  );
+  // Options: 'emi' (Next Due EMI), 'fine' (Late Fine Only), 'first_charge' (1st EMI Charge), 'total' (All Dues), 'first_emi' (1st Installment)
+  const [selectedType, setSelectedType] = useState<
+    'emi' | 'fine' | 'first_charge' | 'total' | 'first_emi'
+  >(totalFineRemaining > 0 || firstChargeDue > 0 ? 'total' : 'emi');
 
   const [copied, setCopied] = useState(false);
   const [utr, setUtr] = useState('');
   const [submittingUtr, setSubmittingUtr] = useState(false);
   const [utrSuccess, setUtrSuccess] = useState(false);
 
-  // Compute selected amount
+  // Compute selected amount with 100% precision
   const selectedAmount = useMemo(() => {
     switch (selectedType) {
       case 'emi':
-        return emiAmount;
+        return emiDue > 0 ? emiDue : customer.emi_amount;
       case 'fine':
-        return fineAmount;
+        return totalFineRemaining;
+      case 'first_charge':
+        return firstChargeDue;
       case 'first_emi':
-        return firstEmi?.amount || emiAmount;
+        return firstEmi?.amount || customer.emi_amount;
       case 'total':
       default:
-        return emiAmount + fineAmount;
+        return totalOutstanding > 0 ? totalOutstanding : customer.emi_amount;
     }
-  }, [selectedType, emiAmount, fineAmount, firstEmi]);
+  }, [selectedType, emiDue, totalFineRemaining, firstChargeDue, totalOutstanding, firstEmi, customer]);
 
-  // Transaction note for UPI
+  // Transaction note for UPI with customer code
   const transactionNote = useMemo(() => {
-    const loanRef = customer.id.slice(0, 8);
+    const code = customerCodeOf(customer) || customer.id.slice(0, 8);
+    const parts: string[] = [code];
+
     if (selectedType === 'fine') {
-      return `Telepoint Fine | ${customer.customer_name} | ${loanRef}`;
+      parts.push(`Fine ${fineEmiNos.length > 0 ? fineEmiNos.join(',') : ''}`);
+    } else if (selectedType === 'first_charge') {
+      parts.push('1st EMI Charge');
+    } else if (selectedType === 'first_emi') {
+      parts.push('1st EMI');
+    } else if (selectedType === 'total') {
+      if (dueEmis.length > 0) parts.push(`EMI ${dueEmis.map(e => e.emi_no).join(',')}`);
+      if (totalFineRemaining > 0 && fineEmiNos.length > 0) parts.push(`Fine ${fineEmiNos.join(',')}`);
+      if (firstChargeDue > 0) parts.push('1st Charge');
+    } else {
+      if (dueEmis.length > 0) parts.push(`EMI ${dueEmis.map(e => e.emi_no).join(',')}`);
     }
-    if (selectedType === 'first_emi') {
-      return `Telepoint 1st EMI | ${customer.customer_name} | ${loanRef}`;
-    }
-    if (selectedType === 'total') {
-      return `Telepoint Full Due | ${customer.customer_name} | ${loanRef}`;
-    }
-    return `Telepoint EMI ${nextUnpaidEmi?.emi_no || 1} | ${customer.customer_name} | ${loanRef}`;
-  }, [selectedType, customer, nextUnpaidEmi]);
+
+    const note = parts.join(' | ') || `EMI ${customer.customer_name}`.trim();
+    return note.slice(0, 75);
+  }, [customer, selectedType, dueEmis, fineEmiNos, totalFineRemaining, firstChargeDue]);
 
   // Exact UPI intent string
   const upiUri = useMemo(() => {
@@ -140,7 +196,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       if (canOpen) {
         await Linking.openURL(upiUri);
       } else {
-        // Fallback if generic upi intent is not directly handled
         Linking.openURL(upiUri).catch(() => {
           Alert.alert(
             'UPI Payment Instructions',
@@ -172,7 +227,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const handleSubmitUtr = () => {
     const cleanUtr = utr.trim();
     if (!cleanUtr || cleanUtr.length < 6) {
-      Alert.alert('Invalid UTR', 'Please enter a valid 12-digit UTR or Transaction ID from your payment receipt.');
+      Alert.alert(
+        'Invalid UTR',
+        'Please enter a valid 12-digit UTR or Transaction ID from your payment receipt.'
+      );
       return;
     }
 
@@ -206,12 +264,14 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               </View>
               <View>
                 <Text style={styles.headerTitle}>Pay EMI via UPI</Text>
-                <Text style={styles.headerSubtitle}>Instant payment with dynamic QR code</Text>
+                <Text style={styles.headerSubtitle}>
+                  {customerCodeOf(customer) ? `${customerCodeOf(customer)} • ` : ''}Instant payment with dynamic QR
+                </Text>
               </View>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+            <PressableScale onPress={onClose} style={styles.closeBtn} scaleTo={0.88}>
               <X size={20} color="#64748B" />
-            </TouchableOpacity>
+            </PressableScale>
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
@@ -219,83 +279,103 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             <Text style={styles.sectionLabel}>SELECT PAYMENT OPTION</Text>
             <View style={styles.optionsRow}>
               {/* Option 1: Next Due EMI */}
-              <TouchableOpacity
-                activeOpacity={0.8}
+              <PressableScale
                 onPress={() => {
                   Haptics.selectionAsync();
                   setSelectedType('emi');
                 }}
                 style={[styles.optionChip, selectedType === 'emi' && styles.optionChipActive]}
+                scaleTo={0.93}
               >
                 <Text style={[styles.optionChipTitle, selectedType === 'emi' && styles.optionChipTextActive]}>
-                  {nextUnpaidEmi ? `EMI #${nextUnpaidEmi.emi_no}` : 'Current EMI'}
+                  {dueEmis.length > 1 ? `EMIs (${dueEmis.length})` : nextUnpaidEmi ? `EMI #${nextUnpaidEmi.emi_no}` : 'Current EMI'}
                 </Text>
                 <Text style={[styles.optionChipAmount, selectedType === 'emi' && styles.optionChipAmountActive]}>
-                  ₹{emiAmount.toLocaleString('en-IN')}
+                  ₹{emiDue.toLocaleString('en-IN')}
                 </Text>
                 {nextUnpaidEmi?.due_date && (
                   <Text style={styles.optionChipSub}>Due {nextUnpaidEmi.due_date}</Text>
                 )}
-              </TouchableOpacity>
+              </PressableScale>
 
               {/* Option 2: Overdue Fine (if any) */}
-              {fineAmount > 0 && (
-                <TouchableOpacity
-                  activeOpacity={0.8}
+              {totalFineRemaining > 0 && (
+                <PressableScale
                   onPress={() => {
                     Haptics.selectionAsync();
                     setSelectedType('fine');
                   }}
                   style={[styles.optionChip, selectedType === 'fine' && styles.optionChipActiveDanger]}
+                  scaleTo={0.93}
                 >
                   <Text style={[styles.optionChipTitle, selectedType === 'fine' && styles.optionChipTextDanger]}>
                     Late Fine
                   </Text>
                   <Text style={[styles.optionChipAmount, selectedType === 'fine' && styles.optionChipAmountDanger]}>
-                    ₹{fineAmount.toLocaleString('en-IN')}
+                    ₹{totalFineRemaining.toLocaleString('en-IN')}
                   </Text>
-                  <Text style={styles.optionChipSubDanger}>Overdue charge</Text>
-                </TouchableOpacity>
+                  <Text style={styles.optionChipSubDanger}>Overdue penalty</Text>
+                </PressableScale>
               )}
 
-              {/* Option 3: Total Outstanding (EMI + Fine) */}
-              {fineAmount > 0 && (
-                <TouchableOpacity
-                  activeOpacity={0.8}
+              {/* Option 3: 1st EMI Charge (if any) */}
+              {firstChargeDue > 0 && (
+                <PressableScale
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setSelectedType('first_charge');
+                  }}
+                  style={[styles.optionChip, selectedType === 'first_charge' && styles.optionChipActiveGold]}
+                  scaleTo={0.93}
+                >
+                  <Text style={[styles.optionChipTitle, selectedType === 'first_charge' && styles.optionChipTextGold]}>
+                    1st Charge
+                  </Text>
+                  <Text style={[styles.optionChipAmount, selectedType === 'first_charge' && styles.optionChipAmountGold]}>
+                    ₹{firstChargeDue.toLocaleString('en-IN')}
+                  </Text>
+                  <Text style={styles.optionChipSub}>One-time fee</Text>
+                </PressableScale>
+              )}
+
+              {/* Option 4: Total Outstanding (EMI + Fine + 1st Charge) */}
+              {(totalFineRemaining > 0 || firstChargeDue > 0) && (
+                <PressableScale
                   onPress={() => {
                     Haptics.selectionAsync();
                     setSelectedType('total');
                   }}
                   style={[styles.optionChip, selectedType === 'total' && styles.optionChipActivePrimary]}
+                  scaleTo={0.93}
                 >
                   <Text style={[styles.optionChipTitle, selectedType === 'total' && styles.optionChipTextPrimary]}>
                     Total Dues
                   </Text>
                   <Text style={[styles.optionChipAmount, selectedType === 'total' && styles.optionChipAmountPrimary]}>
-                    ₹{(emiAmount + fineAmount).toLocaleString('en-IN')}
+                    ₹{totalOutstanding.toLocaleString('en-IN')}
                   </Text>
-                  <Text style={styles.optionChipSub}>EMI + Fine</Text>
-                </TouchableOpacity>
+                  <Text style={styles.optionChipSub}>All Pending</Text>
+                </PressableScale>
               )}
 
-              {/* Option 4: 1st EMI (if 1st EMI is due or selected) */}
-              {firstEmi && firstEmi.status !== 'collected' && firstEmi.status !== 'APPROVED' && (
-                <TouchableOpacity
-                  activeOpacity={0.8}
+              {/* Option 5: 1st EMI Installment */}
+              {firstEmi && (
+                <PressableScale
                   onPress={() => {
                     Haptics.selectionAsync();
                     setSelectedType('first_emi');
                   }}
                   style={[styles.optionChip, selectedType === 'first_emi' && styles.optionChipActive]}
+                  scaleTo={0.93}
                 >
                   <Text style={[styles.optionChipTitle, selectedType === 'first_emi' && styles.optionChipTextActive]}>
                     1st Installment
                   </Text>
                   <Text style={[styles.optionChipAmount, selectedType === 'first_emi' && styles.optionChipAmountActive]}>
-                    ₹{(firstEmi.amount || emiAmount).toLocaleString('en-IN')}
+                    ₹{(firstEmi.amount || customer.emi_amount).toLocaleString('en-IN')}
                   </Text>
-                  <Text style={styles.optionChipSub}>Start loan</Text>
-                </TouchableOpacity>
+                  <Text style={styles.optionChipSub}>Installment #1</Text>
+                </PressableScale>
               )}
             </View>
 
@@ -321,8 +401,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 </View>
               </View>
 
-              {/* Payee VPA & Copy Pill */}
-              <TouchableOpacity activeOpacity={0.85} onPress={handleCopyVpa} style={styles.vpaPill}>
+              {/* Payee VPA & Copy Pill with Jelly Feedback */}
+              <PressableScale onPress={handleCopyVpa} style={styles.vpaPill} scaleTo={0.97}>
                 <View style={styles.vpaLeft}>
                   <Text style={styles.vpaLabel}>UPI ID:</Text>
                   <Text style={styles.vpaValue}>{TELEPOINT_UPI_ID}</Text>
@@ -340,15 +420,15 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     </>
                   )}
                 </View>
-              </TouchableOpacity>
+              </PressableScale>
 
               <Text style={styles.qrScanInstructions}>
                 Scan with Google Pay, PhonePe, Paytm, BHIM, or any UPI app
               </Text>
             </View>
 
-            {/* One-Tap Launch UPI Apps CTA */}
-            <TouchableOpacity activeOpacity={0.88} onPress={handleOpenUpiApp} style={styles.payUpiButton}>
+            {/* One-Tap Launch UPI Apps CTA with Jelly Physics */}
+            <PressableScale onPress={handleOpenUpiApp} style={styles.payUpiButton} scaleTo={0.95}>
               <LinearGradient
                 colors={['#1A6FD6', '#3B5FE8', '#4F46E5']}
                 start={{ x: 0, y: 0 }}
@@ -361,7 +441,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 </Text>
                 <ArrowRight size={18} color="#FFFFFF" />
               </LinearGradient>
-            </TouchableOpacity>
+            </PressableScale>
 
             {/* UTR Verification Section */}
             <View style={styles.utrSection}>
@@ -369,35 +449,27 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               <View style={styles.utrInputRow}>
                 <TextInput
                   style={styles.utrInput}
-                  placeholder="Enter 12-digit UTR or Transaction ID"
+                  placeholder="Enter 12-digit UTR or Txn ID"
                   placeholderTextColor="#94A3B8"
                   value={utr}
                   onChangeText={setUtr}
                   autoCapitalize="characters"
                   maxLength={24}
                 />
-                <TouchableOpacity
-                  activeOpacity={0.85}
+                <PressableScale
                   onPress={handleSubmitUtr}
-                  disabled={submittingUtr || utrSuccess || !utr.trim()}
-                  style={[
-                    styles.utrSubmitBtn,
-                    (!utr.trim() || submittingUtr) && styles.utrSubmitBtnDisabled,
-                    utrSuccess && styles.utrSubmitBtnSuccess,
-                  ]}
+                  style={[styles.submitUtrBtn, submittingUtr && styles.submitUtrBtnDisabled]}
+                  scaleTo={0.92}
                 >
-                  {utrSuccess ? (
-                    <Check size={18} color="#FFFFFF" />
-                  ) : (
-                    <Text style={styles.utrSubmitText}>Submit</Text>
-                  )}
-                </TouchableOpacity>
+                  <Text style={styles.submitUtrBtnText}>
+                    {submittingUtr ? 'Saving...' : 'Submit'}
+                  </Text>
+                </PressableScale>
               </View>
               {utrSuccess && (
-                <View style={styles.utrSuccessAlert}>
-                  <CheckCircle2 size={15} color="#059669" />
-                  <Text style={styles.utrSuccessAlertText}>
-                    UTR submitted! Retailer partner will verify and settle your account.
+                <View style={styles.successBanner}>
+                  <Text style={styles.successBannerText}>
+                    ✓ UTR submitted successfully! Store staff will verify.
                   </Text>
                 </View>
               )}
@@ -412,7 +484,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.60)',
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
     justifyContent: 'flex-end',
   },
   sheetContainer: {
@@ -420,15 +492,20 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     maxHeight: '92%',
-    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    paddingBottom: Spacing.xl,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 20,
   },
   sheetHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 14,
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
   },
@@ -438,90 +515,96 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   shieldIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#ECFDF5',
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#0F172A',
   },
   headerSubtitle: {
     fontSize: 12,
     color: '#64748B',
-    marginTop: 1,
+    marginTop: 2,
   },
   closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F8FAFC',
-    justifyContent: 'center',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   scrollBody: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 30,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing['2xl'],
   },
   sectionLabel: {
-    fontSize: 10,
-    fontWeight: '800',
+    fontSize: 11,
+    fontWeight: '700',
     color: '#64748B',
     letterSpacing: 0.8,
-    marginBottom: 10,
+    marginBottom: Spacing.sm,
   },
   optionsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 16,
+    gap: 10,
+    marginBottom: Spacing.lg,
   },
   optionChip: {
     flex: 1,
-    minWidth: '46%',
-    padding: 12,
-    borderRadius: 14,
+    minWidth: '45%',
     backgroundColor: '#F8FAFC',
+    borderRadius: Radius.lg,
+    padding: 12,
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
   },
   optionChipActive: {
+    backgroundColor: '#EFF6FF',
     borderColor: '#1A6FD6',
-    backgroundColor: '#EFF5FF',
   },
   optionChipActiveDanger: {
-    borderColor: '#EF4444',
     backgroundColor: '#FEF2F2',
+    borderColor: '#EF4444',
+  },
+  optionChipActiveGold: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#F59E0B',
   },
   optionChipActivePrimary: {
-    borderColor: '#4F46E5',
     backgroundColor: '#EEF2FF',
+    borderColor: '#4F46E5',
   },
   optionChipTitle: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '600',
     color: '#64748B',
   },
   optionChipTextActive: {
     color: '#1A6FD6',
   },
   optionChipTextDanger: {
-    color: '#DC2626',
+    color: '#EF4444',
+  },
+  optionChipTextGold: {
+    color: '#D97706',
   },
   optionChipTextPrimary: {
     color: '#4F46E5',
   },
   optionChipAmount: {
     fontSize: 16,
-    fontWeight: '900',
+    fontWeight: '800',
     color: '#0F172A',
-    fontVariant: ['tabular-nums'],
-    marginVertical: 3,
+    marginTop: 4,
   },
   optionChipAmountActive: {
     color: '#1A6FD6',
@@ -529,83 +612,85 @@ const styles = StyleSheet.create({
   optionChipAmountDanger: {
     color: '#DC2626',
   },
+  optionChipAmountGold: {
+    color: '#B45309',
+  },
   optionChipAmountPrimary: {
     color: '#4F46E5',
   },
   optionChipSub: {
     fontSize: 10,
-    color: '#64748B',
+    color: '#94A3B8',
+    marginTop: 3,
   },
   optionChipSubDanger: {
     fontSize: 10,
-    color: '#DC2626',
-    fontWeight: '600',
+    color: '#EF4444',
+    marginTop: 3,
   },
   qrCard: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 20,
-    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: Radius.xl,
+    padding: Spacing.lg,
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
+    shadowColor: '#1A6FD6',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 4,
   },
   qrHeaderRow: {
     width: '100%',
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
+    justifyContent: 'space-between',
+    marginBottom: Spacing.md,
   },
   payeeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#EFF5FF',
+    backgroundColor: '#EFF6FF',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: Radius.full,
   },
   payeeBadgeText: {
-    fontSize: 9,
-    fontWeight: '800',
+    fontSize: 10,
+    fontWeight: '700',
     color: '#1A6FD6',
-    letterSpacing: 0.5,
   },
   qrAmountHero: {
     fontSize: 20,
-    fontWeight: '900',
+    fontWeight: '800',
     color: '#0F172A',
-    fontVariant: ['tabular-nums'],
   },
   qrFrameWrapper: {
     padding: 12,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: Radius.lg,
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 4,
-    marginBottom: 14,
+    marginBottom: Spacing.md,
   },
   qrWhiteCanvas: {
     backgroundColor: '#FFFFFF',
-    padding: 6,
+    padding: 10,
+    borderRadius: Radius.md,
   },
   vpaPill: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    width: '100%',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    backgroundColor: '#F1F5F9',
+    borderRadius: Radius.lg,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: Spacing.xs,
   },
   vpaLeft: {
     flexDirection: 'row',
@@ -618,18 +703,20 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   vpaValue: {
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 13,
+    fontWeight: '700',
     color: '#0F172A',
   },
   copyBtnPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#EFF5FF',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
   },
   copyText: {
     fontSize: 11,
@@ -645,85 +732,84 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#64748B',
     textAlign: 'center',
-    marginTop: 10,
+    marginTop: 6,
   },
   payUpiButton: {
-    borderRadius: 16,
+    borderRadius: Radius.xl,
     overflow: 'hidden',
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
     shadowColor: '#1A6FD6',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
     shadowRadius: 12,
-    elevation: 5,
+    elevation: 6,
   },
   payUpiGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    paddingVertical: 15,
+    paddingVertical: 16,
     paddingHorizontal: 20,
+    gap: 10,
   },
   payUpiButtonText: {
-    color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
+    color: '#FFFFFF',
   },
   utrSection: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 14,
+    backgroundColor: '#F8FAFC',
+    borderRadius: Radius.xl,
+    padding: Spacing.md,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
   utrInputRow: {
     flexDirection: 'row',
-    gap: 8,
+    alignItems: 'center',
+    gap: 10,
+    marginTop: Spacing.xs,
   },
   utrInput: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 10,
+    height: 44,
+    backgroundColor: '#FFFFFF',
+    borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#CBD5E1',
     paddingHorizontal: 12,
-    paddingVertical: 10,
     fontSize: 13,
     color: '#0F172A',
     fontWeight: '600',
   },
-  utrSubmitBtn: {
-    backgroundColor: '#10B981',
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    justifyContent: 'center',
+  submitUtrBtn: {
+    backgroundColor: '#0F172A',
+    height: 44,
+    paddingHorizontal: 18,
+    borderRadius: Radius.md,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  utrSubmitBtnDisabled: {
-    backgroundColor: '#CBD5E1',
+  submitUtrBtnDisabled: {
+    opacity: 0.5,
   },
-  utrSubmitBtnSuccess: {
-    backgroundColor: '#059669',
-  },
-  utrSubmitText: {
+  submitUtrBtnText: {
     color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '700',
   },
-  utrSuccessAlert: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+  successBanner: {
     marginTop: 10,
-    padding: 8,
     backgroundColor: '#ECFDF5',
-    borderRadius: 8,
+    padding: 10,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
   },
-  utrSuccessAlertText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#059669',
-    flex: 1,
+  successBannerText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#065F46',
+    textAlign: 'center',
   },
 });

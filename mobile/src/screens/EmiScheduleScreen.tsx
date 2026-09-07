@@ -1,35 +1,38 @@
 // screens/EmiScheduleScreen.tsx
 // Full month-by-month EMI schedule with IDFC clarity, filter chips & EMIRow drawer
+// 100% Data Precision + Squash & Stretch Jelly Interactions
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
-  TouchableOpacity,
   RefreshControl,
   SafeAreaView,
   StatusBar,
-  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { Calendar, Filter, CheckCircle2, Clock, Zap } from 'lucide-react-native';
+import { Zap } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import { EMIRow } from '../components/EMIRow';
 import { CountUp } from '../components/CountUp';
 import { ReceiptModal } from '../components/ReceiptModal';
 import { PaymentModal } from '../components/PaymentModal';
+import { JellyCard } from '../components/JellyCard';
+import { PressableScale } from '../components/PressableScale';
 import { EMIScheduleItem } from '../types';
 import { Colors } from '../constants/colors';
-import { Spacing, Radius, Shadow } from '../constants/design';
+import { Spacing, Radius } from '../constants/design';
+import { calculateTotalFineFromEmis } from '../utils/fineCalc';
+import { firstChargeRemaining } from '../utils/firstCharge';
 
 type FilterTab = 'ALL' | 'DUE' | 'PAID';
 
 export const EmiScheduleScreen = () => {
   const insets = useSafeAreaInsets();
-  const topInset = Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight || 28 : 0);
+  const topInset = Math.max(insets.top, StatusBar.currentHeight || 28);
   const { customer, emis, breakdown, refreshData } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<FilterTab>('ALL');
@@ -46,25 +49,39 @@ export const EmiScheduleScreen = () => {
   const isEmiPaid = (e: EMIScheduleItem) =>
     e.status === 'collected' || e.status === 'APPROVED' || !!e.paid_at;
 
-  const paidEmis = emis.filter(isEmiPaid);
-  const unpaidEmis = emis.filter(e => !isEmiPaid(e));
+  const sortedEmis = useMemo(() => {
+    return [...emis].sort(
+      (a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()
+    );
+  }, [emis]);
+
+  const paidEmis = sortedEmis.filter(isEmiPaid);
+  const unpaidEmis = sortedEmis.filter(e => !isEmiPaid(e));
 
   const filteredEmis =
     activeTab === 'ALL'
-      ? emis
+      ? sortedEmis
       : activeTab === 'PAID'
       ? paidEmis
       : unpaidEmis;
 
-  const totalPaidAmount = paidEmis.reduce(
-    (sum, e) => sum + (e.amount || 0) + (e.fine_paid_amount || 0),
+  // Accurate settled sum
+  const totalPaidAmount = emis.reduce(
+    (sum, e) =>
+      isEmiPaid(e)
+        ? sum + Number(e.amount || 0)
+        : sum + Math.max(0, Number(e.partial_paid_amount || 0)),
     0
   );
 
-  const totalOutstanding = unpaidEmis.reduce(
-    (sum, e) => sum + Math.max(0, (e.amount || 0) - (e.partial_paid_amount || 0)),
+  // Accurate remaining EMI principal + fines + 1st charge
+  const totalFineRemaining = useMemo(() => calculateTotalFineFromEmis(emis), [emis]);
+  const firstChargeDue = useMemo(() => firstChargeRemaining(customer), [customer]);
+  const emiOutstanding = unpaidEmis.reduce(
+    (sum, e) => sum + Math.max(0, Number(e.amount || 0) - Number(e.partial_paid_amount || 0)),
     0
   );
+  const totalOutstanding = emiOutstanding + totalFineRemaining + firstChargeDue;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -85,56 +102,59 @@ export const EmiScheduleScreen = () => {
         </View>
       </View>
 
-      {/* Summary Stat Card */}
+      {/* Summary Jelly Card */}
       <View style={styles.summaryContainer}>
-        <View style={styles.summaryCard}>
-          <View style={styles.summaryCol}>
-            <Text style={styles.summaryLabel}>TOTAL SETTLED</Text>
-            <CountUp
-              end={totalPaidAmount}
-              prefix="₹"
-              style={[styles.summaryValue, { color: '#059669' }]}
-              duration={700}
-            />
+        <JellyCard accentColor="#1A6FD6" style={styles.summaryJellyCard}>
+          <View style={styles.summaryCard}>
+            <View style={styles.summaryCol}>
+              <Text style={styles.summaryLabel}>TOTAL SETTLED</Text>
+              <CountUp
+                end={totalPaidAmount}
+                prefix="₹"
+                style={[styles.summaryValue, { color: '#059669' }]}
+                duration={700}
+              />
+            </View>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryCol}>
+              <Text style={styles.summaryLabel}>TOTAL OUTSTANDING</Text>
+              <CountUp
+                end={totalOutstanding}
+                prefix="₹"
+                style={[styles.summaryValue, { color: '#1A6FD6' }]}
+                duration={700}
+              />
+            </View>
           </View>
-          <View style={styles.summaryDivider} />
-          <View style={styles.summaryCol}>
-            <Text style={styles.summaryLabel}>TOTAL OUTSTANDING</Text>
-            <CountUp
-              end={totalOutstanding}
-              prefix="₹"
-              style={[styles.summaryValue, { color: '#1A6FD6' }]}
-              duration={700}
-            />
-          </View>
-        </View>
+        </JellyCard>
 
         {unpaidEmis.length > 0 && customer && (
-          <TouchableOpacity
+          <PressableScale
             style={styles.payDuesBanner}
-            activeOpacity={0.88}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               setPaymentModalVisible(true);
             }}
+            scaleTo={0.94}
           >
             <View style={styles.payDuesLeft}>
               <Zap size={16} color="#FFFFFF" />
               <Text style={styles.payDuesText}>Pay Due EMI via UPI / QR</Text>
             </View>
             <Text style={styles.payDuesCta}>Pay Now ➔</Text>
-          </TouchableOpacity>
+          </PressableScale>
         )}
       </View>
 
-      {/* Filter Tabs */}
+      {/* Filter Tabs with Jelly Touch */}
       <View style={styles.filterBar}>
-        <TouchableOpacity
+        <PressableScale
           style={[styles.filterChip, activeTab === 'ALL' && styles.filterChipActive]}
           onPress={() => {
             Haptics.selectionAsync();
             setActiveTab('ALL');
           }}
+          scaleTo={0.92}
         >
           <Text
             style={[
@@ -144,85 +164,84 @@ export const EmiScheduleScreen = () => {
           >
             All ({emis.length})
           </Text>
-        </TouchableOpacity>
+        </PressableScale>
 
-        <TouchableOpacity
-          style={[styles.filterChip, activeTab === 'DUE' && styles.filterChipActive]}
+        <PressableScale
+          style={[styles.filterChip, activeTab === 'DUE' && styles.filterChipActiveDue]}
           onPress={() => {
             Haptics.selectionAsync();
             setActiveTab('DUE');
           }}
+          scaleTo={0.92}
         >
           <Text
             style={[
               styles.filterChipText,
-              activeTab === 'DUE' && styles.filterChipTextActive,
+              activeTab === 'DUE' && styles.filterChipTextDue,
             ]}
           >
-            Due / Upcoming ({unpaidEmis.length})
+            Pending ({unpaidEmis.length})
           </Text>
-        </TouchableOpacity>
+        </PressableScale>
 
-        <TouchableOpacity
-          style={[styles.filterChip, activeTab === 'PAID' && styles.filterChipActive]}
+        <PressableScale
+          style={[styles.filterChip, activeTab === 'PAID' && styles.filterChipActivePaid]}
           onPress={() => {
             Haptics.selectionAsync();
             setActiveTab('PAID');
           }}
+          scaleTo={0.92}
         >
           <Text
             style={[
               styles.filterChipText,
-              activeTab === 'PAID' && styles.filterChipTextActive,
+              activeTab === 'PAID' && styles.filterChipTextPaid,
             ]}
           >
-            Settled ({paidEmis.length})
+            Collected ({paidEmis.length})
           </Text>
-        </TouchableOpacity>
+        </PressableScale>
       </View>
 
-      {/* Schedule FlatList */}
+      {/* EMI Rows List */}
       <FlatList
         data={filteredEmis}
         keyExtractor={item => item.id}
-        renderItem={({ item, index }) => (
-          <EMIRow
-            item={item}
-            index={index}
-            onReceiptPress={emi => setSelectedReceiptEmi(emi)}
-          />
-        )}
         contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#1A6FD6']}
-            tintColor="#1A6FD6"
+            tintColor={Colors.primary}
+            colors={[Colors.primary, Colors.success]}
           />
         }
+        renderItem={({ item, index }) => (
+          <EMIRow
+            item={item}
+            index={index}
+            onReceiptPress={() => setSelectedReceiptEmi(item)}
+          />
+        )}
         ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Calendar size={44} color="#94A3B8" />
-            <Text style={styles.emptyTitle}>No Installments in this Filter</Text>
-            <Text style={styles.emptySub}>
-              Switch filters to view all scheduled or settled payments.
-            </Text>
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No installments found for this filter</Text>
           </View>
         }
       />
 
-      {/* Digital Receipt Modal */}
-      {selectedReceiptEmi && (
+      {/* Receipt Modal */}
+      {selectedReceiptEmi && customer && (
         <ReceiptModal
           visible={!!selectedReceiptEmi}
-          emi={selectedReceiptEmi}
-          customer={customer}
           onClose={() => setSelectedReceiptEmi(null)}
+          customer={customer}
+          emi={selectedReceiptEmi}
         />
       )}
 
-      {/* Dynamic UPI Payment & QR Modal */}
+      {/* Payment Modal */}
       {customer && (
         <PaymentModal
           visible={paymentModalVisible}
@@ -239,54 +258,22 @@ export const EmiScheduleScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F8FF', // Light IDFC blue-white canvas
-  },
-  payDuesBanner: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#1A6FD6',
-    borderRadius: Radius.md,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginTop: 10,
-    elevation: 3,
-    shadowColor: '#1A6FD6',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-  },
-  payDuesLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  payDuesText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  payDuesCta: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '800',
+    backgroundColor: '#F8FAFC',
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.base,
-    paddingBottom: Spacing.sm,
+    paddingBottom: Spacing.md,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: '#F1F5F9',
   },
   headerTitle: {
     fontSize: 22,
     fontWeight: '800',
     color: '#0F172A',
-    letterSpacing: -0.3,
   },
   headerSub: {
     fontSize: 12,
@@ -294,72 +281,108 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   tenurePill: {
-    backgroundColor: '#EFF5FF',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: Radius.full,
     borderWidth: 1,
-    borderColor: 'rgba(26, 111, 214, 0.2)',
+    borderColor: '#BFDBFE',
   },
   tenurePillText: {
-    fontSize: 11,
-    fontWeight: '800',
+    fontSize: 12,
+    fontWeight: '700',
     color: '#1A6FD6',
   },
   summaryContainer: {
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.md,
+  },
+  summaryJellyCard: {
+    padding: 0,
   },
   summaryCard: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: Radius.lg,
-    padding: Spacing.base,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    elevation: 2,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingVertical: 14,
+    paddingHorizontal: 8,
   },
   summaryCol: {
-    flex: 1,
     alignItems: 'center',
+    flex: 1,
+  },
+  summaryLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 0.6,
+    marginBottom: 4,
+  },
+  summaryValue: {
+    fontSize: 19,
+    fontWeight: '800',
   },
   summaryDivider: {
     width: 1,
+    height: 36,
     backgroundColor: '#E2E8F0',
   },
-  summaryLabel: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#64748B',
-    letterSpacing: 0.6,
-    marginBottom: 2,
+  payDuesBanner: {
+    marginTop: 10,
+    backgroundColor: '#1A6FD6',
+    borderRadius: Radius.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    shadowColor: '#1A6FD6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  summaryValue: {
-    fontSize: 18,
-    fontWeight: '900',
-    fontVariant: ['tabular-nums'],
+  payDuesLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  payDuesText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  payDuesCta: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#EFF6FF',
   },
   filterBar: {
     flexDirection: 'row',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
     gap: 8,
   },
   filterChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: Radius.full,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
   filterChipActive: {
-    backgroundColor: '#1A6FD6',
-    borderColor: '#1A6FD6',
+    backgroundColor: '#0F172A',
+    borderColor: '#0F172A',
+  },
+  filterChipActiveDue: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#EF4444',
+  },
+  filterChipActivePaid: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#10B981',
   },
   filterChipText: {
     fontSize: 12,
@@ -368,26 +391,30 @@ const styles = StyleSheet.create({
   },
   filterChipTextActive: {
     color: '#FFFFFF',
-    fontWeight: '800',
+    fontWeight: '700',
+  },
+  filterChipTextDue: {
+    color: '#EF4444',
+    fontWeight: '700',
+  },
+  filterChipTextPaid: {
+    color: '#059669',
+    fontWeight: '700',
   },
   listContent: {
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.sm,
     paddingBottom: 40,
+    gap: 10,
   },
-  emptyState: {
+  emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 60,
+    paddingVertical: 40,
   },
-  emptyTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0F172A',
-    marginTop: 12,
-    marginBottom: 4,
-  },
-  emptySub: {
-    fontSize: 12,
-    color: '#64748B',
+  emptyText: {
+    fontSize: 13,
+    color: '#94A3B8',
+    fontWeight: '500',
   },
 });
