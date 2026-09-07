@@ -23,6 +23,8 @@ export const STORAGE_KEYS = {
   SETTINGS: '@telepoint_settings',
   DEVICE_ROLE: '@telepoint_device_role', // 'customer' | 'staff'
   ACTIVE_LOAN: '@telepoint_active_loan_id',
+  STAFF_ROLE: '@telepoint_staff_role', // 'admin' | 'retailer'
+  STAFF_USER: '@telepoint_staff_user',
 };
 
 export const THEME = {

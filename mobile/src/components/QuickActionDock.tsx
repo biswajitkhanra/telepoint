@@ -33,11 +33,7 @@ export const QuickActionDock: React.FC<QuickActionDockProps> = ({
 }) => {
   const handleCall = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (!retailerPhone) {
-      Alert.alert('Store Helpline', 'Retailer phone number is not listed for this loan.');
-      return;
-    }
-    Linking.openURL(`tel:${retailerPhone}`);
+    Linking.openURL('tel:7003617029');
   };
 
   const handleHelp = () => {

@@ -41,7 +41,7 @@ import { Spacing, Radius, Shadow } from '../constants/design';
 export const LoginScreen = () => {
   const insets = useSafeAreaInsets();
   const topInset = Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight || 28 : 0);
-  const { login, isLoading, resetRolePreference } = useAuth();
+  const { login, isLoading, resetRolePreference, setRolePreference } = useAuth();
   const [authMode, setAuthMode] = useState<'mobile' | 'aadhaar'>('mobile');
   const [mobile, setMobile] = useState('');
   const [aadhaar, setAadhaar] = useState('');
@@ -138,12 +138,12 @@ export const LoginScreen = () => {
               activeOpacity={0.8}
               onPress={async () => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                await resetRolePreference();
+                await setRolePreference('staff');
               }}
               style={styles.topRoleSwitchPill}
             >
               <Users size={12} color="#1A6FD6" />
-              <Text style={styles.topRoleSwitchPillText}>Retailer or Admin? Switch Mode ▾</Text>
+              <Text style={styles.topRoleSwitchPillText}>Store Retailer or Super Admin? Staff Login ➔</Text>
             </TouchableOpacity>
           </View>
 
@@ -318,20 +318,20 @@ export const LoginScreen = () => {
             style={styles.switchStaffBtn}
             onPress={async () => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              await resetRolePreference();
+              await setRolePreference('staff');
             }}
           >
             <Users size={15} color="#1A6FD6" />
             <Text style={styles.switchStaffText}>
-              Are you a Retailer or Admin? Open Staff Portal
+              Are you a Store Retailer or Super Admin? Open Staff Login →
             </Text>
           </TouchableOpacity>
 
-          {/* Footer note */}
+          {/* Footer note with fixed central helpline */}
           <View style={styles.footerNote}>
             <Sparkles size={13} color="#64748B" />
             <Text style={styles.footerText}>
-              Need assistance? Please contact your mobile financing retailer
+              Need assistance? Central Helpline: +91 70036 17029
             </Text>
           </View>
         </ScrollView>

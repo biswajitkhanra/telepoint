@@ -81,24 +81,26 @@ interface DueLoanItem {
 export const StaffPortalScreen = () => {
   const insets = useSafeAreaInsets();
   const topInset = Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight || 28 : 0);
-  const { setRolePreference } = useAuth();
+  const { setRolePreference, staffRole, logoutStaff } = useAuth();
   const webViewRef = useRef<WebView>(null);
   const [viewMode, setViewMode] = useState<StaffViewMode>('native');
   const [canGoBack, setCanGoBack] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [currentUrl, setCurrentUrl] = useState(`${PORTAL_BASE_URL}/login`);
+  const defaultStaffUrl =
+    staffRole === 'admin' ? `${PORTAL_BASE_URL}/admin` : `${PORTAL_BASE_URL}/retailer`;
+  const [currentUrl, setCurrentUrl] = useState(defaultStaffUrl);
 
-  // Live data fetched from server
+  // Live data fetched from server (initialized strictly at 0, no dummy data)
   const [upcomingList, setUpcomingList] = useState<UpcomingLoanItem[]>([]);
   const [dueList, setDueList] = useState<DueLoanItem[]>([]);
   const [activeTab, setActiveTab] = useState<'due' | 'upcoming'>('due');
   const [mtdStats, setMtdStats] = useState({
-    disbursedAmount: 245000,
-    collectedAmount: 182500,
-    activePhones: 38,
-    pendingApprovals: 4,
+    disbursedAmount: 0,
+    collectedAmount: 0,
+    activePhones: 0,
+    pendingApprovals: 0,
   });
 
   const loadLiveData = useCallback(async () => {
@@ -185,7 +187,7 @@ export const StaffPortalScreen = () => {
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Switch Account',
-          onPress: () => {
+          onPress: async () => {
             if (webViewRef.current) {
               webViewRef.current.injectJavaScript(`
                 try {
@@ -195,12 +197,10 @@ export const StaffPortalScreen = () => {
                     document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
                   });
                 } catch(e) {}
-                window.location.href = '/login';
                 true;
               `);
             }
-            setCurrentUrl(`${PORTAL_BASE_URL}/login`);
-            setViewMode('web');
+            await logoutStaff();
           },
         },
       ]
@@ -263,7 +263,9 @@ export const StaffPortalScreen = () => {
           )}
 
           <View style={styles.titleCol}>
-            <Text style={styles.headerTitle}>TELEPOINT STAFF</Text>
+            <Text style={styles.headerTitle}>
+              {staffRole === 'admin' ? 'TELEPOINT ADMIN' : 'TELEPOINT RETAILER'}
+            </Text>
             <View style={styles.liveRow}>
               <View style={styles.liveDot} />
               <Text style={styles.headerSub}>

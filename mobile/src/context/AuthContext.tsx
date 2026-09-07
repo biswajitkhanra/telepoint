@@ -14,6 +14,8 @@ interface AuthContextType {
   pushToken: string | null;
   isLoading: boolean;
   deviceRole: 'customer' | 'staff' | null;
+  staffRole: 'admin' | 'retailer' | null;
+  staffUser: { username: string; role: 'admin' | 'retailer' } | null;
   allLoans: MultiLoanCustomer[];
   setRolePreference: (role: 'customer' | 'staff') => Promise<void>;
   resetRolePreference: () => Promise<void>;
@@ -22,6 +24,9 @@ interface AuthContextType {
     multi?: boolean;
     customers?: MultiLoanCustomer[];
   }>;
+  loginStaff: (role: 'admin' | 'retailer', username: string, password?: string) => Promise<void>;
+  logoutStaff: () => Promise<void>;
+  setStaffRole: (role: 'admin' | 'retailer' | null) => Promise<void>;
   refreshData: () => Promise<void>;
   logout: () => Promise<void>;
   switchCustomerLogin: () => Promise<void>;
@@ -38,6 +43,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [pushToken, setPushToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [deviceRole, setDeviceRole] = useState<'customer' | 'staff' | null>(null);
+  const [staffRole, setStaffRoleState] = useState<'admin' | 'retailer' | null>(null);
+  const [staffUser, setStaffUser] = useState<{ username: string; role: 'admin' | 'retailer' } | null>(null);
   const [allLoans, setAllLoans] = useState<MultiLoanCustomer[]>([]);
 
   // Restore saved role & session on launch
@@ -48,6 +55,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const savedRole = await AsyncStorage.getItem(STORAGE_KEYS.DEVICE_ROLE);
         if (savedRole === 'customer' || savedRole === 'staff') {
           setDeviceRole(savedRole);
+        }
+
+        // Restore staff role & user
+        const savedStaffRole = await AsyncStorage.getItem(STORAGE_KEYS.STAFF_ROLE);
+        if (savedStaffRole === 'admin' || savedStaffRole === 'retailer') {
+          setStaffRoleState(savedStaffRole);
+        }
+        const savedStaffUser = await AsyncStorage.getItem(STORAGE_KEYS.STAFF_USER);
+        if (savedStaffUser) {
+          try {
+            setStaffUser(JSON.parse(savedStaffUser));
+          } catch {}
         }
 
         // Restore push token if saved
@@ -107,7 +126,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   async function resetRolePreference() {
     setDeviceRole(null);
-    await AsyncStorage.removeItem(STORAGE_KEYS.DEVICE_ROLE);
+    setStaffRoleState(null);
+    setStaffUser(null);
+    await AsyncStorage.multiRemove([
+      STORAGE_KEYS.DEVICE_ROLE,
+      STORAGE_KEYS.STAFF_ROLE,
+      STORAGE_KEYS.STAFF_USER,
+    ]);
   }
 
   async function switchActiveLoan(loanId: string) {
@@ -317,6 +342,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
+  async function loginStaff(role: 'admin' | 'retailer', username: string, password?: string) {
+    setIsLoading(true);
+    try {
+      const userObj = { username: username.trim(), role };
+      setStaffRoleState(role);
+      setStaffUser(userObj);
+      setDeviceRole('staff');
+      await AsyncStorage.setItem(STORAGE_KEYS.DEVICE_ROLE, 'staff');
+      await AsyncStorage.setItem(STORAGE_KEYS.STAFF_ROLE, role);
+      await AsyncStorage.setItem(STORAGE_KEYS.STAFF_USER, JSON.stringify(userObj));
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function logoutStaff() {
+    setIsLoading(true);
+    try {
+      setStaffRoleState(null);
+      setStaffUser(null);
+      await AsyncStorage.multiRemove([STORAGE_KEYS.STAFF_ROLE, STORAGE_KEYS.STAFF_USER]);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function setStaffRole(role: 'admin' | 'retailer' | null) {
+    if (role) {
+      setStaffRoleState(role);
+      await AsyncStorage.setItem(STORAGE_KEYS.STAFF_ROLE, role);
+    } else {
+      setStaffRoleState(null);
+      await AsyncStorage.removeItem(STORAGE_KEYS.STAFF_ROLE);
+    }
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -327,11 +388,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         pushToken,
         isLoading,
         deviceRole,
+        staffRole,
+        staffUser,
         allLoans,
         setRolePreference,
         resetRolePreference,
         switchActiveLoan,
         login,
+        loginStaff,
+        logoutStaff,
+        setStaffRole,
         refreshData,
         logout,
         switchCustomerLogin,

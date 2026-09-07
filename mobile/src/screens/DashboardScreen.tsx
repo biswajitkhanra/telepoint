@@ -476,15 +476,13 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
             <Text style={styles.actionBtnSecondaryText}>Schedule</Text>
           </PressableScale>
 
-          {customer.retailer?.mobile && (
-            <PressableScale
-              style={styles.actionBtnIcon}
-              onPress={() => Linking.openURL(`tel:${customer.retailer?.mobile}`)}
-              scaleTo={0.88}
-            >
-              <PhoneCall size={18} color="#0F172A" />
-            </PressableScale>
-          )}
+          <PressableScale
+            style={styles.actionBtnIcon}
+            onPress={() => Linking.openURL('tel:7003617029')}
+            scaleTo={0.88}
+          >
+            <PhoneCall size={18} color="#0F172A" />
+          </PressableScale>
         </View>
 
         {/* Next 3 Installments Activity Feed */}
