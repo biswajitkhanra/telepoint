@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Linking,
   Alert,
+  Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -19,6 +20,9 @@ import {
   CheckCircle2,
   Receipt,
   Sparkles,
+  Smartphone,
+  Check,
+  X,
 } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import { TitaniumLoanCard } from '../components/TitaniumLoanCard';
@@ -27,14 +31,16 @@ import { EmiHeroCard } from '../components/EmiHeroCard';
 import { QuickActionDock } from '../components/QuickActionDock';
 import { ReceiptModal } from '../components/ReceiptModal';
 import { BroadcastModal } from '../components/BroadcastModal';
-import { BroadcastItem, EMIScheduleItem } from '../types';
+import { BroadcastItem, EMIScheduleItem, MultiLoanCustomer } from '../types';
 import { THEME } from '../config';
 
 export const DashboardScreen = ({ navigation }: { navigation: any }) => {
-  const { customer, emis, breakdown, broadcasts, refreshData } = useAuth();
+  const { customer, emis, breakdown, broadcasts, refreshData, allLoans, switchActiveLoan } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [activeBroadcast, setActiveBroadcast] = useState<BroadcastItem | null>(null);
   const [receiptEmi, setReceiptEmi] = useState<EMIScheduleItem | null>(null);
+  const [switchModalVisible, setSwitchModalVisible] = useState(false);
+  const [switchingLoanId, setSwitchingLoanId] = useState<string | null>(null);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -85,6 +91,21 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
     }
   };
 
+  const handleSelectLoan = async (loanId: string) => {
+    if (loanId === customer.id) {
+      setSwitchModalVisible(false);
+      return;
+    }
+    try {
+      setSwitchingLoanId(loanId);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await switchActiveLoan(loanId);
+    } finally {
+      setSwitchingLoanId(null);
+      setSwitchModalVisible(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -101,21 +122,38 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
       >
         {/* Top Header Bar */}
         <View style={styles.topHeader}>
-          <View>
+          <View style={styles.headerLeft}>
             <View style={styles.greetingRow}>
               <Text style={styles.greetingText}>HELLO,</Text>
               <View style={styles.kycShield}>
-                <ShieldCheck size={12} color="#34D399" />
+                <ShieldCheck size={12} color="#10B981" />
                 <Text style={styles.kycText}>VERIFIED</Text>
               </View>
             </View>
             <Text style={styles.customerName}>{customer.customer_name}</Text>
+
+            {/* Multi-Loan Switcher Pill (when customer has 2+ loans on this phone/Aadhaar) */}
+            {allLoans.length > 1 && (
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={styles.switchLoanPill}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setSwitchModalVisible(true);
+                }}
+              >
+                <Smartphone size={12} color="#2563EB" />
+                <Text style={styles.switchLoanPillText}>
+                  {customer.model_no || 'Active Device'} • Switch Device ({allLoans.length}) ▾
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           <View style={styles.retailerPill}>
             <Text style={styles.retailerLabel}>PARTNER STORE</Text>
             <Text style={styles.retailerName} numberOfLines={1}>
-              {customer.retailer?.name || 'Telepoint Network'}
+              {customer.retailer?.name || 'Telepoint Partner'}
             </Text>
           </View>
         </View>
@@ -131,21 +169,23 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
             }}
           >
             <LinearGradient
-              colors={['rgba(245, 158, 11, 0.22)', 'rgba(217, 119, 6, 0.12)']}
+              colors={['#FEF3C7', '#FDE68A']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
               style={styles.broadcastGradient}
             >
               <View style={styles.broadcastLeft}>
                 <View style={styles.broadcastIconBox}>
-                  <Megaphone size={16} color="#FBBF24" />
+                  <Megaphone size={16} color="#D97706" />
                 </View>
                 <View style={styles.broadcastTextCol}>
-                  <Text style={styles.broadcastTag}>STORE BROADCAST</Text>
+                  <Text style={styles.broadcastTag}>STORE ANNOUNCEMENT</Text>
                   <Text style={styles.broadcastMessage} numberOfLines={1}>
                     {broadcasts[0].message}
                   </Text>
                 </View>
               </View>
-              <ChevronRight size={18} color="#FBBF24" />
+              <ChevronRight size={18} color="#D97706" />
             </LinearGradient>
           </TouchableOpacity>
         )}
@@ -219,7 +259,7 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
                     {isPaid ? (
                       <CheckCircle2 size={18} color="#10B981" />
                     ) : (
-                      <Clock size={18} color="#F59E0B" />
+                      <Clock size={18} color="#D97706" />
                     )}
                   </View>
                   <View>
@@ -236,8 +276,8 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
                   <Text style={styles.activityAmount}>{formatInr(emi.amount)}</Text>
                   {isPaid ? (
                     <View style={styles.receiptChip}>
-                      <Receipt size={10} color="#6EE7B7" />
-                      <Text style={styles.receiptChipText}>SLIP</Text>
+                      <Receipt size={10} color="#059669" />
+                      <Text style={styles.receiptChipText}>RECEIPT</Text>
                     </View>
                   ) : (
                     <Text style={styles.pendingTag}>PENDING</Text>
@@ -256,6 +296,80 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
           </Text>
         </View>
       </ScrollView>
+
+      {/* Switch Financed Device Modal */}
+      <Modal
+        visible={switchModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSwitchModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Switch Financed Device</Text>
+                <Text style={styles.modalSubtitle}>
+                  Select which active EMI device loan you wish to view
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setSwitchModalVisible(false)}
+                style={styles.closeBtn}
+              >
+                <X size={20} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+              {allLoans.map((loan: MultiLoanCustomer) => {
+                const isCurrent = loan.id === customer.id;
+                const isSwitching = switchingLoanId === loan.id;
+                return (
+                  <TouchableOpacity
+                    key={loan.id}
+                    activeOpacity={0.8}
+                    style={[
+                      styles.loanOptionCard,
+                      isCurrent && styles.loanOptionCardActive,
+                    ]}
+                    onPress={() => handleSelectLoan(loan.id)}
+                    disabled={isSwitching}
+                  >
+                    <View style={styles.loanOptionIconBox}>
+                      <Smartphone size={20} color={isCurrent ? '#2563EB' : '#64748B'} />
+                    </View>
+                    <View style={styles.loanOptionInfo}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={styles.loanOptionModel}>
+                          {loan.model_no || 'Smartphone'}
+                        </Text>
+                        {isCurrent && (
+                          <View style={styles.currentBadge}>
+                            <Text style={styles.currentBadgeText}>CURRENT</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={styles.loanOptionImei}>IMEI: {loan.imei}</Text>
+                      <Text style={styles.loanOptionStatus}>Status: {loan.status || 'ACTIVE'}</Text>
+                    </View>
+
+                    <View style={styles.loanOptionRight}>
+                      {isCurrent ? (
+                        <View style={styles.activeCheckCircle}>
+                          <Check size={14} color="#FFFFFF" />
+                        </View>
+                      ) : (
+                        <ChevronRight size={18} color="#94A3B8" />
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* Broadcast Detail Modal */}
       <BroadcastModal
@@ -278,7 +392,7 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: THEME.bg.darkest,
+    backgroundColor: THEME.bg.darkest, // #F8FAFC
   },
   scrollContent: {
     paddingBottom: 40,
@@ -286,10 +400,14 @@ const styles = StyleSheet.create({
   topHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingHorizontal: 18,
     paddingTop: 16,
-    paddingBottom: 10,
+    paddingBottom: 12,
+  },
+  headerLeft: {
+    flex: 1,
+    paddingRight: 10,
   },
   greetingRow: {
     flexDirection: 'row',
@@ -298,7 +416,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   greetingText: {
-    color: '#94A3B8',
+    color: '#64748B',
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 1.2,
@@ -313,26 +431,49 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   kycText: {
-    color: '#34D399',
+    color: '#059669',
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.6,
   },
   customerName: {
-    color: '#FFFFFF',
+    color: '#0F172A',
     fontSize: 22,
     fontWeight: '900',
     letterSpacing: 0.2,
   },
+  switchLoanPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(37, 99, 235, 0.08)',
+    borderColor: 'rgba(37, 99, 235, 0.2)',
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    marginTop: 6,
+    alignSelf: 'flex-start',
+  },
+  switchLoanPillText: {
+    color: '#2563EB',
+    fontSize: 11,
+    fontWeight: '700',
+  },
   retailerPill: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: '#FFFFFF',
     borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(15, 23, 42, 0.08)',
     alignItems: 'flex-end',
     maxWidth: 160,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
   },
   retailerLabel: {
     color: '#64748B',
@@ -342,7 +483,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   retailerName: {
-    color: '#93C5FD',
+    color: '#2563EB',
     fontSize: 11,
     fontWeight: '700',
   },
@@ -352,7 +493,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.3)',
+    borderColor: 'rgba(217, 119, 6, 0.25)',
   },
   broadcastGradient: {
     flexDirection: 'row',
@@ -371,7 +512,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 10,
-    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    backgroundColor: 'rgba(217, 119, 6, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -379,13 +520,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   broadcastTag: {
-    color: '#FBBF24',
+    color: '#B45309',
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.8,
   },
   broadcastMessage: {
-    color: '#FDE68A',
+    color: '#78350F',
     fontSize: 12,
     fontWeight: '600',
     marginTop: 1,
@@ -393,11 +534,16 @@ const styles = StyleSheet.create({
   activitySection: {
     marginHorizontal: 16,
     marginTop: 14,
-    backgroundColor: 'rgba(14, 19, 31, 0.6)',
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: 'rgba(15, 23, 42, 0.08)',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
   },
   activityHeader: {
     flexDirection: 'row',
@@ -406,13 +552,13 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   activityTitle: {
-    color: '#94A3B8',
+    color: '#64748B',
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.1,
   },
   viewAllText: {
-    color: '#60A5FA',
+    color: '#2563EB',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -422,7 +568,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.04)',
+    borderBottomColor: 'rgba(15, 23, 42, 0.04)',
   },
   activityLeft: {
     flexDirection: 'row',
@@ -440,10 +586,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(16, 185, 129, 0.12)',
   },
   iconPending: {
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    backgroundColor: 'rgba(217, 119, 6, 0.12)',
   },
   activityItemTitle: {
-    color: '#F8FAFC',
+    color: '#0F172A',
     fontSize: 13,
     fontWeight: '700',
   },
@@ -456,7 +602,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   activityAmount: {
-    color: '#FFFFFF',
+    color: '#0F172A',
     fontSize: 14,
     fontWeight: '800',
     marginBottom: 3,
@@ -471,12 +617,16 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   receiptChipText: {
-    color: '#6EE7B7',
+    color: '#059669',
     fontSize: 9,
     fontWeight: '800',
   },
   pendingTag: {
-    color: '#FBBF24',
+    color: '#D97706',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.5,
@@ -493,5 +643,102 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontSize: 10,
     fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    paddingBottom: 36,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  closeBtn: {
+    padding: 4,
+  },
+  loanOptionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
+    borderColor: 'rgba(15, 23, 42, 0.08)',
+    marginBottom: 10,
+  },
+  loanOptionCardActive: {
+    borderColor: '#2563EB',
+    backgroundColor: 'rgba(37, 99, 235, 0.04)',
+  },
+  loanOptionIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(15, 23, 42, 0.08)',
+  },
+  loanOptionInfo: {
+    flex: 1,
+  },
+  loanOptionModel: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  currentBadge: {
+    backgroundColor: 'rgba(37, 99, 235, 0.12)',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+  },
+  currentBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#2563EB',
+  },
+  loanOptionImei: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  loanOptionStatus: {
+    fontSize: 11,
+    color: '#059669',
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  loanOptionRight: {
+    marginLeft: 8,
+  },
+  activeCheckCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#2563EB',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

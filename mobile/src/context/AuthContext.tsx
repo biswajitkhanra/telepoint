@@ -14,8 +14,10 @@ interface AuthContextType {
   pushToken: string | null;
   isLoading: boolean;
   deviceRole: 'customer' | 'staff' | null;
+  allLoans: MultiLoanCustomer[];
   setRolePreference: (role: 'customer' | 'staff') => Promise<void>;
   resetRolePreference: () => Promise<void>;
+  switchActiveLoan: (loanId: string) => Promise<void>;
   login: (params: { aadhaar?: string; mobile?: string; customer_id?: string }) => Promise<{
     multi?: boolean;
     customers?: MultiLoanCustomer[];
@@ -34,6 +36,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [pushToken, setPushToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [deviceRole, setDeviceRole] = useState<'customer' | 'staff' | null>(null);
+  const [allLoans, setAllLoans] = useState<MultiLoanCustomer[]>([]);
 
   // Restore saved role & session on launch
   useEffect(() => {
@@ -54,9 +57,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setEmis(parsed.emis || []);
             setBreakdown(parsed.breakdown || null);
             setBroadcasts(parsed.broadcasts || []);
+            if (Array.isArray(parsed.allLoans)) {
+              setAllLoans(parsed.allLoans);
+            }
 
-            // Silently refresh in background
-            refreshCustomer(parsed.customer.id);
+            // Silently refresh in background and discover any additional loans
+            refreshCustomer(parsed.customer.id, parsed.customer.mobile);
           }
         }
       } catch (e) {
@@ -79,14 +85,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await AsyncStorage.removeItem(STORAGE_KEYS.DEVICE_ROLE);
   }
 
-  async function refreshCustomer(customerId: string) {
+  async function switchActiveLoan(loanId: string) {
+    setIsLoading(true);
     try {
-      const res = await loginCustomer({ customer_id: customerId });
+      const res = await loginCustomer({ customer_id: loanId });
       if (res.customer) {
         setCustomer(res.customer);
         setEmis(res.emis || []);
         setBreakdown(res.breakdown || null);
         setBroadcasts(res.broadcasts || []);
+
         await AsyncStorage.setItem(
           STORAGE_KEYS.SESSION,
           JSON.stringify({
@@ -94,6 +102,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             emis: res.emis,
             breakdown: res.breakdown,
             broadcasts: res.broadcasts,
+            allLoans,
+          })
+        );
+        await AsyncStorage.setItem(STORAGE_KEYS.ACTIVE_LOAN, loanId);
+      }
+    } catch (e) {
+      console.warn('[AuthContext] Switch loan failed:', e);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function refreshCustomer(customerId: string, mobileNum?: string) {
+    try {
+      const res = await loginCustomer({ customer_id: customerId });
+      if (res.customer) {
+        setCustomer(res.customer);
+        setEmis(res.emis || []);
+        setBreakdown(res.breakdown || null);
+        setBroadcasts(res.broadcasts || []);
+
+        // Also check if multiple loans exist for this mobile number
+        let updatedLoans = allLoans;
+        if (mobileNum || res.customer.mobile) {
+          try {
+            const multiCheck = await loginCustomer({ mobile: mobileNum || res.customer.mobile });
+            if (multiCheck.multi && multiCheck.customers) {
+              setAllLoans(multiCheck.customers);
+              updatedLoans = multiCheck.customers;
+            }
+          } catch (mErr) {
+            // ignore multi check error
+          }
+        }
+
+        await AsyncStorage.setItem(
+          STORAGE_KEYS.SESSION,
+          JSON.stringify({
+            customer: res.customer,
+            emis: res.emis,
+            breakdown: res.breakdown,
+            broadcasts: res.broadcasts,
+            allLoans: updatedLoans,
           })
         );
       }
@@ -109,6 +160,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const res = await loginCustomer(params);
 
       if (res.multi && res.customers) {
+        setAllLoans(res.customers);
         setIsLoading(false);
         return { multi: true, customers: res.customers };
       }
@@ -122,6 +174,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setBreakdown(res.breakdown || null);
       setBroadcasts(res.broadcasts || []);
 
+      // Check if other loans exist under this mobile
+      let currentLoans: MultiLoanCustomer[] = allLoans;
+      if (params.mobile || res.customer.mobile) {
+        try {
+          const multiCheck = await loginCustomer({ mobile: params.mobile || res.customer.mobile });
+          if (multiCheck.multi && multiCheck.customers) {
+            setAllLoans(multiCheck.customers);
+            currentLoans = multiCheck.customers;
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
       // Persist session
       await AsyncStorage.setItem(
         STORAGE_KEYS.SESSION,
@@ -130,6 +196,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           emis: res.emis,
           breakdown: res.breakdown,
           broadcasts: res.broadcasts,
+          allLoans: currentLoans,
         })
       );
 
@@ -196,8 +263,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         pushToken,
         isLoading,
         deviceRole,
+        allLoans,
         setRolePreference,
         resetRolePreference,
+        switchActiveLoan,
         login,
         refreshData,
         logout,

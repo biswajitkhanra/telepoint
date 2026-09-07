@@ -46,10 +46,10 @@ test('3. Mobile launcher and splash assets are valid high-res PNG files', () => 
 test('4. Neo-Fintech Design System Tokens & Brand Constants', () => {
   const config = fs.readFileSync('mobile/src/config.ts', 'utf8');
 
-  assert.ok(config.includes('#080B11'), 'Must have Deep Obsidian Canvas');
-  assert.ok(config.includes('#0E131F'), 'Must have Titanium Card Surface');
+  assert.ok(config.includes('#F8FAFC'), 'Must have Clean Pearl Alabaster Canvas (Light Theme)');
+  assert.ok(config.includes('#FFFFFF'), 'Must have Crisp Pure White Card Surface');
   assert.ok(config.includes('#10B981'), 'Must have Emerald Mint');
-  assert.ok(config.includes('#3B82F6'), 'Must have Electric Sapphire');
+  assert.ok(config.includes('#2563EB'), 'Must have Royal Telepoint Blue');
   assert.ok(config.includes('SPRING_CONFIG'), 'Must have spring animation physics');
   assert.ok(config.includes('TELEPOINT_BRAND'), 'Must have Telepoint brand metadata');
 });
