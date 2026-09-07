@@ -13,7 +13,9 @@ import {
   Modal,
   SafeAreaView,
   StatusBar,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   User,
   Phone,
@@ -36,7 +38,9 @@ import { Colors } from '../constants/colors';
 import { Spacing, Radius, Shadow } from '../constants/design';
 
 export const ProfileScreen = () => {
-  const { customer, pushToken, logout, isLoading, allLoans, switchActiveLoan, resetRolePreference } = useAuth();
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight || 28 : 0);
+  const { customer, pushToken, logout, isLoading, allLoans, switchActiveLoan, resetRolePreference, switchCustomerLogin } = useAuth();
   const [switchModalVisible, setSwitchModalVisible] = useState(false);
   const [switchingLoanId, setSwitchingLoanId] = useState<string | null>(null);
 
@@ -98,8 +102,8 @@ export const ProfileScreen = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      {/* Screen Header */}
-      <View style={styles.header}>
+      {/* Screen Header with Notch Inset */}
+      <View style={[styles.header, { paddingTop: topInset + 12 }]}>
         <Text style={styles.headerTitle}>Account & Security</Text>
         <Text style={styles.headerSub}>
           Verified borrower profile & loan credentials
@@ -251,6 +255,36 @@ export const ProfileScreen = () => {
         {/* Actions & Role Switcher */}
         <View style={styles.section}>
           <Text style={styles.sectionHeading}>APP MODE & LOGOUT</Text>
+
+          <TouchableOpacity
+            style={styles.actionRowCard}
+            activeOpacity={0.8}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              Alert.alert(
+                'Switch Customer Account',
+                'Do you want to log out and sign in with another registered Mobile or Aadhaar number?',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Switch Customer',
+                    onPress: async () => {
+                      await switchCustomerLogin();
+                    },
+                  },
+                ]
+              );
+            }}
+          >
+            <Repeat size={18} color="#059669" />
+            <View style={styles.actionRowInfo}>
+              <Text style={styles.actionRowTitle}>Log in as Another Customer</Text>
+              <Text style={styles.actionRowSub}>
+                Switch profile or enter another registered borrower number
+              </Text>
+            </View>
+            <ChevronRight size={18} color="#94A3B8" />
+          </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.actionRowCard}

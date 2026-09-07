@@ -11,13 +11,16 @@ import {
   RefreshControl,
   SafeAreaView,
   StatusBar,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { Calendar, Filter, CheckCircle2, Clock } from 'lucide-react-native';
+import { Calendar, Filter, CheckCircle2, Clock, Zap } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import { EMIRow } from '../components/EMIRow';
 import { CountUp } from '../components/CountUp';
 import { ReceiptModal } from '../components/ReceiptModal';
+import { PaymentModal } from '../components/PaymentModal';
 import { EMIScheduleItem } from '../types';
 import { Colors } from '../constants/colors';
 import { Spacing, Radius, Shadow } from '../constants/design';
@@ -25,10 +28,13 @@ import { Spacing, Radius, Shadow } from '../constants/design';
 type FilterTab = 'ALL' | 'DUE' | 'PAID';
 
 export const EmiScheduleScreen = () => {
-  const { customer, emis, refreshData } = useAuth();
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight || 28 : 0);
+  const { customer, emis, breakdown, refreshData } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<FilterTab>('ALL');
   const [selectedReceiptEmi, setSelectedReceiptEmi] = useState<EMIScheduleItem | null>(null);
+  const [paymentModalVisible, setPaymentModalVisible] = useState(false);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -64,8 +70,8 @@ export const EmiScheduleScreen = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      {/* Screen Header */}
-      <View style={styles.header}>
+      {/* Top Header with Notch Inset */}
+      <View style={[styles.header, { paddingTop: topInset + 12 }]}>
         <View>
           <Text style={styles.headerTitle}>EMI Schedule</Text>
           <Text style={styles.headerSub}>
@@ -102,6 +108,23 @@ export const EmiScheduleScreen = () => {
             />
           </View>
         </View>
+
+        {unpaidEmis.length > 0 && customer && (
+          <TouchableOpacity
+            style={styles.payDuesBanner}
+            activeOpacity={0.88}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              setPaymentModalVisible(true);
+            }}
+          >
+            <View style={styles.payDuesLeft}>
+              <Zap size={16} color="#FFFFFF" />
+              <Text style={styles.payDuesText}>Pay Due EMI via UPI / QR</Text>
+            </View>
+            <Text style={styles.payDuesCta}>Pay Now ➔</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Filter Tabs */}
@@ -198,6 +221,17 @@ export const EmiScheduleScreen = () => {
           onClose={() => setSelectedReceiptEmi(null)}
         />
       )}
+
+      {/* Dynamic UPI Payment & QR Modal */}
+      {customer && (
+        <PaymentModal
+          visible={paymentModalVisible}
+          onClose={() => setPaymentModalVisible(false)}
+          customer={customer}
+          emis={emis}
+          breakdown={breakdown}
+        />
+      )}
     </SafeAreaView>
   );
 };
@@ -206,6 +240,36 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F8FF', // Light IDFC blue-white canvas
+  },
+  payDuesBanner: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#1A6FD6',
+    borderRadius: Radius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginTop: 10,
+    elevation: 3,
+    shadowColor: '#1A6FD6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+  payDuesLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  payDuesText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  payDuesCta: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
   },
   header: {
     flexDirection: 'row',

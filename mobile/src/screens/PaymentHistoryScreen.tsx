@@ -11,7 +11,9 @@ import {
   SafeAreaView,
   StatusBar,
   TouchableOpacity,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   CheckCircle2,
   Calendar,
@@ -30,6 +32,8 @@ import { Colors } from '../constants/colors';
 import { Spacing, Radius, Shadow } from '../constants/design';
 
 export const PaymentHistoryScreen = () => {
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight || 28 : 0);
   const { customer, emis, refreshData } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedReceiptEmi, setSelectedReceiptEmi] = useState<EMIScheduleItem | null>(null);
@@ -124,8 +128,8 @@ export const PaymentHistoryScreen = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      {/* Screen Header */}
-      <View style={styles.header}>
+      {/* Screen Header with Notch Inset */}
+      <View style={[styles.header, { paddingTop: topInset + 12 }]}>
         <Text style={styles.headerTitle}>Payment History</Text>
         <Text style={styles.headerSub}>
           Verified EMI transactions & digital receipts

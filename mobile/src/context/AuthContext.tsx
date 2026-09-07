@@ -24,6 +24,8 @@ interface AuthContextType {
   }>;
   refreshData: () => Promise<void>;
   logout: () => Promise<void>;
+  switchCustomerLogin: () => Promise<void>;
+  switchRole: (role: 'customer' | 'staff' | null) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -279,6 +281,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
+  async function switchCustomerLogin() {
+    setIsLoading(true);
+    try {
+      if (customer?.id && pushToken) {
+        const deviceId = Device.osInternalBuildId || `${Device.modelName || 'device'}-${Device.osVersion}`;
+        await deactivatePushToken({
+          customer_id: customer.id,
+          push_token: pushToken,
+          device_id: deviceId,
+        }).catch(() => {});
+      }
+      await AsyncStorage.multiRemove([STORAGE_KEYS.SESSION, STORAGE_KEYS.TOKEN, STORAGE_KEYS.ACTIVE_LOAN]);
+      setCustomer(null);
+      setEmis([]);
+      setBreakdown(null);
+      setBroadcasts([]);
+      setAllLoans([]);
+      setPushToken(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function switchRole(role: 'customer' | 'staff' | null) {
+    setIsLoading(true);
+    try {
+      if (role === null) {
+        await resetRolePreference();
+      } else {
+        await setRolePreference(role);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -296,6 +334,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         refreshData,
         logout,
+        switchCustomerLogin,
+        switchRole,
       }}
     >
       {children}

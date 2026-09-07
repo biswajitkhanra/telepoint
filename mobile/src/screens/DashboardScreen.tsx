@@ -14,7 +14,9 @@ import {
   Modal,
   SafeAreaView,
   StatusBar,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import {
@@ -32,24 +34,34 @@ import {
   Calendar,
   AlertCircle,
   TrendingUp,
+  Zap,
+  QrCode,
+  User,
+  Users,
+  ArrowLeftRight,
 } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import { GradientCard } from '../components/GradientCard';
 import { CountUp } from '../components/CountUp';
 import { ReceiptModal } from '../components/ReceiptModal';
 import { BroadcastModal } from '../components/BroadcastModal';
+import { PaymentModal } from '../components/PaymentModal';
 import { BroadcastItem, EMIScheduleItem } from '../types';
 import { Colors } from '../constants/colors';
 import { Spacing, Radius, Shadow } from '../constants/design';
 import { Typography } from '../constants/typography';
 
 export const DashboardScreen = ({ navigation }: { navigation: any }) => {
-  const { customer, emis, breakdown, broadcasts, refreshData, allLoans, switchActiveLoan } = useAuth();
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight || 28 : 0);
+  const { customer, emis, breakdown, broadcasts, refreshData, allLoans, switchActiveLoan, switchCustomerLogin, switchRole } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [activeBroadcast, setActiveBroadcast] = useState<BroadcastItem | null>(null);
   const [receiptEmi, setReceiptEmi] = useState<EMIScheduleItem | null>(null);
   const [switchModalVisible, setSwitchModalVisible] = useState(false);
   const [switchingLoanId, setSwitchingLoanId] = useState<string | null>(null);
+  const [paymentModalVisible, setPaymentModalVisible] = useState(false);
+  const [accountMenuVisible, setAccountMenuVisible] = useState(false);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -106,32 +118,10 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
       })()
     : undefined;
 
-  // Handle direct UPI Payment intent
+  // Handle direct UPI Payment intent & Dynamic QR modal (Payee: biswajit.khanra82@axl)
   const handlePayUpi = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const payeeMobile = customer.retailer?.mobile;
-    const amount = nextEmi?.amount || breakdown?.total_payable || customer.emi_amount;
-
-    if (payeeMobile) {
-      const upiUrl = `upi://pay?pa=${payeeMobile}@paytm&pn=Telepoint&am=${amount}&cu=INR&tn=${encodeURIComponent(
-        `EMI ${nextEmi?.emi_no || 1} | ${customer.customer_name}`
-      )}`;
-      Linking.canOpenURL(upiUrl).then(supported => {
-        if (supported) {
-          Linking.openURL(upiUrl);
-        } else {
-          Alert.alert(
-            'Retailer UPI Details',
-            `Pay via any UPI App:\nVPA: ${payeeMobile}@paytm\nAmount: ₹${amount.toLocaleString('en-IN')}\nRetailer: ${customer.retailer?.name}`
-          );
-        }
-      });
-    } else {
-      Alert.alert(
-        'Store Payment',
-        `Please contact ${customer.retailer?.name || 'your retailer partner'} to complete this installment payment.`
-      );
-    }
+    setPaymentModalVisible(true);
   };
 
   const handleSelectLoan = async (loanId: string) => {
@@ -165,8 +155,8 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Top Header Bar */}
-        <View style={styles.topHeader}>
+        {/* Top Header Bar with Dynamic Safe Area Inset */}
+        <View style={[styles.topHeader, { paddingTop: topInset + 8 }]}>
           <View style={styles.headerLeft}>
             <View style={styles.greetingRow}>
               <Text style={styles.greetingText}>HELLO,</Text>
@@ -195,11 +185,26 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
             )}
           </View>
 
-          <View style={styles.retailerPill}>
-            <Text style={styles.retailerLabel}>PARTNER STORE</Text>
-            <Text style={styles.retailerName} numberOfLines={1}>
-              {customer.retailer?.name || 'Telepoint Partner'}
-            </Text>
+          <View style={styles.headerRightCol}>
+            {/* Account & Role Switcher Pill */}
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setAccountMenuVisible(true);
+              }}
+              style={styles.accountActionPill}
+            >
+              <User size={12} color="#1A6FD6" />
+              <Text style={styles.accountActionPillText}>Account ▾</Text>
+            </TouchableOpacity>
+
+            <View style={styles.retailerPill}>
+              <Text style={styles.retailerLabel}>PARTNER STORE</Text>
+              <Text style={styles.retailerName} numberOfLines={1}>
+                {customer.retailer?.name || 'Telepoint Partner'}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -300,15 +305,24 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
           </ScrollView>
         </View>
 
-        {/* Quick Action Dock */}
+        {/* Fintech Quick Action Dock */}
         <View style={styles.actionDock}>
           <TouchableOpacity
             style={[styles.actionBtn, styles.actionBtnPrimary]}
             activeOpacity={0.88}
             onPress={handlePayUpi}
           >
-            <CreditCard size={18} color="#FFFFFF" />
-            <Text style={styles.actionBtnPrimaryText}>Pay Next EMI</Text>
+            <Zap size={17} color="#FFFFFF" />
+            <Text style={styles.actionBtnPrimaryText}>Pay EMI</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.actionBtnQr]}
+            activeOpacity={0.88}
+            onPress={handlePayUpi}
+          >
+            <QrCode size={17} color="#1A6FD6" />
+            <Text style={styles.actionBtnQrText}>Scan QR</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -316,8 +330,8 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
             activeOpacity={0.88}
             onPress={() => navigation.navigate('EmiSchedule')}
           >
-            <Calendar size={18} color="#1A6FD6" />
-            <Text style={styles.actionBtnSecondaryText}>View Schedule</Text>
+            <Calendar size={17} color="#1A6FD6" />
+            <Text style={styles.actionBtnSecondaryText}>Schedule</Text>
           </TouchableOpacity>
 
           {customer.retailer?.mobile && (
@@ -470,6 +484,137 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
         </View>
       </Modal>
 
+      {/* Account & Role Switcher Sheet */}
+      <Modal
+        visible={accountMenuVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setAccountMenuVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalTitleRow}>
+                <User size={20} color="#1A6FD6" />
+                <Text style={styles.modalTitle}>Borrower Account & Role</Text>
+              </View>
+              <TouchableOpacity onPress={() => setAccountMenuVisible(false)}>
+                <X size={20} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalSub}>
+              Signed in as {customer.customer_name} (+91 {customer.mobile})
+            </Text>
+
+            {/* Option 1: Switch Financed Device if multiple loans */}
+            {allLoans.length > 1 && (
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={styles.menuOptionBtn}
+                onPress={() => {
+                  setAccountMenuVisible(false);
+                  setTimeout(() => setSwitchModalVisible(true), 300);
+                }}
+              >
+                <Smartphone size={18} color="#1A6FD6" />
+                <View style={styles.menuOptionInfo}>
+                  <Text style={styles.menuOptionTitle}>Switch Financed Device</Text>
+                  <Text style={styles.menuOptionSub}>Toggle among {allLoans.length} active device loans</Text>
+                </View>
+                <ChevronRight size={18} color="#94A3B8" />
+              </TouchableOpacity>
+            )}
+
+            {/* Option 2: Log in as Another Customer */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={styles.menuOptionBtn}
+              onPress={() => {
+                setAccountMenuVisible(false);
+                Alert.alert(
+                  'Switch Customer Account',
+                  'Do you want to sign in with a different registered Mobile or Aadhaar number?',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Switch Customer',
+                      onPress: async () => {
+                        await switchCustomerLogin();
+                      },
+                    },
+                  ]
+                );
+              }}
+            >
+              <ArrowLeftRight size={18} color="#059669" />
+              <View style={styles.menuOptionInfo}>
+                <Text style={styles.menuOptionTitle}>Log in as Another Customer</Text>
+                <Text style={styles.menuOptionSub}>Sign in with a different Mobile or Aadhaar</Text>
+              </View>
+              <ChevronRight size={18} color="#94A3B8" />
+            </TouchableOpacity>
+
+            {/* Option 3: Switch to Staff Mode (Retailer / Admin) */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={styles.menuOptionBtn}
+              onPress={() => {
+                setAccountMenuVisible(false);
+                Alert.alert(
+                  'Switch to Staff Mode',
+                  'Do you want to switch this phone to Retailer or Admin mode?',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Open Staff Portal',
+                      onPress: async () => {
+                        await switchRole('staff');
+                      },
+                    },
+                  ]
+                );
+              }}
+            >
+              <Users size={18} color="#4F46E5" />
+              <View style={styles.menuOptionInfo}>
+                <Text style={styles.menuOptionTitle}>Switch App Mode (Staff)</Text>
+                <Text style={styles.menuOptionSub}>Access Retailer or Admin store operations</Text>
+              </View>
+              <ChevronRight size={18} color="#94A3B8" />
+            </TouchableOpacity>
+
+            {/* Option 4: Full Profile */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={styles.menuOptionBtn}
+              onPress={() => {
+                setAccountMenuVisible(false);
+                navigation.navigate('Profile');
+              }}
+            >
+              <ShieldCheck size={18} color="#1A6FD6" />
+              <View style={styles.menuOptionInfo}>
+                <Text style={styles.menuOptionTitle}>View Profile & Security</Text>
+                <Text style={styles.menuOptionSub}>Masked Aadhaar, loan terms & partner store</Text>
+              </View>
+              <ChevronRight size={18} color="#94A3B8" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Dynamic UPI Payment & QR Modal (Payee: biswajit.khanra82@axl) */}
+      <PaymentModal
+        visible={paymentModalVisible}
+        onClose={() => setPaymentModalVisible(false)}
+        customer={customer}
+        emis={emis}
+        breakdown={breakdown}
+        onSubmitUtr={({ amount, utr, paymentType }) => {
+          console.log('[DashboardScreen] Customer submitted payment UTR:', { amount, utr, paymentType });
+        }}
+      />
+
       {/* Receipt Modal */}
       {receiptEmi && (
         <ReceiptModal
@@ -563,6 +708,26 @@ const styles = StyleSheet.create({
   switchLoanPillText: {
     fontSize: 11,
     fontWeight: '700',
+    color: '#1A6FD6',
+  },
+  headerRightCol: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  accountActionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#EFF5FF',
+    borderWidth: 1,
+    borderColor: 'rgba(26, 111, 214, 0.25)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: Radius.full,
+  },
+  accountActionPillText: {
+    fontSize: 10,
+    fontWeight: '800',
     color: '#1A6FD6',
   },
   retailerPill: {
@@ -706,6 +871,16 @@ const styles = StyleSheet.create({
   },
   actionBtnPrimaryText: {
     color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  actionBtnQr: {
+    backgroundColor: '#EFF5FF',
+    borderWidth: 1,
+    borderColor: 'rgba(26, 111, 214, 0.25)',
+  },
+  actionBtnQrText: {
+    color: '#1A6FD6',
     fontSize: 13,
     fontWeight: '800',
   },
@@ -911,5 +1086,29 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#1A6FD6',
+  },
+  menuOptionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: Radius.lg,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 8,
+  },
+  menuOptionInfo: {
+    flex: 1,
+  },
+  menuOptionTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  menuOptionSub: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
   },
 });

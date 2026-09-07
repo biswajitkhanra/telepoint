@@ -14,7 +14,9 @@ import {
   ScrollView,
   Modal,
   SafeAreaView,
+  StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   Shield,
@@ -37,6 +39,8 @@ import { Colors } from '../constants/colors';
 import { Spacing, Radius, Shadow } from '../constants/design';
 
 export const LoginScreen = () => {
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight || 28 : 0);
   const { login, isLoading, resetRolePreference } = useAuth();
   const [authMode, setAuthMode] = useState<'mobile' | 'aadhaar'>('mobile');
   const [mobile, setMobile] = useState('');
@@ -120,13 +124,28 @@ export const LoginScreen = () => {
         style={styles.container}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingTop: topInset + 16 }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           {/* Subtle decorative pastel ambient orbs */}
           <View style={styles.orbTopLeft} pointerEvents="none" />
           <View style={styles.orbBottomRight} pointerEvents="none" />
+
+          {/* Top Switch to Staff Portal Pill */}
+          <View style={styles.topSwitchRoleContainer}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={async () => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                await resetRolePreference();
+              }}
+              style={styles.topRoleSwitchPill}
+            >
+              <Users size={12} color="#1A6FD6" />
+              <Text style={styles.topRoleSwitchPillText}>Retailer or Admin? Switch Mode ▾</Text>
+            </TouchableOpacity>
+          </View>
 
           {/* Brand Header */}
           <View style={styles.header}>
@@ -416,6 +435,26 @@ const styles = StyleSheet.create({
     borderRadius: 110,
     backgroundColor: '#EEF2FF',
     opacity: 0.6,
+  },
+  topSwitchRoleContainer: {
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  topRoleSwitchPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#EFF5FF',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(26, 111, 214, 0.25)',
+  },
+  topRoleSwitchPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1A6FD6',
   },
   header: {
     alignItems: 'center',
