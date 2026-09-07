@@ -21,6 +21,8 @@ import {
   Sparkles,
   Fingerprint,
   CheckCircle2,
+  Users,
+  X,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../context/AuthContext';
@@ -29,7 +31,7 @@ import { MultiLoanCustomer } from '../types';
 import { THEME } from '../config';
 
 export const LoginScreen = () => {
-  const { login, isLoading } = useAuth();
+  const { login, isLoading, resetRolePreference } = useAuth();
   const [authMode, setAuthMode] = useState<'mobile' | 'aadhaar'>('mobile');
   const [mobile, setMobile] = useState('');
   const [aadhaar, setAadhaar] = useState('');
@@ -99,13 +101,8 @@ export const LoginScreen = () => {
           setShowMultiModal(true);
         }
       }
-    } catch (err: unknown) {
-      const msg =
-        err instanceof Error
-          ? err.message
-          : 'Invalid credentials. Please verify and retry.';
-      setError(msg);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } catch (err: any) {
+      setError(err?.message || 'Verification failed. Please check details or contact retailer.');
     }
   };
 
@@ -114,37 +111,41 @@ export const LoginScreen = () => {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.container}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent} bounces={false}>
-        {/* Ambient Top Sapphire Halo */}
-        <View style={styles.glowCircle} />
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Subtle decorative glow */}
+        <View style={styles.glowCircle} pointerEvents="none" />
 
-        {/* Telepoint Brand Header */}
+        {/* Brand Header */}
         <View style={styles.header}>
           <View style={styles.logoContainer}>
-            <TelepointLogo size={68} />
+            <TelepointLogo size={74} />
           </View>
           <Text style={styles.appName}>TELEPOINT</Text>
-          <Text style={styles.appTagline}>Bank-Grade Secure EMI Portal</Text>
+          <Text style={styles.appTagline}>Smart Smartphone Finance Portal</Text>
 
           <View style={styles.securityTag}>
-            <Shield size={12} color="#60A5FA" />
-            <Text style={styles.securityText}>256-BIT ENCRYPTED SESSION</Text>
+            <Shield size={12} color="#2563EB" />
+            <Text style={styles.securityText}>BANK GRADE 256-BIT ENCRYPTION</Text>
           </View>
         </View>
 
-        {/* Mode Switcher Pill */}
+        {/* Mode Selector Toggle */}
         <View style={styles.toggleContainer}>
           <TouchableOpacity
             style={[styles.toggleBtn, authMode === 'mobile' && styles.toggleBtnActive]}
             onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              Haptics.selectionAsync();
               setAuthMode('mobile');
               setError(null);
             }}
           >
             <Smartphone
               size={16}
-              color={authMode === 'mobile' ? '#FFFFFF' : '#94A3B8'}
+              color={authMode === 'mobile' ? '#FFFFFF' : '#64748B'}
             />
             <Text
               style={[
@@ -157,19 +158,16 @@ export const LoginScreen = () => {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[
-              styles.toggleBtn,
-              authMode === 'aadhaar' && styles.toggleBtnActive,
-            ]}
+            style={[styles.toggleBtn, authMode === 'aadhaar' && styles.toggleBtnActive]}
             onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              Haptics.selectionAsync();
               setAuthMode('aadhaar');
               setError(null);
             }}
           >
             <CreditCard
               size={16}
-              color={authMode === 'aadhaar' ? '#FFFFFF' : '#94A3B8'}
+              color={authMode === 'aadhaar' ? '#FFFFFF' : '#64748B'}
             />
             <Text
               style={[
@@ -177,15 +175,13 @@ export const LoginScreen = () => {
                 authMode === 'aadhaar' && styles.toggleTextActive,
               ]}
             >
-              Aadhaar Card
+              Aadhaar ID
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Glassmorphic Form Card */}
+        {/* Input Card */}
         <View style={styles.card}>
-          <View style={styles.topBevel} />
-
           {authMode === 'mobile' ? (
             <View style={styles.inputGroup}>
               <Text style={styles.label}>REGISTERED MOBILE NUMBER</Text>
@@ -193,9 +189,9 @@ export const LoginScreen = () => {
                 <Text style={styles.prefix}>+91</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="Enter 10-digit number"
-                  placeholderTextColor="#64748B"
-                  keyboardType="numeric"
+                  placeholder="98765 43210"
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="phone-pad"
                   maxLength={11}
                   value={formatMobileDisplay(mobile)}
                   onChangeText={handleMobileChange}
@@ -213,7 +209,7 @@ export const LoginScreen = () => {
                 <TextInput
                   style={styles.input}
                   placeholder="0000 0000 0000"
-                  placeholderTextColor="#64748B"
+                  placeholderTextColor="#94A3B8"
                   keyboardType="numeric"
                   maxLength={14}
                   value={formatAadhaarDisplay(aadhaar)}
@@ -229,7 +225,7 @@ export const LoginScreen = () => {
 
           {error && (
             <View style={styles.errorContainer}>
-              <AlertCircle size={16} color="#EF4444" />
+              <AlertCircle size={16} color="#DC2626" />
               <Text style={styles.errorText}>{error}</Text>
             </View>
           )}
@@ -260,12 +256,27 @@ export const LoginScreen = () => {
 
           {/* Biometric Shield Prompt */}
           <View style={styles.biometricPrompt}>
-            <Fingerprint size={16} color="#60A5FA" />
+            <Fingerprint size={16} color="#2563EB" />
             <Text style={styles.biometricText}>
               Permanent login enabled • Protected until app data cleared
             </Text>
           </View>
         </View>
+
+        {/* Role Switcher Option (For Retailers/Admins who tapped Customer) */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          style={styles.switchStaffBtn}
+          onPress={async () => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            await resetRolePreference();
+          }}
+        >
+          <Users size={15} color="#2563EB" />
+          <Text style={styles.switchStaffText}>
+            Not a customer? Switch to Retailer / Admin Portal
+          </Text>
+        </TouchableOpacity>
 
         {/* Footer Support Notice */}
         <View style={styles.footerNote}>
@@ -285,7 +296,12 @@ export const LoginScreen = () => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select Financed Device</Text>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Financed Device</Text>
+              <TouchableOpacity onPress={() => setShowMultiModal(false)}>
+                <X size={20} color="#64748B" />
+              </TouchableOpacity>
+            </View>
             <Text style={styles.modalSubtitle}>
               We found multiple active loans associated with this profile.
             </Text>
@@ -299,7 +315,7 @@ export const LoginScreen = () => {
                   onPress={() => handleLogin(loan.id)}
                 >
                   <View style={styles.loanCardHeader}>
-                    <Smartphone size={20} color="#60A5FA" />
+                    <Smartphone size={20} color="#2563EB" />
                     <View style={styles.loanCardTextCol}>
                       <Text style={styles.loanDeviceModel}>
                         {loan.model_no || 'Financed Smartphone'}
@@ -338,7 +354,7 @@ export const LoginScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: THEME.bg.darkest,
+    backgroundColor: THEME.bg.darkest, // #F8FAFC
   },
   scrollContent: {
     flexGrow: 1,
@@ -354,57 +370,57 @@ const styles = StyleSheet.create({
     width: 260,
     height: 260,
     borderRadius: 130,
-    backgroundColor: 'rgba(37, 99, 235, 0.12)',
+    backgroundColor: 'rgba(37, 99, 235, 0.06)',
   },
   header: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 28,
   },
   logoContainer: {
     marginBottom: 12,
     shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5,
-    shadowRadius: 18,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 4,
   },
   appName: {
     fontSize: 28,
     fontWeight: '900',
-    color: '#FFFFFF',
-    letterSpacing: 3,
+    color: '#0F172A',
+    letterSpacing: 2,
   },
   appTagline: {
-    fontSize: 12,
-    color: '#94A3B8',
+    fontSize: 13,
+    color: '#64748B',
     marginTop: 4,
   },
   securityTag: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    backgroundColor: 'rgba(37, 99, 235, 0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
     borderRadius: 12,
     marginTop: 10,
     borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.25)',
+    borderColor: 'rgba(37, 99, 235, 0.2)',
   },
   securityText: {
-    color: '#93C5FD',
+    color: '#2563EB',
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.6,
   },
   toggleContainer: {
     flexDirection: 'row',
-    backgroundColor: '#0E131F',
+    backgroundColor: '#F1F5F9',
     borderRadius: 16,
     padding: 4,
-    marginBottom: 20,
+    marginBottom: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(15, 23, 42, 0.06)',
   },
   toggleBtn: {
     flex: 1,
@@ -417,9 +433,14 @@ const styles = StyleSheet.create({
   },
   toggleBtnActive: {
     backgroundColor: '#2563EB',
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   toggleText: {
-    color: '#94A3B8',
+    color: '#64748B',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -428,31 +449,22 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   card: {
-    backgroundColor: '#0E131F',
+    backgroundColor: '#FFFFFF',
     borderRadius: 24,
     padding: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.09)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    elevation: 8,
-    overflow: 'hidden',
-  },
-  topBevel: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 1.5,
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderColor: 'rgba(15, 23, 42, 0.08)',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    elevation: 4,
   },
   inputGroup: {
-    marginBottom: 20,
+    marginBottom: 18,
   },
   label: {
-    color: '#94A3B8',
+    color: '#64748B',
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.8,
@@ -461,21 +473,21 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#131927',
+    backgroundColor: '#F8FAFC',
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(15, 23, 42, 0.1)',
     paddingHorizontal: 14,
   },
   prefix: {
-    color: '#60A5FA',
+    color: '#2563EB',
     fontSize: 16,
     fontWeight: '700',
     marginRight: 8,
   },
   input: {
     flex: 1,
-    color: '#FFFFFF',
+    color: '#0F172A',
     fontSize: 16,
     fontWeight: '700',
     paddingVertical: 14,
@@ -490,13 +502,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    backgroundColor: '#FEE2E2',
     padding: 12,
     borderRadius: 12,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
   },
   errorText: {
-    color: '#FCA5A5',
+    color: '#DC2626',
     fontSize: 12,
     fontWeight: '600',
     flex: 1,
@@ -504,6 +518,11 @@ const styles = StyleSheet.create({
   loginBtn: {
     borderRadius: 14,
     overflow: 'hidden',
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 3,
   },
   btnGradient: {
     paddingVertical: 16,
@@ -525,96 +544,122 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 8,
     marginTop: 18,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(15, 23, 42, 0.06)',
   },
   biometricText: {
     color: '#64748B',
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '600',
+  },
+  switchStaffBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    marginTop: 16,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: 'rgba(37, 99, 235, 0.2)',
+  },
+  switchStaffText: {
+    color: '#2563EB',
+    fontSize: 12,
+    fontWeight: '700',
   },
   footerNote: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 6,
-    marginTop: 28,
+    marginTop: 20,
   },
   footerText: {
     color: '#64748B',
     fontSize: 11,
+    fontWeight: '500',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    backgroundColor: 'rgba(15, 23, 42, 0.5)',
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#0E131F',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 22,
+    paddingBottom: 36,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
   },
   modalTitle: {
-    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '800',
-    marginBottom: 6,
+    color: '#0F172A',
   },
   modalSubtitle: {
-    color: '#94A3B8',
     fontSize: 13,
-    marginBottom: 18,
+    color: '#64748B',
+    marginBottom: 16,
   },
   loanCard: {
-    backgroundColor: '#131927',
+    backgroundColor: '#F8FAFC',
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(15, 23, 42, 0.08)',
   },
   loanCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    marginBottom: 8,
   },
   loanCardTextCol: {
     flex: 1,
   },
   loanDeviceModel: {
-    color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
+    color: '#0F172A',
   },
   loanImei: {
+    fontSize: 11,
     color: '#64748B',
-    fontSize: 12,
     marginTop: 2,
   },
   loanFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 10,
-    paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.04)',
+    borderTopColor: 'rgba(15, 23, 42, 0.06)',
+    paddingTop: 8,
   },
   loanStatusTag: {
-    color: '#34D399',
     fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    color: '#059669',
   },
   loanRetailer: {
-    color: '#94A3B8',
     fontSize: 11,
+    color: '#64748B',
   },
   modalCancelBtn: {
     paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     marginTop: 10,
   },

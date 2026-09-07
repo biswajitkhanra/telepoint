@@ -20,12 +20,12 @@ interface Card3DProps {
 
 /**
  * 3D Neo-Fintech Card with hardware-accelerated spring touch physics.
- * Gives butter-smooth tactile feedback and dimensional depth on Android.
+ * Gives butter-smooth tactile feedback and dimensional depth on Android with light pearl aesthetics.
  */
 export const Card3D: React.FC<Card3DProps> = ({
   children,
   style,
-  gradientColors = ['#131927', '#0E131F'],
+  gradientColors = ['#FFFFFF', '#FFFFFF'],
   onPress,
   elevated = true,
 }) => {
@@ -35,7 +35,7 @@ export const Card3D: React.FC<Card3DProps> = ({
     if (onPress) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       Animated.spring(scaleAnim, {
-        toValue: 0.97,
+        toValue: 0.98,
         tension: SPRING_CONFIG.touchDown.tension,
         friction: SPRING_CONFIG.touchDown.friction,
         useNativeDriver: true,
@@ -106,19 +106,19 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   elevatedShadow: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.45,
-    shadowRadius: 18,
-    elevation: 8,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
   },
   topBevel: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 1.5,
-    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     zIndex: 2,
   },
   bottomEdge: {
@@ -126,8 +126,8 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 2,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    height: 1.5,
+    backgroundColor: 'rgba(15, 23, 42, 0.04)',
     zIndex: 2,
   },
   gradient: {

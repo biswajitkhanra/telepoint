@@ -8,7 +8,6 @@ import {
   ScrollView,
   Share,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import {
   CheckCircle2,
@@ -75,7 +74,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               }}
               style={styles.closeBtn}
             >
-              <X size={20} color="#94A3B8" />
+              <X size={20} color="#64748B" />
             </TouchableOpacity>
           </View>
 
@@ -84,7 +83,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             <View style={styles.slipCard}>
               {/* Success Badge */}
               <View style={styles.successIconBox}>
-                <CheckCircle2 size={40} color="#10B981" />
+                <CheckCircle2 size={36} color="#10B981" />
               </View>
 
               <Text style={styles.paidStatusTitle}>Payment Verified</Text>
@@ -139,7 +138,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
               {/* Security Seal */}
               <View style={styles.sealRow}>
-                <ShieldCheck size={14} color="#10B981" />
+                <ShieldCheck size={14} color="#059669" />
                 <Text style={styles.sealText}>
                   TELEPOINT CRYPTOGRAPHICALLY SIGNED RECEIPT
                 </Text>
@@ -175,16 +174,21 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    backgroundColor: 'rgba(15, 23, 42, 0.5)',
     justifyContent: 'center',
     padding: 20,
   },
   sheetContainer: {
-    backgroundColor: '#0E131F',
+    backgroundColor: '#FFFFFF',
     borderRadius: 24,
     padding: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: 'rgba(15, 23, 42, 0.08)',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 8,
     maxHeight: '90%',
   },
   headerBar: {
@@ -194,7 +198,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   headerTitle: {
-    color: '#94A3B8',
+    color: '#64748B',
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.2,
@@ -203,39 +207,39 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   slipCard: {
-    backgroundColor: '#131927',
+    backgroundColor: '#F8FAFC',
     borderRadius: 20,
     padding: 20,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(15, 23, 42, 0.08)',
     marginBottom: 20,
   },
   successIconBox: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#ECFDF5',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
   },
   paidStatusTitle: {
-    color: '#34D399',
+    color: '#059669',
     fontSize: 14,
     fontWeight: '800',
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   amountText: {
-    color: '#FFFFFF',
+    color: '#0F172A',
     fontSize: 32,
     fontWeight: '900',
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   installmentSubtitle: {
-    color: '#94A3B8',
+    color: '#64748B',
     fontSize: 12,
     fontWeight: '600',
     marginBottom: 16,
@@ -243,7 +247,7 @@ const styles = StyleSheet.create({
   perforatedLine: {
     width: '100%',
     height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(15, 23, 42, 0.08)',
     marginVertical: 16,
   },
   dataGrid: {
@@ -267,7 +271,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
   },
   gridValue: {
-    color: '#F1F5F9',
+    color: '#0F172A',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -278,10 +282,10 @@ const styles = StyleSheet.create({
     marginTop: 20,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+    borderTopColor: 'rgba(15, 23, 42, 0.06)',
   },
   sealText: {
-    color: '#6EE7B7',
+    color: '#059669',
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.6,
@@ -299,6 +303,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#2563EB',
     paddingVertical: 14,
     borderRadius: 14,
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
   },
   shareBtnText: {
     color: '#FFFFFF',
@@ -309,14 +318,14 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#1E293B',
+    backgroundColor: '#F1F5F9',
     paddingVertical: 14,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(15, 23, 42, 0.08)',
   },
   doneBtnText: {
-    color: '#F8FAFC',
+    color: '#0F172A',
     fontSize: 14,
     fontWeight: '700',
   },

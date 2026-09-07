@@ -77,9 +77,9 @@ export const EmiScheduleScreen = () => {
             ]}
           >
             {isPaid ? (
-              <CheckCircle2 size={12} color="#10B981" />
+              <CheckCircle2 size={12} color="#FFFFFF" />
             ) : isPartial ? (
-              <Clock size={12} color="#F59E0B" />
+              <Clock size={12} color="#FFFFFF" />
             ) : (
               <View style={styles.dotInner} />
             )}
@@ -91,7 +91,7 @@ export const EmiScheduleScreen = () => {
         <View style={styles.cardCol}>
           <Card3D
             style={styles.emiCard}
-            gradientColors={isPaid ? ['#101726', '#0A0F1A'] : ['#141B2D', '#0D121F']}
+            gradientColors={isPaid ? ['#FFFFFF', '#F0FDF4'] : ['#FFFFFF', '#F8FAFC']}
             onPress={() => {
               if (isPaid) {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -106,17 +106,17 @@ export const EmiScheduleScreen = () => {
 
               {isPaid ? (
                 <View style={[styles.statusBadge, styles.badgePaid]}>
-                  <CheckCircle2 size={11} color="#10B981" />
+                  <CheckCircle2 size={11} color="#059669" />
                   <Text style={styles.textPaid}>PAID</Text>
                 </View>
               ) : isPartial ? (
                 <View style={[styles.statusBadge, styles.badgePartial]}>
-                  <Clock size={11} color="#F59E0B" />
+                  <Clock size={11} color="#D97706" />
                   <Text style={styles.textPartial}>PARTIAL</Text>
                 </View>
               ) : isPending ? (
                 <View style={[styles.statusBadge, styles.badgePending]}>
-                  <Clock size={11} color="#60A5FA" />
+                  <Clock size={11} color="#2563EB" />
                   <Text style={styles.textPending}>VERIFYING</Text>
                 </View>
               ) : (
@@ -144,7 +144,7 @@ export const EmiScheduleScreen = () => {
             {/* Overdue Fine Notice */}
             {item.fine_amount > 0 && (
               <View style={styles.fineBox}>
-                <AlertTriangle size={12} color="#EF4444" />
+                <AlertTriangle size={12} color="#DC2626" />
                 <Text style={styles.fineText}>
                   Late Fine: {formatInr(item.fine_amount)}{' '}
                   {item.fine_waived ? '(Waived)' : '(Pending)'}
@@ -155,9 +155,9 @@ export const EmiScheduleScreen = () => {
             {/* Tap for Slip Prompt for paid installments */}
             {isPaid && (
               <View style={styles.slipFooter}>
-                <Receipt size={12} color="#6EE7B7" />
-                <Text style={styles.slipFooterText}>View Digital Slip</Text>
-                <ChevronRight size={12} color="#6EE7B7" />
+                <Receipt size={12} color="#059669" />
+                <Text style={styles.slipFooterText}>View Official Slip</Text>
+                <ChevronRight size={12} color="#059669" />
               </View>
             )}
           </Card3D>
@@ -265,7 +265,7 @@ export const EmiScheduleScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: THEME.bg.darkest,
+    backgroundColor: THEME.bg.darkest, // #F8FAFC
   },
   summaryContainer: {
     paddingHorizontal: 16,
@@ -273,11 +273,16 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   summaryCard: {
-    backgroundColor: '#0E131F',
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(15, 23, 42, 0.08)',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   summaryRow: {
     flexDirection: 'row',
@@ -285,7 +290,7 @@ const styles = StyleSheet.create({
   },
   verticalSep: {
     width: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(15, 23, 42, 0.08)',
   },
   summaryLabel: {
     color: '#64748B',
@@ -295,29 +300,29 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   paidVal: {
-    color: '#34D399',
+    color: '#059669',
     fontSize: 20,
     fontWeight: '900',
   },
   unpaidVal: {
-    color: '#F8FAFC',
+    color: '#0F172A',
     fontSize: 20,
     fontWeight: '900',
   },
   summarySub: {
-    color: '#94A3B8',
+    color: '#64748B',
     fontSize: 11,
     marginTop: 2,
   },
   tabsWrapper: {
     flexDirection: 'row',
     marginHorizontal: 16,
-    backgroundColor: 'rgba(14, 19, 31, 0.7)',
+    backgroundColor: '#F1F5F9',
     borderRadius: 14,
     padding: 4,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: 'rgba(15, 23, 42, 0.06)',
   },
   tabBtn: {
     flex: 1,
@@ -327,9 +332,14 @@ const styles = StyleSheet.create({
   },
   tabActive: {
     backgroundColor: '#2563EB',
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
+    elevation: 2,
   },
   tabText: {
-    color: '#94A3B8',
+    color: '#64748B',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -360,26 +370,26 @@ const styles = StyleSheet.create({
   },
   dotPaid: {
     borderColor: '#10B981',
-    backgroundColor: '#064E3B',
+    backgroundColor: '#10B981',
   },
   dotPartial: {
     borderColor: '#F59E0B',
-    backgroundColor: '#78350F',
+    backgroundColor: '#F59E0B',
   },
   dotUnpaid: {
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    backgroundColor: '#0E131F',
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
   },
   dotInner: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#64748B',
+    backgroundColor: '#94A3B8',
   },
   timelineLine: {
     flex: 1,
     width: 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(15, 23, 42, 0.08)',
     marginVertical: 4,
   },
   cardCol: {
@@ -396,13 +406,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   emiNoPill: {
-    backgroundColor: 'rgba(59, 130, 246, 0.12)',
+    backgroundColor: 'rgba(37, 99, 235, 0.08)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
   },
   emiNoText: {
-    color: '#93C5FD',
+    color: '#2563EB',
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.5,
@@ -416,34 +426,34 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   badgePaid: {
-    backgroundColor: 'rgba(16, 185, 129, 0.14)',
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
   },
   badgePartial: {
-    backgroundColor: 'rgba(245, 158, 11, 0.14)',
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
   },
   badgePending: {
-    backgroundColor: 'rgba(59, 130, 246, 0.14)',
+    backgroundColor: 'rgba(37, 99, 235, 0.1)',
   },
   badgeUnpaid: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: '#F1F5F9',
   },
   textPaid: {
-    color: '#34D399',
+    color: '#059669',
     fontSize: 10,
     fontWeight: '800',
   },
   textPartial: {
-    color: '#FBBF24',
+    color: '#D97706',
     fontSize: 10,
     fontWeight: '800',
   },
   textPending: {
-    color: '#93C5FD',
+    color: '#2563EB',
     fontSize: 10,
     fontWeight: '800',
   },
   textUnpaid: {
-    color: '#94A3B8',
+    color: '#64748B',
     fontSize: 10,
     fontWeight: '800',
   },
@@ -460,7 +470,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
   },
   amountValue: {
-    color: '#FFFFFF',
+    color: '#0F172A',
     fontSize: 18,
     fontWeight: '900',
     marginTop: 2,
@@ -479,7 +489,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   dueDateValue: {
-    color: '#E2E8F0',
+    color: '#334155',
     fontSize: 13,
     fontWeight: '700',
     marginTop: 2,
@@ -488,14 +498,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    backgroundColor: '#FEE2E2',
     paddingHorizontal: 8,
     paddingVertical: 5,
     borderRadius: 8,
     marginTop: 10,
   },
   fineText: {
-    color: '#F87171',
+    color: '#DC2626',
     fontSize: 11,
     fontWeight: '700',
   },
@@ -506,10 +516,10 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.05)',
+    borderTopColor: 'rgba(15, 23, 42, 0.05)',
   },
   slipFooterText: {
-    color: '#6EE7B7',
+    color: '#059669',
     fontSize: 11,
     fontWeight: '800',
     flex: 1,

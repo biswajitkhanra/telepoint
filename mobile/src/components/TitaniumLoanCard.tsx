@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
@@ -46,12 +45,12 @@ export const TitaniumLoanCard: React.FC<TitaniumLoanCardProps> = ({ customer }) 
   return (
     <Card3D
       style={styles.cardContainer}
-      gradientColors={['#172033', '#0C111C']}
+      gradientColors={['#FFFFFF', '#F8FAFC']}
       elevated={true}
     >
       {/* Background Micro-Circuit Foil Sheen */}
       <LinearGradient
-        colors={['rgba(59, 130, 246, 0.08)', 'transparent', 'rgba(16, 185, 129, 0.04)']}
+        colors={['rgba(37, 99, 235, 0.04)', 'transparent', 'rgba(16, 185, 129, 0.04)']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFillObject}
@@ -61,7 +60,7 @@ export const TitaniumLoanCard: React.FC<TitaniumLoanCardProps> = ({ customer }) 
       {/* Top Header: Brand & Live Status */}
       <View style={styles.headerRow}>
         <View style={styles.brandBadge}>
-          <Cpu size={16} color="#60A5FA" />
+          <Cpu size={16} color="#2563EB" />
           <Text style={styles.brandTitle}>TELEPOINT PASSBOOK</Text>
         </View>
 
@@ -80,7 +79,7 @@ export const TitaniumLoanCard: React.FC<TitaniumLoanCardProps> = ({ customer }) 
       {/* Device Name & Chip Crest */}
       <View style={styles.deviceRow}>
         <View style={styles.deviceIconBox}>
-          <Smartphone size={24} color="#F8FAFC" />
+          <Smartphone size={22} color="#2563EB" />
         </View>
         <View style={styles.deviceInfo}>
           <Text style={styles.deviceModel} numberOfLines={1}>
@@ -141,7 +140,7 @@ export const TitaniumLoanCard: React.FC<TitaniumLoanCardProps> = ({ customer }) 
         </View>
 
         <View style={styles.shieldBadge}>
-          <ShieldCheck size={14} color="#34D399" />
+          <ShieldCheck size={14} color="#059669" />
           <Text style={styles.shieldText}>256-BIT ENCRYPTED</Text>
         </View>
       </View>
@@ -166,7 +165,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   brandTitle: {
-    color: '#93C5FD',
+    color: '#2563EB',
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.2,
@@ -174,22 +173,22 @@ const styles = StyleSheet.create({
   statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.14)',
+    backgroundColor: '#ECFDF5',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
+    borderColor: 'rgba(16, 185, 129, 0.25)',
     gap: 6,
   },
   statusDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#34D399',
+    backgroundColor: '#10B981',
   },
   statusText: {
-    color: '#6EE7B7',
+    color: '#059669',
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.6,
@@ -204,9 +203,9 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: 'rgba(59, 130, 246, 0.16)',
+    backgroundColor: 'rgba(37, 99, 235, 0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.35)',
+    borderColor: 'rgba(37, 99, 235, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -214,24 +213,24 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   deviceModel: {
-    color: '#F8FAFC',
+    color: '#0F172A',
     fontSize: 17,
     fontWeight: '800',
     letterSpacing: 0.2,
   },
   retailerName: {
-    color: THEME.text.secondary,
+    color: '#64748B',
     fontSize: 12,
     marginTop: 2,
   },
   securityStrip: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    backgroundColor: '#F1F5F9',
     borderRadius: 14,
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: 'rgba(15, 23, 42, 0.06)',
     marginBottom: 16,
   },
   securityItem: {
@@ -250,14 +249,14 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   securityValue: {
-    color: '#E2E8F0',
+    color: '#0F172A',
     fontSize: 12,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
   divider: {
     width: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(15, 23, 42, 0.1)',
     marginHorizontal: 12,
   },
   footerRow: {
@@ -267,13 +266,13 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   amountLabel: {
-    color: '#94A3B8',
+    color: '#64748B',
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.6,
   },
   amountValue: {
-    color: '#FFFFFF',
+    color: '#0F172A',
     fontSize: 20,
     fontWeight: '900',
     letterSpacing: 0.3,
@@ -282,13 +281,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+    backgroundColor: '#ECFDF5',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
   },
   shieldText: {
-    color: '#A7F3D0',
+    color: '#059669',
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.5,

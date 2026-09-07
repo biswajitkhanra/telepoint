@@ -34,7 +34,7 @@ export const EmiProgressRing: React.FC<EmiProgressRingProps> = ({
   return (
     <Card3D
       style={styles.card}
-      gradientColors={['#101626', '#090D17']}
+      gradientColors={['#FFFFFF', '#FFFFFF']}
       elevated={true}
     >
       <View style={styles.container}>
@@ -53,7 +53,7 @@ export const EmiProgressRing: React.FC<EmiProgressRingProps> = ({
               cx={size / 2}
               cy={size / 2}
               r={radius}
-              stroke="rgba(255, 255, 255, 0.08)"
+              stroke="#E2E8F0"
               strokeWidth={strokeWidth}
               fill="none"
             />
@@ -134,13 +134,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   percentNumber: {
-    color: '#FFFFFF',
+    color: '#0F172A',
     fontSize: 20,
     fontWeight: '900',
     letterSpacing: 0.3,
   },
   percentSub: {
-    color: '#34D399',
+    color: '#059669',
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.8,
@@ -156,19 +156,19 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   title: {
-    color: '#94A3B8',
+    color: '#64748B',
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.8,
   },
   countBadge: {
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    backgroundColor: 'rgba(37, 99, 235, 0.08)',
     paddingHorizontal: 7,
     paddingVertical: 3,
     borderRadius: 8,
   },
   countText: {
-    color: '#93C5FD',
+    color: '#2563EB',
     fontSize: 10,
     fontWeight: '800',
   },
@@ -184,18 +184,18 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   dataValueRepaid: {
-    color: '#34D399',
+    color: '#059669',
     fontSize: 14,
     fontWeight: '800',
   },
   dataValueRemaining: {
-    color: '#F8FAFC',
+    color: '#0F172A',
     fontSize: 14,
     fontWeight: '800',
   },
   barTrack: {
     height: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: '#E2E8F0',
     borderRadius: 2,
     overflow: 'hidden',
   },

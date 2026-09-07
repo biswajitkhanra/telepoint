@@ -48,7 +48,7 @@ export const BroadcastsScreen = () => {
           style={[styles.tabBtn, tab === 'broadcasts' && styles.tabBtnActive]}
           onPress={() => setTab('broadcasts')}
         >
-          <Megaphone size={15} color={tab === 'broadcasts' ? '#FFFFFF' : '#94A3B8'} />
+          <Megaphone size={15} color={tab === 'broadcasts' ? '#FFFFFF' : '#64748B'} />
           <Text style={[styles.tabText, tab === 'broadcasts' && styles.tabTextActive]}>
             Announcements ({broadcasts.length})
           </Text>
@@ -58,7 +58,7 @@ export const BroadcastsScreen = () => {
           style={[styles.tabBtn, tab === 'notifications' && styles.tabBtnActive]}
           onPress={() => setTab('notifications')}
         >
-          <Bell size={15} color={tab === 'notifications' ? '#FFFFFF' : '#94A3B8'} />
+          <Bell size={15} color={tab === 'notifications' ? '#FFFFFF' : '#64748B'} />
           <Text style={[styles.tabText, tab === 'notifications' && styles.tabTextActive]}>
             Push Alerts ({history.length})
           </Text>
@@ -71,11 +71,16 @@ export const BroadcastsScreen = () => {
           keyExtractor={item => item.id}
           contentContainerStyle={styles.listContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3B82F6" />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={THEME.accent.primary}
+              colors={[THEME.accent.primary]}
+            />
           }
           ListEmptyComponent={
             <View style={styles.emptyBox}>
-              <Megaphone size={36} color="#475569" />
+              <Megaphone size={36} color="#94A3B8" />
               <Text style={styles.emptyTitle}>No Active Announcements</Text>
               <Text style={styles.emptySubtitle}>
                 Announcements from your retailer or Telepoint will appear here.
@@ -106,7 +111,7 @@ export const BroadcastsScreen = () => {
 
               <View style={styles.viewMoreRow}>
                 <Text style={styles.viewMoreText}>Tap to view details</Text>
-                <ChevronRight size={14} color="#60A5FA" />
+                <ChevronRight size={14} color="#2563EB" />
               </View>
             </Card3D>
           )}
@@ -117,11 +122,16 @@ export const BroadcastsScreen = () => {
           keyExtractor={item => item.id}
           contentContainerStyle={styles.listContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3B82F6" />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={THEME.accent.primary}
+              colors={[THEME.accent.primary]}
+            />
           }
           ListEmptyComponent={
             <View style={styles.emptyBox}>
-              <Bell size={36} color="#475569" />
+              <Bell size={36} color="#94A3B8" />
               <Text style={styles.emptyTitle}>No Push Alerts Yet</Text>
               <Text style={styles.emptySubtitle}>
                 Automatic EMI reminders and store push alerts will appear here.
@@ -131,8 +141,18 @@ export const BroadcastsScreen = () => {
           renderItem={({ item }) => (
             <Card3D style={styles.card}>
               <View style={styles.broadcastHeader}>
-                <View style={[styles.senderPill, item.notification_type === 'emi_reminder' ? styles.pillReminder : styles.pillBroadcast]}>
-                  <Text style={styles.senderText}>
+                <View
+                  style={[
+                    styles.senderPill,
+                    item.notification_type === 'emi_reminder' ? styles.pillReminder : styles.pillBroadcast,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.senderText,
+                      item.notification_type === 'emi_reminder' ? styles.senderTextReminder : styles.senderTextBroadcast,
+                    ]}
+                  >
                     {item.notification_type === 'emi_reminder' ? 'EMI REMINDER' : 'BROADCAST'}
                   </Text>
                 </View>
@@ -160,18 +180,18 @@ export const BroadcastsScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: THEME.bg.darkest,
+    backgroundColor: THEME.bg.darkest, // #F8FAFC
     paddingTop: 54,
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#0F172A',
+    backgroundColor: '#F1F5F9',
     marginHorizontal: 18,
     borderRadius: 16,
     padding: 4,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(15, 23, 42, 0.06)',
   },
   tabBtn: {
     flex: 1,
@@ -184,15 +204,20 @@ const styles = StyleSheet.create({
   },
   tabBtnActive: {
     backgroundColor: '#2563EB',
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
+    elevation: 2,
   },
   tabText: {
-    color: '#94A3B8',
+    color: '#64748B',
     fontSize: 12,
     fontWeight: '600',
   },
   tabTextActive: {
     color: '#FFFFFF',
-    fontWeight: '700',
+    fontWeight: '800',
   },
   listContent: {
     paddingHorizontal: 18,
@@ -208,22 +233,28 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   senderPill: {
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    backgroundColor: '#FEF3C7',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
   },
   pillReminder: {
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    backgroundColor: '#EFF6FF',
   },
   pillBroadcast: {
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    backgroundColor: '#FEF3C7',
   },
   senderText: {
-    color: '#FBBF24',
+    color: '#B45309',
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.5,
+  },
+  senderTextReminder: {
+    color: '#2563EB',
+  },
+  senderTextBroadcast: {
+    color: '#B45309',
   },
   dateRow: {
     flexDirection: 'row',
@@ -241,7 +272,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   messageText: {
-    color: '#E2E8F0',
+    color: '#0F172A',
     fontSize: 14,
     lineHeight: 20,
     marginBottom: 8,
@@ -254,18 +285,18 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   viewMoreText: {
-    color: '#60A5FA',
+    color: '#2563EB',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   notifTitle: {
-    color: '#FFFFFF',
+    color: '#0F172A',
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
     marginBottom: 4,
   },
   notifBody: {
-    color: '#94A3B8',
+    color: '#475569',
     fontSize: 13,
     lineHeight: 18,
   },
@@ -276,9 +307,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   emptyTitle: {
-    color: '#FFFFFF',
+    color: '#0F172A',
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   emptySubtitle: {
     color: '#64748B',

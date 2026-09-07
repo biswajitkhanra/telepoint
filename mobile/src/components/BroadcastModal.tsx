@@ -26,14 +26,14 @@ export const BroadcastModal: React.FC<BroadcastModalProps> = ({ broadcast, visib
           <View style={styles.topBevel} />
 
           <LinearGradient
-            colors={['#1E293B', '#0F172A']}
+            colors={['#FFFFFF', '#F8FAFC']}
             style={styles.gradient}
           >
             {/* Header */}
             <View style={styles.header}>
               <View style={styles.titleRow}>
                 <View style={styles.iconCircle}>
-                  <Megaphone size={18} color="#F59E0B" />
+                  <Megaphone size={18} color="#D97706" />
                 </View>
                 <View>
                   <Text style={styles.senderName}>
@@ -45,7 +45,7 @@ export const BroadcastModal: React.FC<BroadcastModalProps> = ({ broadcast, visib
                 </View>
               </View>
               <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                <X size={18} color="#94A3B8" />
+                <X size={18} color="#64748B" />
               </TouchableOpacity>
             </View>
 
@@ -76,7 +76,7 @@ export const BroadcastModal: React.FC<BroadcastModalProps> = ({ broadcast, visib
             {/* Action button */}
             <TouchableOpacity onPress={onClose} style={styles.actionBtn}>
               <LinearGradient
-                colors={['#3B82F6', '#2563EB']}
+                colors={['#2563EB', '#1D4ED8']}
                 style={styles.btnGradient}
               >
                 <Text style={styles.btnText}>Understood</Text>
@@ -92,7 +92,7 @@ export const BroadcastModal: React.FC<BroadcastModalProps> = ({ broadcast, visib
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    backgroundColor: 'rgba(15, 23, 42, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -103,14 +103,18 @@ const styles = StyleSheet.create({
     maxHeight: '80%',
     borderRadius: 24,
     overflow: 'hidden',
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    elevation: 20,
+    borderColor: 'rgba(15, 23, 42, 0.08)',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 10,
   },
   topBevel: {
     height: 2,
-    backgroundColor: 'rgba(245, 158, 11, 0.4)',
+    backgroundColor: 'rgba(217, 119, 6, 0.3)',
   },
   gradient: {
     padding: 20,
@@ -130,19 +134,17 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    backgroundColor: '#FEF3C7',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.3)',
   },
   senderName: {
-    color: '#FFFFFF',
+    color: '#0F172A',
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   senderRole: {
-    color: '#F59E0B',
+    color: '#B45309',
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.5,
@@ -150,7 +152,7 @@ const styles = StyleSheet.create({
   closeBtn: {
     padding: 6,
     borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: '#F1F5F9',
   },
   scrollBody: {
     maxHeight: 320,
@@ -161,14 +163,14 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(15, 23, 42, 0.08)',
   },
   broadcastImage: {
     width: '100%',
     height: 180,
   },
   messageText: {
-    color: '#E2E8F0',
+    color: '#0F172A',
     fontSize: 15,
     lineHeight: 22,
     marginBottom: 12,
@@ -187,6 +189,11 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: 'hidden',
     marginTop: 10,
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
   },
   btnGradient: {
     paddingVertical: 12,
@@ -195,6 +202,6 @@ const styles = StyleSheet.create({
   btnText: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
   },
 });

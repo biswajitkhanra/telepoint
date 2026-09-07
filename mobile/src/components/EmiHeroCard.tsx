@@ -65,10 +65,10 @@ export const EmiHeroCard: React.FC<EmiHeroCardProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* 3D Glass Layer with Bevel */}
+      {/* 3D Glass Layer with Top Highlight */}
       <View style={styles.topBevel} />
       <LinearGradient
-        colors={['#1E293B', '#0F172A', '#080D1A']}
+        colors={['#FFFFFF', '#F8FAFC']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.gradient}
@@ -76,7 +76,7 @@ export const EmiHeroCard: React.FC<EmiHeroCardProps> = ({
         {/* Header Pill & Tag */}
         <View style={styles.headerRow}>
           <View style={styles.customerCodeBadge}>
-            <ShieldCheck size={14} color="#60A5FA" />
+            <ShieldCheck size={14} color="#2563EB" />
             <Text style={styles.customerCodeText}>
               {customer.customer_code || `ID: ${customer.id.slice(0, 6)}`}
             </Text>
@@ -93,7 +93,7 @@ export const EmiHeroCard: React.FC<EmiHeroCardProps> = ({
                   : styles.pillNormal,
               ]}
             >
-              <Bell size={12} color={daysUntilDue <= 0 ? '#F87171' : '#FBBF24'} />
+              <Bell size={12} color={daysUntilDue <= 0 ? '#DC2626' : '#D97706'} />
               <Text
                 style={[
                   styles.statusPillText,
@@ -130,7 +130,7 @@ export const EmiHeroCard: React.FC<EmiHeroCardProps> = ({
         {nextEmi && (
           <View style={styles.metaRow}>
             <View style={styles.metaItem}>
-              <Calendar size={14} color="#94A3B8" />
+              <Calendar size={14} color="#64748B" />
               <Text style={styles.metaText}>Due: {nextEmi.due_date}</Text>
             </View>
             <Text style={styles.metaDivider}>•</Text>
@@ -143,7 +143,7 @@ export const EmiHeroCard: React.FC<EmiHeroCardProps> = ({
         {/* Progress Bar */}
         <View style={styles.progressTrack}>
           <LinearGradient
-            colors={['#3B82F6', '#10B981']}
+            colors={['#2563EB', '#10B981']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={[styles.progressFill, { width: `${progressPercent}%` }]}
@@ -153,7 +153,7 @@ export const EmiHeroCard: React.FC<EmiHeroCardProps> = ({
         {/* Fine Warning if fine applies */}
         {breakdown && breakdown.fine_due > 0 && (
           <View style={styles.fineWarningBox}>
-            <AlertCircle size={14} color="#EF4444" />
+            <AlertCircle size={14} color="#DC2626" />
             <Text style={styles.fineWarningText}>
               Overdue Fine: {formatInr(breakdown.fine_due)} (Accrues ₹25/week)
             </Text>
@@ -163,7 +163,7 @@ export const EmiHeroCard: React.FC<EmiHeroCardProps> = ({
         {/* Action Button */}
         {nextEmi && (
           <TouchableOpacity
-            activeOpacity={0.85}
+            activeOpacity={0.88}
             onPress={handleQuickPay}
             style={styles.payButton}
           >
@@ -186,20 +186,21 @@ export const EmiHeroCard: React.FC<EmiHeroCardProps> = ({
 const styles = StyleSheet.create({
   container: {
     borderRadius: 24,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: 'rgba(15, 23, 42, 0.08)',
     overflow: 'hidden',
-    shadowColor: '#1D4ED8',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    elevation: 10,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    elevation: 3,
+    marginHorizontal: 16,
     marginVertical: 10,
   },
   topBevel: {
-    height: 1.5,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
   },
   gradient: {
     padding: 22,
@@ -213,16 +214,16 @@ const styles = StyleSheet.create({
   customerCodeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(37, 99, 235, 0.15)',
+    backgroundColor: 'rgba(37, 99, 235, 0.08)',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 12,
     gap: 6,
     borderWidth: 1,
-    borderColor: 'rgba(96, 165, 250, 0.3)',
+    borderColor: 'rgba(37, 99, 235, 0.2)',
   },
   customerCodeText: {
-    color: '#93C5FD',
+    color: '#2563EB',
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.5,
@@ -236,45 +237,45 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   pillDueToday: {
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-    borderColor: 'rgba(239, 68, 68, 0.4)',
+    backgroundColor: '#FEE2E2',
+    borderColor: '#FCA5A5',
     borderWidth: 1,
   },
   pillUpcoming: {
-    backgroundColor: 'rgba(245, 158, 11, 0.2)',
-    borderColor: 'rgba(245, 158, 11, 0.4)',
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FDE68A',
     borderWidth: 1,
   },
   pillNormal: {
-    backgroundColor: 'rgba(148, 163, 184, 0.1)',
+    backgroundColor: '#F1F5F9',
   },
   statusPillText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   textDueToday: {
-    color: '#F87171',
+    color: '#DC2626',
   },
   textUpcoming: {
-    color: '#FBBF24',
+    color: '#B45309',
   },
   textNormal: {
-    color: '#94A3B8',
+    color: '#64748B',
   },
   amountSection: {
     marginBottom: 12,
   },
   amountLabel: {
-    color: '#94A3B8',
+    color: '#64748B',
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
     letterSpacing: 1,
     marginBottom: 4,
   },
   amountText: {
-    color: '#FFFFFF',
-    fontSize: 38,
-    fontWeight: '800',
+    color: '#0F172A',
+    fontSize: 36,
+    fontWeight: '900',
     letterSpacing: -0.5,
   },
   metaRow: {
@@ -289,42 +290,48 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   metaText: {
-    color: '#94A3B8',
+    color: '#64748B',
     fontSize: 13,
+    fontWeight: '600',
   },
   metaDivider: {
-    color: '#475569',
+    color: '#CBD5E1',
   },
   progressTrack: {
-    height: 6,
-    backgroundColor: '#1E293B',
-    borderRadius: 3,
+    height: 7,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 4,
     overflow: 'hidden',
     marginBottom: 16,
   },
   progressFill: {
     height: '100%',
-    borderRadius: 3,
+    borderRadius: 4,
   },
   fineWarningBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    backgroundColor: '#FEE2E2',
     padding: 10,
     borderRadius: 12,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.25)',
+    borderColor: '#FCA5A5',
   },
   fineWarningText: {
-    color: '#FCA5A5',
+    color: '#DC2626',
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   payButton: {
     borderRadius: 14,
     overflow: 'hidden',
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.22,
+    shadowRadius: 8,
+    elevation: 3,
   },
   payButtonGradient: {
     flexDirection: 'row',
@@ -336,6 +343,6 @@ const styles = StyleSheet.create({
   payButtonText: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
   },
 });
