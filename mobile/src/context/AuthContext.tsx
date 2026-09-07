@@ -6,6 +6,13 @@ import { STORAGE_KEYS } from '../config';
 import { loginCustomer, registerPushToken, deactivatePushToken } from '../services/api';
 import { registerForPushNotificationsAsync } from '../services/notifications';
 
+export interface StaffUserInfo {
+  username: string;
+  role: 'admin' | 'retailer';
+  name?: string;
+  retailerId?: string;
+}
+
 interface AuthContextType {
   customer: Customer | null;
   emis: EMIScheduleItem[];
@@ -15,7 +22,7 @@ interface AuthContextType {
   isLoading: boolean;
   deviceRole: 'customer' | 'staff' | null;
   staffRole: 'admin' | 'retailer' | null;
-  staffUser: { username: string; role: 'admin' | 'retailer' } | null;
+  staffUser: StaffUserInfo | null;
   allLoans: MultiLoanCustomer[];
   setRolePreference: (role: 'customer' | 'staff') => Promise<void>;
   resetRolePreference: () => Promise<void>;
@@ -24,7 +31,7 @@ interface AuthContextType {
     multi?: boolean;
     customers?: MultiLoanCustomer[];
   }>;
-  loginStaff: (role: 'admin' | 'retailer', username: string, password?: string) => Promise<void>;
+  loginStaff: (role: 'admin' | 'retailer', username: string, password?: string, extra?: { name?: string; retailerId?: string }) => Promise<void>;
   logoutStaff: () => Promise<void>;
   setStaffRole: (role: 'admin' | 'retailer' | null) => Promise<void>;
   refreshData: () => Promise<void>;
@@ -44,7 +51,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [deviceRole, setDeviceRole] = useState<'customer' | 'staff' | null>(null);
   const [staffRole, setStaffRoleState] = useState<'admin' | 'retailer' | null>(null);
-  const [staffUser, setStaffUser] = useState<{ username: string; role: 'admin' | 'retailer' } | null>(null);
+  const [staffUser, setStaffUser] = useState<StaffUserInfo | null>(null);
   const [allLoans, setAllLoans] = useState<MultiLoanCustomer[]>([]);
 
   // Restore saved role & session on launch
@@ -342,10 +349,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
-  async function loginStaff(role: 'admin' | 'retailer', username: string, password?: string) {
+  async function loginStaff(
+    role: 'admin' | 'retailer',
+    username: string,
+    password?: string,
+    extra?: { name?: string; retailerId?: string }
+  ) {
     setIsLoading(true);
     try {
-      const userObj = { username: username.trim(), role };
+      const userObj: StaffUserInfo = {
+        username: username.trim(),
+        role,
+        name: extra?.name,
+        retailerId: extra?.retailerId,
+      };
       setStaffRoleState(role);
       setStaffUser(userObj);
       setDeviceRole('staff');

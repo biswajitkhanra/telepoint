@@ -36,6 +36,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { TelepointLogo } from '../components/TelepointLogo';
 import { PressableScale } from '../components/PressableScale';
+import { PORTAL_BASE_URL } from '../config';
 import { Colors } from '../constants/colors';
 import { Spacing, Radius } from '../constants/design';
 
@@ -81,7 +82,25 @@ export const StaffLoginScreen = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      await loginStaff(activeTab, username.trim(), password);
+      const res = await fetch(`${PORTAL_BASE_URL}/api/mobile/staff-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          role: activeTab,
+          username: username.trim(),
+          password,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Authentication failed. Please verify credentials.');
+      }
+
+      await loginStaff(activeTab, username.trim(), password, {
+        name: data.retailer?.name || data.user?.name || username.trim(),
+        retailerId: data.retailer?.id || data.user?.retailer_id,
+      });
     } catch (err: any) {
       setError(err?.message || 'Authentication failed. Please verify credentials.');
     } finally {

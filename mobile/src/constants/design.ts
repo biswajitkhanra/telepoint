@@ -21,6 +21,13 @@ export const Radius = {
 } as const;
 
 export const Shadow = {
+  sm: {
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
   subtle: {
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 2 },

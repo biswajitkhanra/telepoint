@@ -22,7 +22,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/api/cron') ||
     pathname.startsWith('/api/notifications') ||
     pathname.startsWith('/api/fines/recalc') ||
-    pathname.startsWith('/api/backup')
+    pathname.startsWith('/api/backup') ||
+    pathname.startsWith('/api/mobile')
   ) {
     return NextResponse.next();
   }
