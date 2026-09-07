@@ -9,7 +9,7 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0b1120"
+      "backgroundColor": "#080B11"
     },
     "ios": {
       "supportsTablet": false,
@@ -20,7 +20,7 @@
       "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0b1120"
+        "backgroundColor": "#080B11"
       },
       "permissions": [
         "RECEIVE_BOOT_COMPLETED",
