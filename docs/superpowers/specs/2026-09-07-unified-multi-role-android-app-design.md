@@ -16,9 +16,20 @@
      - **Retailers / Store Partners**: Store management, loan creation, payment collection & approval, statements.
      - **Admins**: Full platform management, retailer performance, risk analytics, settlement letters.
 
-2. **First-Time Role Onboarding (`RoleSelectionScreen`)**:
+2. **Premium Light Neo-Fintech Aesthetic ("Not Dark Color") & Fluid Motion**:
+   - **Canvas Background**: Clean Pearl White / Soft Alabaster (`#F8FAFC` to `#F1F5F9`).
+   - **Elevated Card Surfaces**: Crisp Pure White (`#FFFFFF`) with 1px polished borders (`rgba(15, 23, 42, 0.08)`), soft natural drop shadows (`shadowOpacity: 0.06`, `elevation: 4`), and subtle icy-blue metallic gradients (`['#FFFFFF', '#F8FAFC']`).
+   - **Vibrant Neo-Accents**:
+     - **Royal Telepoint Blue (`#2563EB`, `#1D4ED8`)**: Primary buttons, active highlights, brand crests.
+     - **Vibrant Emerald (`#10B981`, `#059669`)**: Paid status, verified badges, amortization completion.
+     - **Warm Amber (`#D97706`, `#B45309`)**: Dues within 5 days, announcements.
+     - **Coral Rose (`#DC2626`)**: Overdue alerts, penalty fines.
+   - **Typography**: Deep Charcoal / Slate (`#0F172A` headings, `#334155` body, `#64748B` captions) ensuring high-contrast readability in sunlight.
+   - **Super Fluid Animations**: Hardware-accelerated spring touch physics (`scale: 0.97` on press with spring snap-back, `useNativeDriver: true`), smooth progress gauge animations, and tactile haptic feedback (`expo-haptics`).
+
+3. **First-Time Role Onboarding (`RoleSelectionScreen`)**:
    - On cold start, if `@telepoint_device_role` does not exist in `AsyncStorage`:
-     - Display a 3D brand onboarding screen:
+     - Display a clean, elegant light-themed brand onboarding screen:
        - 📱 **"I am a Customer"** *(Financed smartphone, pay EMIs, view receipts)*
        - 🛡️ **"I am a Retailer / Admin"** *(Store owner, sales agent, or admin)*
    - When chosen, `@telepoint_device_role` is **permanently saved** (`'customer'` or `'staff'`) in `AsyncStorage`.
