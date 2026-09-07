@@ -36,6 +36,12 @@
           "color": "#2563eb"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "aec8f345-520f-41b7-bead-08a1177a2466"
+      }
+    },
+    "owner": "biswajitkha"
   }
 }
