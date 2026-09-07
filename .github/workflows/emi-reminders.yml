@@ -1,0 +1,57 @@
+name: Automatic EMI Reminders
+
+# Daily automated scheduler that checks for customers whose EMI is due
+# within the next 5 days (in Asia/Kolkata timezone) and automatically sends
+# idempotent push notifications to their active Android devices.
+#
+# Runs every morning at 03:30 UTC (09:00 AM IST).
+# Can also be triggered on-demand from the GitHub Actions tab.
+#
+# Required Secrets:
+#   PORTAL_URL    e.g. https://your-telepoint-portal.vercel.app
+#   CRON_SECRET   the matching CRON_SECRET configured in your environment
+
+on:
+  schedule:
+    - cron: '30 3 * * *' # 03:30 UTC = 09:00 AM IST every day
+  workflow_dispatch: {}
+
+concurrency:
+  group: emi-reminders
+  cancel-in-progress: false
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Daily EMI Reminder Engine
+        env:
+          PORTAL_URL: ${{ secrets.PORTAL_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$PORTAL_URL" ]; then
+            echo "::error::PORTAL_URL secret is not configured in repository secrets."
+            exit 1
+          fi
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::CRON_SECRET secret is not configured in repository secrets."
+            exit 1
+          fi
+
+          echo "Triggering EMI reminder engine at $PORTAL_URL/api/cron/emi-reminders..."
+          RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST "$PORTAL_URL/api/cron/emi-reminders" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json")
+
+          HTTP_BODY=$(echo "$RESPONSE" | sed -e '$d')
+          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1 | cut -d':' -f2)
+
+          echo "Response status: $HTTP_STATUS"
+          echo "Response body: $HTTP_BODY"
+
+          if [ "$HTTP_STATUS" -ne 200 ]; then
+            echo "::error::EMI reminder job returned HTTP $HTTP_STATUS: $HTTP_BODY"
+            exit 1
+          fi
+
+          echo "EMI Reminder run completed successfully."

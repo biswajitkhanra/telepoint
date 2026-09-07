@@ -207,9 +207,37 @@ export interface CustomerAppToken {
   id: string;
   customer_id: string;
   token: string;
+  push_token?: string | null;
+  device_id?: string | null;
+  device_name?: string | null;
+  platform?: string | null;
+  app_version?: string | null;
   is_active: boolean;
   created_by?: string;
   last_accessed_at?: string;
+  last_used_at?: string;
   created_at: string;
   updated_at: string;
+}
+
+export type NotificationType = 'emi_reminder' | 'broadcast' | 'system';
+export type NotificationDeliveryStatus = 'pending' | 'sent' | 'failed' | 'invalid_token';
+
+export interface NotificationDelivery {
+  id: string;
+  notification_type: NotificationType;
+  customer_id: string;
+  emi_schedule_id?: string | null;
+  broadcast_id?: string | null;
+  token_id?: string | null;
+  push_token: string;
+  title: string;
+  body: string;
+  data?: Record<string, unknown>;
+  idempotency_key: string;
+  status: NotificationDeliveryStatus;
+  expo_ticket_id?: string | null;
+  error_message?: string | null;
+  created_at: string;
+  sent_at?: string | null;
 }

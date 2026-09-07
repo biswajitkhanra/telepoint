@@ -18,6 +18,10 @@ export async function middleware(request: NextRequest) {
   // Google Sheet sees "<!DOCTYPE …" instead of JSON.
   if (
     pathname.startsWith('/api/customer-login') ||
+    pathname.startsWith('/api/customer-app-token') ||
+    pathname.startsWith('/api/cron') ||
+    pathname.startsWith('/api/notifications') ||
+    pathname.startsWith('/api/fines/recalc') ||
     pathname.startsWith('/api/backup')
   ) {
     return NextResponse.next();
