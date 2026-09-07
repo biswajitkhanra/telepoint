@@ -17,7 +17,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <StatusBar style="light" />
+        <StatusBar style="dark" />
         <RootNavigator />
       </AuthProvider>
     </SafeAreaProvider>

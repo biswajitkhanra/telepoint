@@ -48,6 +48,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setDeviceRole(savedRole);
         }
 
+        // Restore push token if saved
+        const savedToken = await AsyncStorage.getItem(STORAGE_KEYS.TOKEN);
+        if (savedToken) {
+          setPushToken(savedToken);
+        }
+
         // Restore customer session
         const saved = await AsyncStorage.getItem(STORAGE_KEYS.SESSION);
         if (saved) {
@@ -205,6 +211,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const token = await registerForPushNotificationsAsync();
         if (token) {
           setPushToken(token);
+          await AsyncStorage.setItem(STORAGE_KEYS.TOKEN, token);
           const deviceId = Device.osInternalBuildId || `${Device.modelName || 'device'}-${Device.osVersion}`;
           await registerPushToken({
             customer_id: res.customer.id,
@@ -241,13 +248,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           customer_id: customer.id,
           push_token: pushToken,
           device_id: deviceId,
-        });
+        }).catch(() => {});
       }
-      await AsyncStorage.removeItem(STORAGE_KEYS.SESSION);
+      await AsyncStorage.multiRemove([STORAGE_KEYS.SESSION, STORAGE_KEYS.TOKEN, STORAGE_KEYS.ACTIVE_LOAN]);
       setCustomer(null);
       setEmis([]);
       setBreakdown(null);
       setBroadcasts([]);
+      setAllLoans([]);
+      setPushToken(null);
     } finally {
       setIsLoading(false);
     }

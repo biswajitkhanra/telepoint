@@ -104,7 +104,9 @@ export const EmiHeroCard: React.FC<EmiHeroCardProps> = ({
                     : styles.textNormal,
                 ]}
               >
-                {daysUntilDue === 0
+                {daysUntilDue < 0
+                  ? `Overdue (${Math.abs(daysUntilDue)}d)`
+                  : daysUntilDue === 0
                   ? 'Due Today!'
                   : daysUntilDue === 1
                   ? 'Due Tomorrow'

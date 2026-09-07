@@ -214,7 +214,7 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
         {/* Fintech Quick Action Dock */}
         <QuickActionDock
           onPayUpi={handlePayUpi}
-          onViewReceipts={() => navigation.navigate('Schedule')}
+          onViewReceipts={() => navigation.navigate('EmiSchedule')}
           retailerPhone={customer.retailer?.mobile}
           retailerName={customer.retailer?.name}
         />
@@ -226,7 +226,7 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
             <TouchableOpacity
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.navigate('Schedule');
+                navigation.navigate('EmiSchedule');
               }}
             >
               <Text style={styles.viewAllText}>View All ({emis.length})</Text>
@@ -244,7 +244,7 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
                   if (isPaid) {
                     setReceiptEmi(emi);
                   } else {
-                    navigation.navigate('Schedule');
+                    navigation.navigate('EmiSchedule');
                   }
                 }}
                 style={styles.activityItem}

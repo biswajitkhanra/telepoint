@@ -28,6 +28,7 @@
       "permissions": [
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
+        "POST_NOTIFICATIONS",
         "NOTIFICATIONS"
       ]
     },
