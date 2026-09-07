@@ -172,6 +172,70 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
     font-variant-numeric: tabular-nums lining-nums;
     font-feature-settings: 'tnum' 1, 'lnum' 1, 'zero' 0;
   }
+
+  /* ── 3D Premium Utilities ────────────────────────────────── */
+
+  /* Glassmorphism panel — frosted glass with light border */
+  .glass-panel {
+    background: rgba(255, 255, 255, 0.65);
+    backdrop-filter: blur(14px) saturate(150%);
+    -webkit-backdrop-filter: blur(14px) saturate(150%);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    @apply shadow-glass;
+  }
+  .dark .glass-panel {
+    background: rgba(30, 41, 59, 0.65);
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  /* 3D neumorphic card — extrudes from the surface */
+  .card-3d {
+    @apply rounded-2xl bg-gradient-to-br from-surface to-surface-2 border border-surface-4;
+    box-shadow:
+      6px 6px 14px rgba(0,0,0,0.08),
+      -3px -3px 10px rgba(255,255,255,0.40),
+      inset 0 1px 0 rgba(255,255,255,0.30);
+    transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1),
+                box-shadow 0.35s ease;
+    will-change: transform;
+  }
+  .card-3d:hover {
+    transform: translateY(-4px);
+    box-shadow:
+      8px 8px 22px rgba(0,0,0,0.12),
+      -4px -4px 14px rgba(255,255,255,0.45),
+      inset 0 1px 0 rgba(255,255,255,0.35),
+      0 0 0 1px rgba(59,130,246,0.08);
+  }
+  .dark .card-3d {
+    box-shadow:
+      6px 6px 14px rgba(0,0,0,0.30),
+      -3px -3px 10px rgba(255,255,255,0.04),
+      inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+
+  /* Input glow on focus — pulsating brand ring */
+  .input-glow {
+    @apply input;
+    transition: box-shadow 0.3s ease, border-color 0.3s ease;
+  }
+  .input-glow:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 4px rgba(59,130,246,0.18),
+                0 0 16px rgba(59,130,246,0.12),
+                0 2px 8px rgba(37,99,235,0.10);
+  }
+
+  /* Gradient shift background — slow color cycling */
+  .bg-gradient-shift {
+    background: linear-gradient(-45deg, #eff6ff, #f5f3ff, #ecfdf5, #eff6ff);
+    background-size: 400% 400%;
+    animation: gradientShift 15s ease infinite;
+  }
+  .dark .bg-gradient-shift {
+    background: linear-gradient(-45deg, #0b1120, #131129, #0b1a1a, #0b1120);
+    background-size: 400% 400%;
+  }
 }
 
 /* ── Animations ──────────────────────────────────────────── */

@@ -1,3 +1,6 @@
+// screens/LoginScreen.tsx
+// IDFC clarity + Jupiter Neo bold: Welcome back, mobile/Aadhaar switcher, animated focus & continue button
+
 import React, { useState } from 'react';
 import {
   View,
@@ -10,6 +13,7 @@ import {
   Platform,
   ScrollView,
   Modal,
+  SafeAreaView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -23,12 +27,14 @@ import {
   CheckCircle2,
   Users,
   X,
+  Lock,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../context/AuthContext';
 import { TelepointLogo } from '../components/TelepointLogo';
 import { MultiLoanCustomer } from '../types';
-import { THEME } from '../config';
+import { Colors } from '../constants/colors';
+import { Spacing, Radius, Shadow } from '../constants/design';
 
 export const LoginScreen = () => {
   const { login, isLoading, resetRolePreference } = useAuth();
@@ -36,6 +42,7 @@ export const LoginScreen = () => {
   const [mobile, setMobile] = useState('');
   const [aadhaar, setAadhaar] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isFocused, setIsFocused] = useState(false);
 
   // Multi-loan selection state
   const [multiLoans, setMultiLoans] = useState<MultiLoanCustomer[]>([]);
@@ -81,7 +88,7 @@ export const LoginScreen = () => {
       if (authMode === 'mobile') {
         const cleanMobile = mobile.replace(/\D/g, '');
         if (cleanMobile.length !== 10) {
-          setError('Please enter a valid 10-digit mobile number');
+          setError('Please enter a valid 10-digit registered mobile number');
           return;
         }
         const res = await login({ mobile: cleanMobile });
@@ -102,342 +109,391 @@ export const LoginScreen = () => {
         }
       }
     } catch (err: any) {
-      setError(err?.message || 'Verification failed. Please check details or contact retailer.');
+      setError(err?.message || 'Verification failed. Please check details or contact your retailer.');
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.container}
-    >
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.container}
       >
-        {/* Subtle decorative glow */}
-        <View style={styles.glowCircle} pointerEvents="none" />
-
-        {/* Brand Header */}
-        <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <TelepointLogo size={74} />
-          </View>
-          <Text style={styles.appName}>TELEPOINT</Text>
-          <Text style={styles.appTagline}>Smart Smartphone Finance Portal</Text>
-
-          <View style={styles.securityTag}>
-            <Shield size={12} color="#2563EB" />
-            <Text style={styles.securityText}>BANK GRADE 256-BIT ENCRYPTION</Text>
-          </View>
-        </View>
-
-        {/* Mode Selector Toggle */}
-        <View style={styles.toggleContainer}>
-          <TouchableOpacity
-            style={[styles.toggleBtn, authMode === 'mobile' && styles.toggleBtnActive]}
-            onPress={() => {
-              Haptics.selectionAsync();
-              setAuthMode('mobile');
-              setError(null);
-            }}
-          >
-            <Smartphone
-              size={16}
-              color={authMode === 'mobile' ? '#FFFFFF' : '#64748B'}
-            />
-            <Text
-              style={[
-                styles.toggleText,
-                authMode === 'mobile' && styles.toggleTextActive,
-              ]}
-            >
-              Mobile Number
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.toggleBtn, authMode === 'aadhaar' && styles.toggleBtnActive]}
-            onPress={() => {
-              Haptics.selectionAsync();
-              setAuthMode('aadhaar');
-              setError(null);
-            }}
-          >
-            <CreditCard
-              size={16}
-              color={authMode === 'aadhaar' ? '#FFFFFF' : '#64748B'}
-            />
-            <Text
-              style={[
-                styles.toggleText,
-                authMode === 'aadhaar' && styles.toggleTextActive,
-              ]}
-            >
-              Aadhaar ID
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Input Card */}
-        <View style={styles.card}>
-          {authMode === 'mobile' ? (
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>REGISTERED MOBILE NUMBER</Text>
-              <View style={styles.inputWrapper}>
-                <Text style={styles.prefix}>+91</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="98765 43210"
-                  placeholderTextColor="#94A3B8"
-                  keyboardType="phone-pad"
-                  maxLength={11}
-                  value={formatMobileDisplay(mobile)}
-                  onChangeText={handleMobileChange}
-                  editable={!isLoading}
-                />
-              </View>
-              <Text style={styles.helperText}>
-                The mobile number registered during your smartphone financing
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>12-DIGIT AADHAAR NUMBER</Text>
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="0000 0000 0000"
-                  placeholderTextColor="#94A3B8"
-                  keyboardType="numeric"
-                  maxLength={14}
-                  value={formatAadhaarDisplay(aadhaar)}
-                  onChangeText={handleAadhaarChange}
-                  editable={!isLoading}
-                />
-              </View>
-              <Text style={styles.helperText}>
-                Your Aadhaar provided at the retailer store counter
-              </Text>
-            </View>
-          )}
-
-          {error && (
-            <View style={styles.errorContainer}>
-              <AlertCircle size={16} color="#DC2626" />
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          )}
-
-          {/* Login Submit Button */}
-          <TouchableOpacity
-            activeOpacity={0.88}
-            onPress={() => handleLogin()}
-            disabled={isLoading}
-            style={styles.loginBtn}
-          >
-            <LinearGradient
-              colors={['#2563EB', '#1D4ED8']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.btnGradient}
-            >
-              {isLoading ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <View style={styles.btnContent}>
-                  <Text style={styles.btnText}>Access EMI Dashboard</Text>
-                  <ChevronRight size={18} color="#FFFFFF" />
-                </View>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
-
-          {/* Biometric Shield Prompt */}
-          <View style={styles.biometricPrompt}>
-            <Fingerprint size={16} color="#2563EB" />
-            <Text style={styles.biometricText}>
-              Permanent login enabled • Protected until app data cleared
-            </Text>
-          </View>
-        </View>
-
-        {/* Role Switcher Option (For Retailers/Admins who tapped Customer) */}
-        <TouchableOpacity
-          activeOpacity={0.8}
-          style={styles.switchStaffBtn}
-          onPress={async () => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            await resetRolePreference();
-          }}
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          <Users size={15} color="#2563EB" />
-          <Text style={styles.switchStaffText}>
-            Not a customer? Switch to Retailer / Admin Portal
-          </Text>
-        </TouchableOpacity>
+          {/* Subtle decorative pastel ambient orbs */}
+          <View style={styles.orbTopLeft} pointerEvents="none" />
+          <View style={styles.orbBottomRight} pointerEvents="none" />
 
-        {/* Footer Support Notice */}
-        <View style={styles.footerNote}>
-          <Sparkles size={14} color="#64748B" />
-          <Text style={styles.footerText}>
-            Facing issues? Contact your device financing retailer
-          </Text>
-        </View>
-      </ScrollView>
-
-      {/* Multi-Loan Selection Modal */}
-      <Modal
-        visible={showMultiModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowMultiModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Financed Device</Text>
-              <TouchableOpacity onPress={() => setShowMultiModal(false)}>
-                <X size={20} color="#64748B" />
-              </TouchableOpacity>
+          {/* Brand Header */}
+          <View style={styles.header}>
+            <View style={styles.logoContainer}>
+              <TelepointLogo size={68} />
             </View>
-            <Text style={styles.modalSubtitle}>
-              We found multiple active loans associated with this profile.
-            </Text>
+            <Text style={styles.brandTitle}>TelePoint</Text>
+            <Text style={styles.brandSubtitle}>EMI Management Portal</Text>
 
-            <ScrollView style={{ maxHeight: 350 }}>
-              {multiLoans.map(loan => (
-                <TouchableOpacity
-                  key={loan.id}
-                  style={styles.loanCard}
-                  activeOpacity={0.8}
-                  onPress={() => handleLogin(loan.id)}
-                >
-                  <View style={styles.loanCardHeader}>
-                    <Smartphone size={20} color="#2563EB" />
-                    <View style={styles.loanCardTextCol}>
-                      <Text style={styles.loanDeviceModel}>
-                        {loan.model_no || 'Financed Smartphone'}
-                      </Text>
-                      <Text style={styles.loanImei}>IMEI: {loan.imei}</Text>
-                    </View>
-                    <ChevronRight size={18} color="#94A3B8" />
-                  </View>
-                  <View style={styles.loanFooter}>
-                    <Text style={styles.loanStatusTag}>
-                      {loan.status || 'ACTIVE LOAN'}
-                    </Text>
-                    <Text style={styles.loanRetailer}>
-                      {typeof loan.retailer === 'object' && loan.retailer && 'name' in loan.retailer
-                        ? String((loan.retailer as any).name)
-                        : 'Retailer Partner'}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+            <View style={styles.securityPill}>
+              <Lock size={12} color="#1A6FD6" />
+              <Text style={styles.securityPillText}>SECURE 256-BIT ENCRYPTION</Text>
+            </View>
+          </View>
+
+          {/* Headline — Jupiter bold & confident */}
+          <View style={styles.headlineContainer}>
+            <Text style={styles.headlineText}>Welcome back</Text>
+            <Text style={styles.headlineSub}>
+              Enter your registered credentials to view your smartphone EMI schedule
+            </Text>
+          </View>
+
+          {/* Segment Toggle: Mobile | Aadhaar */}
+          <View style={styles.toggleContainer}>
+            <TouchableOpacity
+              style={[styles.toggleBtn, authMode === 'mobile' && styles.toggleBtnActive]}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setAuthMode('mobile');
+                setError(null);
+              }}
+            >
+              <Smartphone
+                size={15}
+                color={authMode === 'mobile' ? '#FFFFFF' : '#64748B'}
+              />
+              <Text
+                style={[
+                  styles.toggleText,
+                  authMode === 'mobile' && styles.toggleTextActive,
+                ]}
+              >
+                Mobile Number
+              </Text>
+            </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.modalCancelBtn}
-              onPress={() => setShowMultiModal(false)}
+              style={[styles.toggleBtn, authMode === 'aadhaar' && styles.toggleBtnActive]}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setAuthMode('aadhaar');
+                setError(null);
+              }}
             >
-              <Text style={styles.modalCancelText}>Cancel</Text>
+              <CreditCard
+                size={15}
+                color={authMode === 'aadhaar' ? '#FFFFFF' : '#64748B'}
+              />
+              <Text
+                style={[
+                  styles.toggleText,
+                  authMode === 'aadhaar' && styles.toggleTextActive,
+                ]}
+              >
+                Aadhaar Number
+              </Text>
             </TouchableOpacity>
           </View>
-        </View>
-      </Modal>
-    </KeyboardAvoidingView>
+
+          {/* Input Card */}
+          <View style={styles.card}>
+            {authMode === 'mobile' ? (
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>REGISTERED MOBILE NUMBER</Text>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    isFocused && styles.inputWrapperFocused,
+                  ]}
+                >
+                  <Text style={styles.prefix}>+91</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="98765 43210"
+                    placeholderTextColor="#94A3B8"
+                    keyboardType="phone-pad"
+                    maxLength={11}
+                    value={formatMobileDisplay(mobile)}
+                    onChangeText={handleMobileChange}
+                    onFocus={() => setIsFocused(true)}
+                    onBlur={() => setIsFocused(false)}
+                    editable={!isLoading}
+                  />
+                </View>
+                <Text style={styles.helperText}>
+                  The phone number provided during financing at the store
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>12-DIGIT AADHAAR NUMBER</Text>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    isFocused && styles.inputWrapperFocused,
+                  ]}
+                >
+                  <TextInput
+                    style={styles.input}
+                    placeholder="0000 0000 0000"
+                    placeholderTextColor="#94A3B8"
+                    keyboardType="numeric"
+                    maxLength={14}
+                    value={formatAadhaarDisplay(aadhaar)}
+                    onChangeText={handleAadhaarChange}
+                    onFocus={() => setIsFocused(true)}
+                    onBlur={() => setIsFocused(false)}
+                    editable={!isLoading}
+                  />
+                </View>
+                <Text style={styles.helperText}>
+                  Your Aadhaar card number submitted at the retailer counter
+                </Text>
+              </View>
+            )}
+
+            {error && (
+              <View style={styles.errorContainer}>
+                <AlertCircle size={16} color="#DC2626" />
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            )}
+
+            {/* Submit Button */}
+            <TouchableOpacity
+              activeOpacity={0.88}
+              onPress={() => handleLogin()}
+              disabled={isLoading}
+              style={styles.continueBtn}
+            >
+              <LinearGradient
+                colors={[Colors.primary, Colors.accent]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.btnGradient}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <View style={styles.btnContent}>
+                    <Text style={styles.btnText}>Access Dashboard</Text>
+                    <ChevronRight size={18} color="#FFFFFF" />
+                  </View>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <View style={styles.sessionLockRow}>
+              <Fingerprint size={15} color="#1A6FD6" />
+              <Text style={styles.sessionLockText}>
+                Persistent device lockdown • Kept signed in safely
+              </Text>
+            </View>
+          </View>
+
+          {/* Mode Switcher Option (For Staff / Admins) */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={styles.switchStaffBtn}
+            onPress={async () => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              await resetRolePreference();
+            }}
+          >
+            <Users size={15} color="#1A6FD6" />
+            <Text style={styles.switchStaffText}>
+              Are you a Retailer or Admin? Open Staff Portal
+            </Text>
+          </TouchableOpacity>
+
+          {/* Footer note */}
+          <View style={styles.footerNote}>
+            <Sparkles size={13} color="#64748B" />
+            <Text style={styles.footerText}>
+              Need assistance? Please contact your mobile financing retailer
+            </Text>
+          </View>
+        </ScrollView>
+
+        {/* Multi-Loan Selection Modal */}
+        <Modal
+          visible={showMultiModal}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowMultiModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Select Financed Device</Text>
+                <TouchableOpacity onPress={() => setShowMultiModal(false)}>
+                  <X size={20} color="#64748B" />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.modalSubtitle}>
+                We found multiple smartphone finance accounts linked to your profile.
+              </Text>
+
+              <ScrollView style={{ maxHeight: 350 }}>
+                {multiLoans.map(loan => (
+                  <TouchableOpacity
+                    key={loan.id}
+                    style={styles.loanCard}
+                    activeOpacity={0.8}
+                    onPress={() => handleLogin(loan.id)}
+                  >
+                    <View style={styles.loanCardHeader}>
+                      <Smartphone size={18} color="#1A6FD6" />
+                      <View style={styles.loanCardTextCol}>
+                        <Text style={styles.loanDeviceModel}>
+                          {loan.model_no || 'Financed Smartphone'}
+                        </Text>
+                        <Text style={styles.loanImei}>IMEI: {loan.imei}</Text>
+                      </View>
+                      <ChevronRight size={18} color="#94A3B8" />
+                    </View>
+                    <View style={styles.loanFooter}>
+                      <Text style={styles.loanStatusTag}>
+                        {(loan.status || 'ACTIVE LOAN').toUpperCase()}
+                      </Text>
+                      <Text style={styles.loanRetailer}>
+                        {typeof loan.retailer === 'object' && loan.retailer && 'name' in loan.retailer
+                          ? String((loan.retailer as any).name)
+                          : 'Retailer Partner'}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setShowMultiModal(false)}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F5F8FF', // Light IDFC blue-white canvas
+  },
   container: {
     flex: 1,
-    backgroundColor: THEME.bg.darkest, // #F8FAFC
   },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 22,
-    paddingTop: 50,
+    paddingTop: 30,
     paddingBottom: 40,
     justifyContent: 'center',
   },
-  glowCircle: {
+  orbTopLeft: {
     position: 'absolute',
-    top: -50,
-    alignSelf: 'center',
-    width: 260,
-    height: 260,
-    borderRadius: 130,
-    backgroundColor: 'rgba(37, 99, 235, 0.06)',
+    top: -40,
+    left: -40,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: '#DBEAFE',
+    opacity: 0.6,
+  },
+  orbBottomRight: {
+    position: 'absolute',
+    bottom: -40,
+    right: -40,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: '#EEF2FF',
+    opacity: 0.6,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 28,
+    marginBottom: 20,
   },
   logoContainer: {
-    marginBottom: 12,
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 4,
+    marginBottom: 10,
   },
-  appName: {
-    fontSize: 28,
+  brandTitle: {
+    fontSize: 24,
     fontWeight: '900',
     color: '#0F172A',
-    letterSpacing: 2,
+    letterSpacing: 1.5,
   },
-  appTagline: {
-    fontSize: 13,
+  brandSubtitle: {
+    fontSize: 12,
     color: '#64748B',
-    marginTop: 4,
+    marginTop: 2,
+    fontWeight: '500',
   },
-  securityTag: {
+  securityPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(37, 99, 235, 0.08)',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 12,
-    marginTop: 10,
+    gap: 5,
+    backgroundColor: '#EFF5FF',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: Radius.full,
+    marginTop: 8,
     borderWidth: 1,
-    borderColor: 'rgba(37, 99, 235, 0.2)',
+    borderColor: 'rgba(26, 111, 214, 0.2)',
   },
-  securityText: {
-    color: '#2563EB',
-    fontSize: 10,
+  securityPillText: {
+    color: '#1A6FD6',
+    fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.6,
   },
+  headlineContainer: {
+    marginBottom: 16,
+  },
+  headlineText: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.5,
+  },
+  headlineSub: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 4,
+    lineHeight: 18,
+  },
   toggleContainer: {
     flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 16,
+    backgroundColor: '#F0F4FF',
+    borderRadius: Radius.lg,
     padding: 4,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: 'rgba(15, 23, 42, 0.06)',
+    borderColor: '#E2E8F0',
   },
   toggleBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 12,
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: Radius.md,
   },
   toggleBtnActive: {
-    backgroundColor: '#2563EB',
-    shadowColor: '#2563EB',
+    backgroundColor: '#1A6FD6',
+    elevation: 2,
+    shadowColor: '#1A6FD6',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
-    elevation: 3,
   },
   toggleText: {
     color: '#64748B',
@@ -450,37 +506,41 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 24,
+    borderRadius: Radius.xl,
+    padding: Spacing.xl,
     borderWidth: 1,
-    borderColor: 'rgba(15, 23, 42, 0.08)',
-    shadowColor: '#0F172A',
+    borderColor: '#E2E8F0',
+    elevation: 4,
+    shadowColor: '#1A6FD6',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.06,
     shadowRadius: 16,
-    elevation: 4,
   },
   inputGroup: {
-    marginBottom: 18,
+    marginBottom: 16,
   },
   label: {
     color: '#64748B',
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.8,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
-    borderRadius: 14,
+    borderRadius: Radius.md,
     borderWidth: 1.5,
-    borderColor: 'rgba(15, 23, 42, 0.1)',
+    borderColor: '#E2E8F0',
     paddingHorizontal: 14,
   },
+  inputWrapperFocused: {
+    borderColor: '#1A6FD6',
+    backgroundColor: '#FFFFFF',
+  },
   prefix: {
-    color: '#2563EB',
+    color: '#1A6FD6',
     fontSize: 16,
     fontWeight: '700',
     marginRight: 8,
@@ -490,7 +550,7 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     fontSize: 16,
     fontWeight: '700',
-    paddingVertical: 14,
+    paddingVertical: 12,
     letterSpacing: 0.5,
   },
   helperText: {
@@ -503,9 +563,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     backgroundColor: '#FEE2E2',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 16,
+    padding: 10,
+    borderRadius: Radius.md,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: '#FCA5A5',
   },
@@ -515,17 +575,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flex: 1,
   },
-  loginBtn: {
-    borderRadius: 14,
+  continueBtn: {
+    borderRadius: Radius.md,
     overflow: 'hidden',
-    shadowColor: '#2563EB',
+    elevation: 3,
+    shadowColor: '#1A6FD6',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
-    elevation: 3,
   },
   btnGradient: {
-    paddingVertical: 16,
+    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -540,17 +600,17 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.3,
   },
-  biometricPrompt: {
+  sessionLockRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    marginTop: 18,
-    paddingTop: 16,
+    gap: 6,
+    marginTop: 14,
+    paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(15, 23, 42, 0.06)',
+    borderTopColor: '#F1F5F9',
   },
-  biometricText: {
+  sessionLockText: {
     color: '#64748B',
     fontSize: 11,
     fontWeight: '600',
@@ -561,14 +621,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     paddingVertical: 12,
-    marginTop: 16,
-    borderRadius: 14,
+    marginTop: 14,
+    borderRadius: Radius.md,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(37, 99, 235, 0.2)',
+    borderColor: 'rgba(26, 111, 214, 0.2)',
   },
   switchStaffText: {
-    color: '#2563EB',
+    color: '#1A6FD6',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -577,7 +637,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 6,
-    marginTop: 20,
+    marginTop: 16,
   },
   footerText: {
     color: '#64748B',
@@ -586,14 +646,14 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
     justifyContent: 'flex-end',
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 22,
+    borderTopLeftRadius: Radius['2xl'],
+    borderTopRightRadius: Radius['2xl'],
+    padding: Spacing.xl,
     paddingBottom: 36,
   },
   modalHeader: {
@@ -608,47 +668,47 @@ const styles = StyleSheet.create({
     color: '#0F172A',
   },
   modalSubtitle: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#64748B',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   loanCard: {
     backgroundColor: '#F8FAFC',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: Radius.lg,
+    padding: Spacing.base,
+    marginBottom: 10,
     borderWidth: 1.5,
-    borderColor: 'rgba(15, 23, 42, 0.08)',
+    borderColor: '#E2E8F0',
   },
   loanCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 8,
+    gap: 10,
+    marginBottom: 6,
   },
   loanCardTextCol: {
     flex: 1,
   },
   loanDeviceModel: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
     color: '#0F172A',
   },
   loanImei: {
     fontSize: 11,
     color: '#64748B',
-    marginTop: 2,
+    marginTop: 1,
   },
   loanFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(15, 23, 42, 0.06)',
-    paddingTop: 8,
+    borderTopColor: '#E2E8F0',
+    paddingTop: 6,
   },
   loanStatusTag: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '800',
     color: '#059669',
   },
@@ -657,11 +717,11 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   modalCancelBtn: {
-    paddingVertical: 14,
-    borderRadius: 14,
+    paddingVertical: 12,
+    borderRadius: Radius.md,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 8,
   },
   modalCancelText: {
     color: '#64748B',

@@ -1,3 +1,6 @@
+// screens/DashboardScreen.tsx
+// IDFC First Bank clarity + Jupiter Neo delight: Numbers as heroes, 3D tilt Hero Gradient Card, quick stats & multi-loan switching
+
 import React, { useState } from 'react';
 import {
   View,
@@ -9,6 +12,8 @@ import {
   Linking,
   Alert,
   Modal,
+  SafeAreaView,
+  StatusBar,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -19,20 +24,24 @@ import {
   Clock,
   CheckCircle2,
   Receipt,
-  Sparkles,
   Smartphone,
   Check,
   X,
+  CreditCard,
+  PhoneCall,
+  Calendar,
+  AlertCircle,
+  TrendingUp,
 } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
-import { TitaniumLoanCard } from '../components/TitaniumLoanCard';
-import { EmiProgressRing } from '../components/EmiProgressRing';
-import { EmiHeroCard } from '../components/EmiHeroCard';
-import { QuickActionDock } from '../components/QuickActionDock';
+import { GradientCard } from '../components/GradientCard';
+import { CountUp } from '../components/CountUp';
 import { ReceiptModal } from '../components/ReceiptModal';
 import { BroadcastModal } from '../components/BroadcastModal';
-import { BroadcastItem, EMIScheduleItem, MultiLoanCustomer } from '../types';
-import { THEME } from '../config';
+import { BroadcastItem, EMIScheduleItem } from '../types';
+import { Colors } from '../constants/colors';
+import { Spacing, Radius, Shadow } from '../constants/design';
+import { Typography } from '../constants/typography';
 
 export const DashboardScreen = ({ navigation }: { navigation: any }) => {
   const { customer, emis, breakdown, broadcasts, refreshData, allLoans, switchActiveLoan } = useAuth();
@@ -51,17 +60,51 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
 
   if (!customer) return null;
 
-  // Split paid vs unpaid EMIs
-  const paidEmis = emis.filter(e => e.status === 'APPROVED');
-  const unpaidEmis = emis.filter(e => e.status === 'UNPAID' || e.status === 'PARTIALLY_PAID');
+  // Split paid vs unpaid EMIs (supporting both 'collected' and 'APPROVED')
+  const isEmiPaid = (e: EMIScheduleItem) =>
+    e.status === 'collected' || e.status === 'APPROVED' || !!e.paid_at;
+
+  const paidEmis = emis.filter(isEmiPaid);
+  const unpaidEmis = emis.filter(e => !isEmiPaid(e));
   const nextEmi = unpaidEmis.length > 0 ? unpaidEmis[0] : null;
 
   const totalEmisCount = customer.emi_tenure || Math.max(emis.length, 1);
-  const totalLoanAmount = customer.purchase_value || (customer.emi_amount * totalEmisCount);
-  const paidAmount = paidEmis.reduce((sum, e) => sum + (e.amount || 0), 0);
+  const totalLoanAmount = customer.purchase_value || customer.emi_amount * totalEmisCount;
+  const paidAmount = paidEmis.reduce(
+    (sum, e) => sum + (e.amount || 0) + (e.fine_paid_amount || 0),
+    0
+  );
+  const remainingBalance = Math.max(totalLoanAmount - paidAmount, 0);
 
-  const formatInr = (n: number) =>
-    `₹${new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(n)}`;
+  // Calculate days left until next EMI due date
+  const calculateDaysLeft = () => {
+    if (!nextEmi?.due_date) return 999;
+    try {
+      const due = new Date(nextEmi.due_date);
+      const now = new Date();
+      const diffTime = due.getTime() - now.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return Math.max(diffDays, 0);
+    } catch {
+      return 999;
+    }
+  };
+
+  const daysLeft = calculateDaysLeft();
+
+  const formattedDueDate = nextEmi?.due_date
+    ? (() => {
+        try {
+          return new Date(nextEmi.due_date).toLocaleDateString('en-IN', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+          });
+        } catch {
+          return nextEmi.due_date;
+        }
+      })()
+    : undefined;
 
   // Handle direct UPI Payment intent
   const handlePayUpi = () => {
@@ -79,14 +122,14 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
         } else {
           Alert.alert(
             'Retailer UPI Details',
-            `Pay via any UPI App:\nVPA: ${payeeMobile}@paytm\nAmount: ${formatInr(amount)}\nRetailer: ${customer.retailer?.name}`
+            `Pay via any UPI App:\nVPA: ${payeeMobile}@paytm\nAmount: ₹${amount.toLocaleString('en-IN')}\nRetailer: ${customer.retailer?.name}`
           );
         }
       });
     } else {
       Alert.alert(
         'Store Payment',
-        `Please contact ${customer.retailer?.name || 'your retailer'} to complete this installment payment.`
+        `Please contact ${customer.retailer?.name || 'your retailer partner'} to complete this installment payment.`
       );
     }
   };
@@ -107,15 +150,17 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={THEME.accent.primary}
-            colors={[THEME.accent.primary, THEME.accent.success]}
+            tintColor={Colors.primary}
+            colors={[Colors.primary, Colors.success]}
           />
         }
         showsVerticalScrollIndicator={false}
@@ -126,13 +171,13 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
             <View style={styles.greetingRow}>
               <Text style={styles.greetingText}>HELLO,</Text>
               <View style={styles.kycShield}>
-                <ShieldCheck size={12} color="#10B981" />
+                <ShieldCheck size={11} color="#059669" />
                 <Text style={styles.kycText}>VERIFIED</Text>
               </View>
             </View>
             <Text style={styles.customerName}>{customer.customer_name}</Text>
 
-            {/* Multi-Loan Switcher Pill (when customer has 2+ loans on this phone/Aadhaar) */}
+            {/* Multi-Loan Switcher Pill */}
             {allLoans.length > 1 && (
               <TouchableOpacity
                 activeOpacity={0.8}
@@ -142,9 +187,9 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
                   setSwitchModalVisible(true);
                 }}
               >
-                <Smartphone size={12} color="#2563EB" />
+                <Smartphone size={12} color="#1A6FD6" />
                 <Text style={styles.switchLoanPillText}>
-                  {customer.model_no || 'Active Device'} • Switch Device ({allLoans.length}) ▾
+                  {customer.model_no || 'Active Device'} • Switch ({allLoans.length}) ▾
                 </Text>
               </TouchableOpacity>
             )}
@@ -158,7 +203,7 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
           </View>
         </View>
 
-        {/* Live Broadcast / Store Offer Announcement */}
+        {/* Live Broadcast / Announcement Banner */}
         {broadcasts.length > 0 && (
           <TouchableOpacity
             activeOpacity={0.88}
@@ -190,179 +235,233 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
           </TouchableOpacity>
         )}
 
-        {/* 3D Titanium Device Passbook Card */}
-        <TitaniumLoanCard customer={customer} />
-
-        {/* Next EMI Urgency Hero Card */}
-        <EmiHeroCard
-          customer={customer}
-          nextEmi={nextEmi}
-          paidCount={paidEmis.length}
-          totalTenure={totalEmisCount}
-          breakdown={breakdown}
+        {/* Hero 3D Gradient Card — IDFC + Jupiter Neo */}
+        <GradientCard
+          loanAmount={totalLoanAmount}
+          paidAmount={paidAmount}
+          nextEmiAmount={nextEmi?.amount || customer.emi_amount}
+          nextDueDate={formattedDueDate}
+          daysLeft={daysLeft}
+          tenureMonths={totalEmisCount}
+          paidMonths={paidEmis.length}
           onPayPress={handlePayUpi}
         />
 
-        {/* Amortization Progress Visualizer */}
-        <EmiProgressRing
-          totalEmis={totalEmisCount}
-          paidEmis={paidEmis.length}
-          totalAmount={totalLoanAmount}
-          paidAmount={paidAmount}
-        />
+        {/* Quick Stats Mini Cards — Horizontal Scroll */}
+        <View style={styles.quickStatsContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.quickStatsScroll}
+          >
+            {/* Stat 1: Total Paid */}
+            <View style={styles.statCard}>
+              <View style={styles.statHeaderRow}>
+                <View style={[styles.statDot, { backgroundColor: '#10B981' }]} />
+                <Text style={styles.statLabelText}>TOTAL PAID</Text>
+              </View>
+              <CountUp
+                end={paidAmount}
+                prefix="₹"
+                style={[styles.statNumberText, { color: '#059669' }]}
+                duration={700}
+              />
+              <Text style={styles.statSubText}>{paidEmis.length} installments settled</Text>
+            </View>
 
-        {/* Fintech Quick Action Dock */}
-        <QuickActionDock
-          onPayUpi={handlePayUpi}
-          onViewReceipts={() => navigation.navigate('EmiSchedule')}
-          retailerPhone={customer.retailer?.mobile}
-          retailerName={customer.retailer?.name}
-        />
+            {/* Stat 2: Remaining Balance */}
+            <View style={styles.statCard}>
+              <View style={styles.statHeaderRow}>
+                <View style={[styles.statDot, { backgroundColor: '#1A6FD6' }]} />
+                <Text style={styles.statLabelText}>REMAINING</Text>
+              </View>
+              <CountUp
+                end={remainingBalance}
+                prefix="₹"
+                style={[styles.statNumberText, { color: '#1A6FD6' }]}
+                duration={700}
+              />
+              <Text style={styles.statSubText}>{unpaidEmis.length} installments due</Text>
+            </View>
 
-        {/* Recent Installment Activity Feed */}
-        <View style={styles.activitySection}>
-          <View style={styles.activityHeader}>
-            <Text style={styles.activityTitle}>INSTALLMENT ACTIVITY</Text>
+            {/* Stat 3: Tenure Progress */}
+            <View style={styles.statCard}>
+              <View style={styles.statHeaderRow}>
+                <View style={[styles.statDot, { backgroundColor: '#4F46E5' }]} />
+                <Text style={styles.statLabelText}>TENURE</Text>
+              </View>
+              <Text style={[styles.statNumberText, { color: '#4F46E5' }]}>
+                {paidEmis.length}/{totalEmisCount}
+              </Text>
+              <Text style={styles.statSubText}>
+                {Math.round((paidEmis.length / totalEmisCount) * 100)}% loan completed
+              </Text>
+            </View>
+          </ScrollView>
+        </View>
+
+        {/* Quick Action Dock */}
+        <View style={styles.actionDock}>
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.actionBtnPrimary]}
+            activeOpacity={0.88}
+            onPress={handlePayUpi}
+          >
+            <CreditCard size={18} color="#FFFFFF" />
+            <Text style={styles.actionBtnPrimaryText}>Pay Next EMI</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionBtnSecondary}
+            activeOpacity={0.88}
+            onPress={() => navigation.navigate('EmiSchedule')}
+          >
+            <Calendar size={18} color="#1A6FD6" />
+            <Text style={styles.actionBtnSecondaryText}>View Schedule</Text>
+          </TouchableOpacity>
+
+          {customer.retailer?.mobile && (
+            <TouchableOpacity
+              style={styles.actionBtnIcon}
+              activeOpacity={0.88}
+              onPress={() => Linking.openURL(`tel:${customer.retailer?.mobile}`)}
+            >
+              <PhoneCall size={18} color="#0F172A" />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Next 3 Installments Activity Feed */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>INSTALLMENT SCHEDULE</Text>
             <TouchableOpacity
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 navigation.navigate('EmiSchedule');
               }}
             >
-              <Text style={styles.viewAllText}>View All ({emis.length})</Text>
+              <Text style={styles.sectionViewAllText}>View All ({emis.length})</Text>
             </TouchableOpacity>
           </View>
 
-          {emis.slice(0, 3).map(emi => {
-            const isPaid = emi.status === 'APPROVED';
+          {emis.slice(0, 3).map((emi, index) => {
+            const isPaid = isEmiPaid(emi);
             return (
               <TouchableOpacity
                 key={emi.id}
-                activeOpacity={0.8}
+                activeOpacity={0.85}
                 onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  Haptics.selectionAsync();
                   if (isPaid) {
                     setReceiptEmi(emi);
                   } else {
                     navigation.navigate('EmiSchedule');
                   }
                 }}
-                style={styles.activityItem}
+                style={styles.activityCard}
               >
                 <View style={styles.activityLeft}>
                   <View
                     style={[
-                      styles.activityIconBox,
-                      isPaid ? styles.iconPaid : styles.iconPending,
+                      styles.activityIconCircle,
+                      isPaid ? styles.iconCirclePaid : styles.iconCircleDue,
                     ]}
                   >
                     {isPaid ? (
-                      <CheckCircle2 size={18} color="#10B981" />
+                      <CheckCircle2 size={18} color="#059669" />
                     ) : (
-                      <Clock size={18} color="#D97706" />
+                      <Clock size={18} color="#1A6FD6" />
                     )}
                   </View>
-                  <View>
-                    <Text style={styles.activityItemTitle}>
-                      Installment #{emi.emi_no}
-                    </Text>
-                    <Text style={styles.activityItemSub}>
-                      {isPaid ? `Paid on ${emi.due_date}` : `Due by ${emi.due_date}`}
+                  <View style={styles.activityTextCol}>
+                    <Text style={styles.activityEmiTitle}>EMI #{emi.emi_no}</Text>
+                    <Text style={styles.activityDate}>
+                      Due: {emi.due_date}
                     </Text>
                   </View>
                 </View>
 
                 <View style={styles.activityRight}>
-                  <Text style={styles.activityAmount}>{formatInr(emi.amount)}</Text>
-                  {isPaid ? (
-                    <View style={styles.receiptChip}>
-                      <Receipt size={10} color="#059669" />
-                      <Text style={styles.receiptChipText}>RECEIPT</Text>
-                    </View>
-                  ) : (
-                    <Text style={styles.pendingTag}>PENDING</Text>
-                  )}
+                  <Text
+                    style={[
+                      styles.activityAmount,
+                      isPaid && { color: '#059669' },
+                    ]}
+                  >
+                    ₹{emi.amount.toLocaleString('en-IN')}
+                  </Text>
+                  <View
+                    style={[
+                      styles.statusPill,
+                      isPaid ? styles.statusPillPaid : styles.statusPillDue,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.statusPillText,
+                        isPaid ? styles.statusTextPaid : styles.statusTextDue,
+                      ]}
+                    >
+                      {isPaid ? '✓ PAID' : 'DUE'}
+                    </Text>
+                  </View>
                 </View>
               </TouchableOpacity>
             );
           })}
         </View>
-
-        {/* Security Watermark */}
-        <View style={styles.footerNote}>
-          <Sparkles size={14} color="#64748B" />
-          <Text style={styles.footerNoteText}>
-            Telepoint Smart Finance • Secured by Hardware Device Lock
-          </Text>
-        </View>
       </ScrollView>
 
-      {/* Switch Financed Device Modal */}
+      {/* Multi-Loan Selection Modal */}
       <Modal
         visible={switchModalVisible}
         transparent
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setSwitchModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
+          <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <View>
+              <View style={styles.modalTitleRow}>
+                <Smartphone size={20} color="#1A6FD6" />
                 <Text style={styles.modalTitle}>Switch Financed Device</Text>
-                <Text style={styles.modalSubtitle}>
-                  Select which active EMI device loan you wish to view
-                </Text>
               </View>
-              <TouchableOpacity
-                onPress={() => setSwitchModalVisible(false)}
-                style={styles.closeBtn}
-              >
+              <TouchableOpacity onPress={() => setSwitchModalVisible(false)}>
                 <X size={20} color="#64748B" />
               </TouchableOpacity>
             </View>
+            <Text style={styles.modalSub}>
+              Select which smartphone loan account you want to manage on this device.
+            </Text>
 
-            <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
-              {allLoans.map((loan: MultiLoanCustomer) => {
-                const isCurrent = loan.id === customer.id;
-                const isSwitching = switchingLoanId === loan.id;
+            <ScrollView style={{ maxHeight: 360 }}>
+              {allLoans.map(loan => {
+                const isActive = loan.id === customer.id;
                 return (
                   <TouchableOpacity
                     key={loan.id}
+                    style={[styles.loanCard, isActive && styles.loanCardActive]}
                     activeOpacity={0.8}
-                    style={[
-                      styles.loanOptionCard,
-                      isCurrent && styles.loanOptionCardActive,
-                    ]}
                     onPress={() => handleSelectLoan(loan.id)}
-                    disabled={isSwitching}
                   >
-                    <View style={styles.loanOptionIconBox}>
-                      <Smartphone size={20} color={isCurrent ? '#2563EB' : '#64748B'} />
-                    </View>
-                    <View style={styles.loanOptionInfo}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Text style={styles.loanOptionModel}>
-                          {loan.model_no || 'Smartphone'}
+                    <View style={styles.loanCardLeft}>
+                      <Smartphone size={18} color={isActive ? '#1A6FD6' : '#64748B'} />
+                      <View style={styles.loanCardInfo}>
+                        <Text style={styles.loanModel}>
+                          {loan.model_no || 'Financed Smartphone'}
                         </Text>
-                        {isCurrent && (
-                          <View style={styles.currentBadge}>
-                            <Text style={styles.currentBadgeText}>CURRENT</Text>
-                          </View>
-                        )}
+                        <Text style={styles.loanImei}>IMEI: {loan.imei}</Text>
                       </View>
-                      <Text style={styles.loanOptionImei}>IMEI: {loan.imei}</Text>
-                      <Text style={styles.loanOptionStatus}>Status: {loan.status || 'ACTIVE'}</Text>
                     </View>
-
-                    <View style={styles.loanOptionRight}>
-                      {isCurrent ? (
-                        <View style={styles.activeCheckCircle}>
-                          <Check size={14} color="#FFFFFF" />
-                        </View>
-                      ) : (
-                        <ChevronRight size={18} color="#94A3B8" />
-                      )}
-                    </View>
+                    {isActive ? (
+                      <View style={styles.activePill}>
+                        <Check size={14} color="#1A6FD6" />
+                        <Text style={styles.activePillText}>Active</Text>
+                      </View>
+                    ) : (
+                      <ChevronRight size={18} color="#94A3B8" />
+                    )}
                   </TouchableOpacity>
                 );
               })}
@@ -371,28 +470,32 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
         </View>
       </Modal>
 
-      {/* Broadcast Detail Modal */}
-      <BroadcastModal
-        visible={!!activeBroadcast}
-        broadcast={activeBroadcast}
-        onClose={() => setActiveBroadcast(null)}
-      />
+      {/* Receipt Modal */}
+      {receiptEmi && (
+        <ReceiptModal
+          visible={!!receiptEmi}
+          emi={receiptEmi}
+          customer={customer}
+          onClose={() => setReceiptEmi(null)}
+        />
+      )}
 
-      {/* Digital Bank Receipt Modal */}
-      <ReceiptModal
-        visible={!!receiptEmi}
-        emi={receiptEmi}
-        customer={customer}
-        onClose={() => setReceiptEmi(null)}
-      />
-    </View>
+      {/* Store Announcement Broadcast Modal */}
+      {activeBroadcast && (
+        <BroadcastModal
+          visible={!!activeBroadcast}
+          broadcast={activeBroadcast}
+          onClose={() => setActiveBroadcast(null)}
+        />
+      )}
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: THEME.bg.darkest, // #F8FAFC
+    backgroundColor: '#F5F8FF', // Light IDFC blue-white canvas
   },
   scrollContent: {
     paddingBottom: 40,
@@ -401,106 +504,103 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    paddingHorizontal: 18,
-    paddingTop: 16,
-    paddingBottom: 12,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.base,
+    paddingBottom: Spacing.sm,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
   },
   headerLeft: {
     flex: 1,
-    paddingRight: 10,
   },
   greetingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 2,
   },
   greetingText: {
-    color: '#64748B',
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 1.2,
+    color: '#64748B',
+    letterSpacing: 0.8,
   },
   kycShield: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    backgroundColor: '#ECFDF5',
     paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
+    paddingVertical: 1.5,
+    borderRadius: Radius.sm,
   },
   kycText: {
-    color: '#059669',
     fontSize: 9,
     fontWeight: '800',
-    letterSpacing: 0.6,
+    color: '#059669',
+    letterSpacing: 0.5,
   },
   customerName: {
-    color: '#0F172A',
     fontSize: 22,
     fontWeight: '900',
-    letterSpacing: 0.2,
+    color: '#0F172A',
+    letterSpacing: -0.4,
+    marginTop: 2,
   },
   switchLoanPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(37, 99, 235, 0.08)',
-    borderColor: 'rgba(37, 99, 235, 0.2)',
-    borderWidth: 1,
-    paddingHorizontal: 10,
+    gap: 6,
+    backgroundColor: '#EFF5FF',
+    paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 20,
-    marginTop: 6,
+    borderRadius: Radius.full,
     alignSelf: 'flex-start',
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(26, 111, 214, 0.2)',
   },
   switchLoanPillText: {
-    color: '#2563EB',
     fontSize: 11,
     fontWeight: '700',
+    color: '#1A6FD6',
   },
   retailerPill: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    paddingHorizontal: 12,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 10,
     paddingVertical: 6,
+    borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: 'rgba(15, 23, 42, 0.08)',
+    borderColor: '#E2E8F0',
     alignItems: 'flex-end',
-    maxWidth: 160,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 2,
+    maxWidth: 140,
   },
   retailerLabel: {
-    color: '#64748B',
     fontSize: 8,
     fontWeight: '800',
-    letterSpacing: 0.8,
-    marginBottom: 2,
+    color: '#64748B',
+    letterSpacing: 0.6,
   },
   retailerName: {
-    color: '#2563EB',
     fontSize: 11,
     fontWeight: '700',
+    color: '#0F172A',
+    marginTop: 1,
   },
   broadcastBanner: {
-    marginHorizontal: 16,
-    marginVertical: 8,
-    borderRadius: 16,
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.sm,
+    borderRadius: Radius.md,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(217, 119, 6, 0.25)',
+    borderColor: '#FCD34D',
   },
   broadcastGradient: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
   broadcastLeft: {
     flexDirection: 'row',
@@ -511,7 +611,7 @@ const styles = StyleSheet.create({
   broadcastIconBox: {
     width: 32,
     height: 32,
-    borderRadius: 10,
+    borderRadius: 8,
     backgroundColor: 'rgba(217, 119, 6, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -520,225 +620,296 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   broadcastTag: {
-    color: '#B45309',
     fontSize: 9,
     fontWeight: '800',
-    letterSpacing: 0.8,
+    color: '#B45309',
+    letterSpacing: 0.6,
   },
   broadcastMessage: {
-    color: '#78350F',
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 1,
-  },
-  activitySection: {
-    marginHorizontal: 16,
-    marginTop: 14,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(15, 23, 42, 0.08)',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  activityHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  activityTitle: {
-    color: '#64748B',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.1,
-  },
-  viewAllText: {
-    color: '#2563EB',
     fontSize: 12,
     fontWeight: '700',
+    color: '#78350F',
+    marginTop: 1,
   },
-  activityItem: {
+  quickStatsContainer: {
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  quickStatsScroll: {
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  statCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: Radius.lg,
+    padding: Spacing.base,
+    minWidth: 140,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    elevation: 2,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+  },
+  statHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  statDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  statLabelText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 0.6,
+  },
+  statNumberText: {
+    fontSize: 20,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+    marginVertical: 2,
+  },
+  statSubText: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  actionDock: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginHorizontal: Spacing.lg,
+    marginVertical: Spacing.sm,
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: Radius.md,
+  },
+  actionBtnPrimary: {
+    backgroundColor: '#1A6FD6',
+    elevation: 3,
+    shadowColor: '#1A6FD6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+  actionBtnPrimaryText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  actionBtnSecondary: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: Radius.md,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  actionBtnSecondaryText: {
+    color: '#1A6FD6',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  actionBtnIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: Radius.md,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sectionContainer: {
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.md,
+  },
+  sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(15, 23, 42, 0.04)',
+    marginBottom: Spacing.sm,
+  },
+  sectionTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 0.8,
+  },
+  sectionViewAllText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1A6FD6',
+  },
+  activityCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: Radius.md,
+    padding: Spacing.base,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    elevation: 1,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
   },
   activityLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
-  activityIconBox: {
+  activityIconCircle: {
     width: 36,
     height: 36,
-    borderRadius: 12,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  iconPaid: {
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+  iconCirclePaid: {
+    backgroundColor: '#ECFDF5',
   },
-  iconPending: {
-    backgroundColor: 'rgba(217, 119, 6, 0.12)',
+  iconCircleDue: {
+    backgroundColor: '#EFF5FF',
   },
-  activityItemTitle: {
+  activityTextCol: {},
+  activityEmiTitle: {
+    fontSize: 14,
+    fontWeight: '800',
     color: '#0F172A',
-    fontSize: 13,
-    fontWeight: '700',
   },
-  activityItemSub: {
-    color: '#64748B',
+  activityDate: {
     fontSize: 11,
+    color: '#64748B',
     marginTop: 2,
   },
   activityRight: {
     alignItems: 'flex-end',
   },
   activityAmount: {
+    fontSize: 15,
+    fontWeight: '800',
     color: '#0F172A',
-    fontSize: 14,
-    fontWeight: '800',
-    marginBottom: 3,
+    fontVariant: ['tabular-nums'],
   },
-  receiptChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+  statusPill: {
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: Radius.sm,
+    marginTop: 2,
   },
-  receiptChipText: {
+  statusPillPaid: {
+    backgroundColor: '#ECFDF5',
+  },
+  statusPillDue: {
+    backgroundColor: '#EFF5FF',
+  },
+  statusPillText: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+  statusTextPaid: {
     color: '#059669',
-    fontSize: 9,
-    fontWeight: '800',
   },
-  pendingTag: {
-    color: '#D97706',
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  footerNote: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 24,
-    marginBottom: 8,
-  },
-  footerNoteText: {
-    color: '#64748B',
-    fontSize: 10,
-    fontWeight: '600',
+  statusTextDue: {
+    color: '#1A6FD6',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
     justifyContent: 'flex-end',
   },
-  modalSheet: {
+  modalContent: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
+    borderTopLeftRadius: Radius['2xl'],
+    borderTopRightRadius: Radius['2xl'],
+    padding: Spacing.xl,
     paddingBottom: 36,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
+    alignItems: 'center',
+  },
+  modalTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '800',
     color: '#0F172A',
   },
-  modalSubtitle: {
+  modalSub: {
     fontSize: 12,
     color: '#64748B',
-    marginTop: 2,
+    marginTop: 4,
+    marginBottom: Spacing.md,
   },
-  closeBtn: {
-    padding: 4,
+  loanCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: Radius.lg,
+    padding: Spacing.base,
+    marginBottom: Spacing.sm,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
   },
-  loanOptionCard: {
+  loanCardActive: {
+    backgroundColor: '#EFF5FF',
+    borderColor: '#1A6FD6',
+  },
+  loanCardLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
-    borderRadius: 16,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1.5,
-    borderColor: 'rgba(15, 23, 42, 0.08)',
-    marginBottom: 10,
+    gap: 12,
   },
-  loanOptionCardActive: {
-    borderColor: '#2563EB',
-    backgroundColor: 'rgba(37, 99, 235, 0.04)',
-  },
-  loanOptionIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(15, 23, 42, 0.08)',
-  },
-  loanOptionInfo: {
-    flex: 1,
-  },
-  loanOptionModel: {
+  loanCardInfo: {},
+  loanModel: {
     fontSize: 14,
     fontWeight: '800',
     color: '#0F172A',
   },
-  currentBadge: {
-    backgroundColor: 'rgba(37, 99, 235, 0.12)',
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 6,
-  },
-  currentBadgeText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#2563EB',
-  },
-  loanOptionImei: {
+  loanImei: {
     fontSize: 11,
     color: '#64748B',
     marginTop: 2,
   },
-  loanOptionStatus: {
-    fontSize: 11,
-    color: '#059669',
-    fontWeight: '600',
-    marginTop: 1,
-  },
-  loanOptionRight: {
-    marginLeft: 8,
-  },
-  activeCheckCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#2563EB',
-    justifyContent: 'center',
+  activePill: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: Radius.sm,
+  },
+  activePillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1A6FD6',
   },
 });

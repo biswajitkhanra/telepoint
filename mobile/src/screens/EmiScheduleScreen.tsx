@@ -1,3 +1,6 @@
+// screens/EmiScheduleScreen.tsx
+// Full month-by-month EMI schedule with IDFC clarity, filter chips & EMIRow drawer
+
 import React, { useState } from 'react';
 import {
   View,
@@ -6,24 +9,20 @@ import {
   FlatList,
   TouchableOpacity,
   RefreshControl,
+  SafeAreaView,
+  StatusBar,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import {
-  CheckCircle2,
-  Clock,
-  AlertTriangle,
-  Receipt,
-  Calendar,
-  Layers,
-  ChevronRight,
-} from 'lucide-react-native';
+import { Calendar, Filter, CheckCircle2, Clock } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
-import { Card3D } from '../components/Card3D';
+import { EMIRow } from '../components/EMIRow';
+import { CountUp } from '../components/CountUp';
 import { ReceiptModal } from '../components/ReceiptModal';
 import { EMIScheduleItem } from '../types';
-import { THEME } from '../config';
+import { Colors } from '../constants/colors';
+import { Spacing, Radius, Shadow } from '../constants/design';
 
-type FilterTab = 'ALL' | 'PENDING' | 'PAID';
+type FilterTab = 'ALL' | 'DUE' | 'PAID';
 
 export const EmiScheduleScreen = () => {
   const { customer, emis, refreshData } = useAuth();
@@ -38,11 +37,11 @@ export const EmiScheduleScreen = () => {
     setRefreshing(false);
   };
 
-  const formatInr = (n: number) =>
-    `₹${new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(n)}`;
+  const isEmiPaid = (e: EMIScheduleItem) =>
+    e.status === 'collected' || e.status === 'APPROVED' || !!e.paid_at;
 
-  const paidEmis = emis.filter(e => e.status === 'APPROVED');
-  const unpaidEmis = emis.filter(e => e.status !== 'APPROVED');
+  const paidEmis = emis.filter(isEmiPaid);
+  const unpaidEmis = emis.filter(e => !isEmiPaid(e));
 
   const filteredEmis =
     activeTab === 'ALL'
@@ -51,477 +50,280 @@ export const EmiScheduleScreen = () => {
       ? paidEmis
       : unpaidEmis;
 
-  const totalPaidAmount = paidEmis.reduce((sum, e) => sum + Number(e.amount || 0), 0);
-  const totalUnpaidAmount = unpaidEmis.reduce(
-    (sum, e) => sum + Math.max(0, Number(e.amount || 0) - Number(e.partial_paid_amount || 0)),
+  const totalPaidAmount = paidEmis.reduce(
+    (sum, e) => sum + (e.amount || 0) + (e.fine_paid_amount || 0),
     0
   );
 
-  const renderEmiItem = ({ item, index }: { item: EMIScheduleItem; index: number }) => {
-    const isPaid = item.status === 'APPROVED';
-    const isPartial = item.status === 'PARTIALLY_PAID';
-    const isPending = item.status === 'PENDING_APPROVAL';
-
-    return (
-      <View style={styles.timelineRow}>
-        {/* Left Timeline Stem & Node */}
-        <View style={styles.timelineCol}>
-          <View
-            style={[
-              styles.timelineDot,
-              isPaid
-                ? styles.dotPaid
-                : isPartial
-                ? styles.dotPartial
-                : styles.dotUnpaid,
-            ]}
-          >
-            {isPaid ? (
-              <CheckCircle2 size={12} color="#FFFFFF" />
-            ) : isPartial ? (
-              <Clock size={12} color="#FFFFFF" />
-            ) : (
-              <View style={styles.dotInner} />
-            )}
-          </View>
-          {index < filteredEmis.length - 1 && <View style={styles.timelineLine} />}
-        </View>
-
-        {/* Right Content Card */}
-        <View style={styles.cardCol}>
-          <Card3D
-            style={styles.emiCard}
-            gradientColors={isPaid ? ['#FFFFFF', '#F0FDF4'] : ['#FFFFFF', '#F8FAFC']}
-            onPress={() => {
-              if (isPaid) {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setSelectedReceiptEmi(item);
-              }
-            }}
-          >
-            <View style={styles.cardHeader}>
-              <View style={styles.emiNoPill}>
-                <Text style={styles.emiNoText}>INSTALLMENT #{item.emi_no}</Text>
-              </View>
-
-              {isPaid ? (
-                <View style={[styles.statusBadge, styles.badgePaid]}>
-                  <CheckCircle2 size={11} color="#059669" />
-                  <Text style={styles.textPaid}>PAID</Text>
-                </View>
-              ) : isPartial ? (
-                <View style={[styles.statusBadge, styles.badgePartial]}>
-                  <Clock size={11} color="#D97706" />
-                  <Text style={styles.textPartial}>PARTIAL</Text>
-                </View>
-              ) : isPending ? (
-                <View style={[styles.statusBadge, styles.badgePending]}>
-                  <Clock size={11} color="#2563EB" />
-                  <Text style={styles.textPending}>VERIFYING</Text>
-                </View>
-              ) : (
-                <View style={[styles.statusBadge, styles.badgeUnpaid]}>
-                  <Text style={styles.textUnpaid}>UPCOMING</Text>
-                </View>
-              )}
-            </View>
-
-            <View style={styles.amountRow}>
-              <View>
-                <Text style={styles.amountLabel}>AMOUNT</Text>
-                <Text style={styles.amountValue}>{formatInr(item.amount)}</Text>
-              </View>
-
-              <View style={styles.dueCol}>
-                <View style={styles.calendarRow}>
-                  <Calendar size={11} color="#64748B" />
-                  <Text style={styles.dueDateLabel}>DUE DATE</Text>
-                </View>
-                <Text style={styles.dueDateValue}>{item.due_date}</Text>
-              </View>
-            </View>
-
-            {/* Overdue Fine Notice */}
-            {item.fine_amount > 0 && (
-              <View style={styles.fineBox}>
-                <AlertTriangle size={12} color="#DC2626" />
-                <Text style={styles.fineText}>
-                  Late Fine: {formatInr(item.fine_amount)}{' '}
-                  {item.fine_waived ? '(Waived)' : '(Pending)'}
-                </Text>
-              </View>
-            )}
-
-            {/* Tap for Slip Prompt for paid installments */}
-            {isPaid && (
-              <View style={styles.slipFooter}>
-                <Receipt size={12} color="#059669" />
-                <Text style={styles.slipFooterText}>View Official Slip</Text>
-                <ChevronRight size={12} color="#059669" />
-              </View>
-            )}
-          </Card3D>
-        </View>
-      </View>
-    );
-  };
+  const totalOutstanding = unpaidEmis.reduce(
+    (sum, e) => sum + Math.max(0, (e.amount || 0) - (e.partial_paid_amount || 0)),
+    0
+  );
 
   return (
-    <View style={styles.container}>
-      {/* Top Amortization Summary Card */}
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+
+      {/* Screen Header */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.headerTitle}>EMI Schedule</Text>
+          <Text style={styles.headerSub}>
+            Complete installment breakdown & ledger
+          </Text>
+        </View>
+        <View style={styles.tenurePill}>
+          <Text style={styles.tenurePillText}>
+            {paidEmis.length}/{customer?.emi_tenure || emis.length} Months
+          </Text>
+        </View>
+      </View>
+
+      {/* Summary Stat Card */}
       <View style={styles.summaryContainer}>
         <View style={styles.summaryCard}>
-          <View style={styles.summaryRow}>
-            <View>
-              <Text style={styles.summaryLabel}>PAID EMIs</Text>
-              <Text style={styles.paidVal}>{formatInr(totalPaidAmount)}</Text>
-              <Text style={styles.summarySub}>
-                {paidEmis.length} of {emis.length} Completed
-              </Text>
-            </View>
-            <View style={styles.verticalSep} />
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={styles.summaryLabel}>REMAINING</Text>
-              <Text style={styles.unpaidVal}>{formatInr(totalUnpaidAmount)}</Text>
-              <Text style={styles.summarySub}>
-                {unpaidEmis.length} Installments Left
-              </Text>
-            </View>
+          <View style={styles.summaryCol}>
+            <Text style={styles.summaryLabel}>TOTAL SETTLED</Text>
+            <CountUp
+              end={totalPaidAmount}
+              prefix="₹"
+              style={[styles.summaryValue, { color: '#059669' }]}
+              duration={700}
+            />
+          </View>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryCol}>
+            <Text style={styles.summaryLabel}>TOTAL OUTSTANDING</Text>
+            <CountUp
+              end={totalOutstanding}
+              prefix="₹"
+              style={[styles.summaryValue, { color: '#1A6FD6' }]}
+              duration={700}
+            />
           </View>
         </View>
       </View>
 
-      {/* Segmented Filter Controls */}
-      <View style={styles.tabsWrapper}>
+      {/* Filter Tabs */}
+      <View style={styles.filterBar}>
         <TouchableOpacity
+          style={[styles.filterChip, activeTab === 'ALL' && styles.filterChipActive]}
           onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            Haptics.selectionAsync();
             setActiveTab('ALL');
           }}
-          style={[styles.tabBtn, activeTab === 'ALL' && styles.tabActive]}
         >
-          <Text style={[styles.tabText, activeTab === 'ALL' && styles.tabTextActive]}>
+          <Text
+            style={[
+              styles.filterChipText,
+              activeTab === 'ALL' && styles.filterChipTextActive,
+            ]}
+          >
             All ({emis.length})
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
+          style={[styles.filterChip, activeTab === 'DUE' && styles.filterChipActive]}
           onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setActiveTab('PENDING');
+            Haptics.selectionAsync();
+            setActiveTab('DUE');
           }}
-          style={[styles.tabBtn, activeTab === 'PENDING' && styles.tabActive]}
         >
           <Text
-            style={[styles.tabText, activeTab === 'PENDING' && styles.tabTextActive]}
+            style={[
+              styles.filterChipText,
+              activeTab === 'DUE' && styles.filterChipTextActive,
+            ]}
           >
-            Pending ({unpaidEmis.length})
+            Due / Upcoming ({unpaidEmis.length})
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
+          style={[styles.filterChip, activeTab === 'PAID' && styles.filterChipActive]}
           onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            Haptics.selectionAsync();
             setActiveTab('PAID');
           }}
-          style={[styles.tabBtn, activeTab === 'PAID' && styles.tabActive]}
         >
           <Text
-            style={[styles.tabText, activeTab === 'PAID' && styles.tabTextActive]}
+            style={[
+              styles.filterChipText,
+              activeTab === 'PAID' && styles.filterChipTextActive,
+            ]}
           >
-            Paid ({paidEmis.length})
+            Settled ({paidEmis.length})
           </Text>
         </TouchableOpacity>
       </View>
 
-      {/* FlatList Installment Timeline */}
+      {/* Schedule FlatList */}
       <FlatList
         data={filteredEmis}
         keyExtractor={item => item.id}
-        renderItem={renderEmiItem}
+        renderItem={({ item, index }) => (
+          <EMIRow
+            item={item}
+            index={index}
+            onReceiptPress={emi => setSelectedReceiptEmi(emi)}
+          />
+        )}
         contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={THEME.accent.primary}
-            colors={[THEME.accent.primary]}
+            colors={['#1A6FD6']}
+            tintColor="#1A6FD6"
           />
         }
-        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Calendar size={44} color="#94A3B8" />
+            <Text style={styles.emptyTitle}>No Installments in this Filter</Text>
+            <Text style={styles.emptySub}>
+              Switch filters to view all scheduled or settled payments.
+            </Text>
+          </View>
+        }
       />
 
-      {/* Receipt Modal */}
-      <ReceiptModal
-        visible={!!selectedReceiptEmi}
-        emi={selectedReceiptEmi}
-        customer={customer}
-        onClose={() => setSelectedReceiptEmi(null)}
-      />
-    </View>
+      {/* Digital Receipt Modal */}
+      {selectedReceiptEmi && (
+        <ReceiptModal
+          visible={!!selectedReceiptEmi}
+          emi={selectedReceiptEmi}
+          customer={customer}
+          onClose={() => setSelectedReceiptEmi(null)}
+        />
+      )}
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: THEME.bg.darkest, // #F8FAFC
+    backgroundColor: '#F5F8FF', // Light IDFC blue-white canvas
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.base,
+    paddingBottom: Spacing.sm,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.3,
+  },
+  headerSub: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  tenurePill: {
+    backgroundColor: '#EFF5FF',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(26, 111, 214, 0.2)',
+  },
+  tenurePillText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#1A6FD6',
   },
   summaryContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 10,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
   },
   summaryCard: {
+    flexDirection: 'row',
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 16,
+    borderRadius: Radius.lg,
+    padding: Spacing.base,
     borderWidth: 1,
-    borderColor: 'rgba(15, 23, 42, 0.08)',
+    borderColor: '#E2E8F0',
+    elevation: 2,
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowRadius: 6,
   },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  summaryCol: {
+    flex: 1,
+    alignItems: 'center',
   },
-  verticalSep: {
+  summaryDivider: {
     width: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.08)',
+    backgroundColor: '#E2E8F0',
   },
   summaryLabel: {
-    color: '#64748B',
     fontSize: 9,
     fontWeight: '800',
-    letterSpacing: 0.8,
-    marginBottom: 4,
-  },
-  paidVal: {
-    color: '#059669',
-    fontSize: 20,
-    fontWeight: '900',
-  },
-  unpaidVal: {
-    color: '#0F172A',
-    fontSize: 20,
-    fontWeight: '900',
-  },
-  summarySub: {
     color: '#64748B',
-    fontSize: 11,
-    marginTop: 2,
+    letterSpacing: 0.6,
+    marginBottom: 2,
   },
-  tabsWrapper: {
+  summaryValue: {
+    fontSize: 18,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  filterBar: {
     flexDirection: 'row',
-    marginHorizontal: 16,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 14,
-    padding: 4,
-    marginBottom: 12,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    gap: 8,
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: Radius.full,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(15, 23, 42, 0.06)',
+    borderColor: '#E2E8F0',
   },
-  tabBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: 'center',
-    borderRadius: 10,
+  filterChipActive: {
+    backgroundColor: '#1A6FD6',
+    borderColor: '#1A6FD6',
   },
-  tabActive: {
-    backgroundColor: '#2563EB',
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.18,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  tabText: {
-    color: '#64748B',
+  filterChipText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
+    color: '#64748B',
   },
-  tabTextActive: {
+  filterChipTextActive: {
     color: '#FFFFFF',
     fontWeight: '800',
   },
   listContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: Spacing.lg,
     paddingBottom: 40,
   },
-  timelineRow: {
-    flexDirection: 'row',
-  },
-  timelineCol: {
+  emptyState: {
     alignItems: 'center',
-    width: 24,
-    marginRight: 10,
-  },
-  timelineDot: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
     justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    zIndex: 2,
+    paddingVertical: 60,
   },
-  dotPaid: {
-    borderColor: '#10B981',
-    backgroundColor: '#10B981',
-  },
-  dotPartial: {
-    borderColor: '#F59E0B',
-    backgroundColor: '#F59E0B',
-  },
-  dotUnpaid: {
-    borderColor: '#CBD5E1',
-    backgroundColor: '#FFFFFF',
-  },
-  dotInner: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#94A3B8',
-  },
-  timelineLine: {
-    flex: 1,
-    width: 2,
-    backgroundColor: 'rgba(15, 23, 42, 0.08)',
-    marginVertical: 4,
-  },
-  cardCol: {
-    flex: 1,
-    marginBottom: 12,
-  },
-  emiCard: {
-    borderRadius: 18,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  emiNoPill: {
-    backgroundColor: 'rgba(37, 99, 235, 0.08)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  emiNoText: {
-    color: '#2563EB',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  badgePaid: {
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
-  },
-  badgePartial: {
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
-  },
-  badgePending: {
-    backgroundColor: 'rgba(37, 99, 235, 0.1)',
-  },
-  badgeUnpaid: {
-    backgroundColor: '#F1F5F9',
-  },
-  textPaid: {
-    color: '#059669',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  textPartial: {
-    color: '#D97706',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  textPending: {
-    color: '#2563EB',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  textUnpaid: {
-    color: '#64748B',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  amountRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginTop: 12,
     marginBottom: 4,
   },
-  amountLabel: {
+  emptySub: {
+    fontSize: 12,
     color: '#64748B',
-    fontSize: 9,
-    fontWeight: '700',
-    letterSpacing: 0.6,
-  },
-  amountValue: {
-    color: '#0F172A',
-    fontSize: 18,
-    fontWeight: '900',
-    marginTop: 2,
-  },
-  dueCol: {
-    alignItems: 'flex-end',
-  },
-  calendarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  dueDateLabel: {
-    color: '#64748B',
-    fontSize: 9,
-    fontWeight: '700',
-  },
-  dueDateValue: {
-    color: '#334155',
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  fineBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#FEE2E2',
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 8,
-    marginTop: 10,
-  },
-  fineText: {
-    color: '#DC2626',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  slipFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 10,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(15, 23, 42, 0.05)',
-  },
-  slipFooterText: {
-    color: '#059669',
-    fontSize: 11,
-    fontWeight: '800',
-    flex: 1,
   },
 });

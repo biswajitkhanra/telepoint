@@ -30,14 +30,17 @@ export interface EMIScheduleItem {
   emi_no: number;
   due_date: string;
   amount: number;
-  status: 'UNPAID' | 'PENDING_APPROVAL' | 'PARTIALLY_PAID' | 'APPROVED';
+  status: 'UNPAID' | 'PENDING_APPROVAL' | 'PARTIALLY_PAID' | 'APPROVED' | 'collected' | 'pending' | 'overdue' | string;
   paid_at?: string | null;
-  mode?: 'CASH' | 'UPI' | null;
+  mode?: 'CASH' | 'UPI' | string | null;
   utr?: string | null;
   partial_paid_amount?: number;
+  partial_paid_at?: string | null;
   fine_amount: number;
   fine_paid_amount: number;
   fine_waived: boolean;
+  fine_paid_at?: string | null;
+  collection_requested_at?: string | null;
 }
 
 export interface DueBreakdown {

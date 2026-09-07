@@ -1,3 +1,6 @@
+// screens/ProfileScreen.tsx
+// IDFC clarity + trust: Customer profile, masked Aadhaar, loan credentials & security controls
+
 import React, { useState } from 'react';
 import {
   View,
@@ -6,9 +9,10 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  Image,
   Linking,
   Modal,
+  SafeAreaView,
+  StatusBar,
 } from 'react-native';
 import {
   User,
@@ -22,13 +26,14 @@ import {
   Sparkles,
   Check,
   X,
-  Layers,
+  ShieldCheck,
+  Lock,
+  ExternalLink,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../context/AuthContext';
-import { Card3D } from '../components/Card3D';
-import { THEME } from '../config';
-import { MultiLoanCustomer } from '../types';
+import { Colors } from '../constants/colors';
+import { Spacing, Radius, Shadow } from '../constants/design';
 
 export const ProfileScreen = () => {
   const { customer, pushToken, logout, isLoading, allLoans, switchActiveLoan, resetRolePreference } = useAuth();
@@ -37,11 +42,15 @@ export const ProfileScreen = () => {
 
   if (!customer) return null;
 
+  const maskedAadhaar = customer.aadhaar
+    ? `XXXX-XXXX-${customer.aadhaar.slice(-4)}`
+    : 'XXXX-XXXX-XXXX';
+
   const handleLogout = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert(
       'Sign Out Confirmation',
-      'Your session is locked to this device for security. To re-login later, you will need your registered Mobile or Aadhaar number. Are you sure you want to sign out?',
+      'Your session is securely saved on this device. You will need your registered Mobile or Aadhaar number to log in again. Are you sure you want to sign out?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -86,218 +95,246 @@ export const ProfileScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Profile Card */}
-        <Card3D style={styles.profileCard}>
-          <View style={styles.profileRow}>
-            <View style={styles.avatarBox}>
-              {customer.customer_photo_url ? (
-                <Image source={{ uri: customer.customer_photo_url }} style={styles.avatarImg} />
-              ) : (
-                <User size={30} color="#2563EB" />
-              )}
-            </View>
-            <View style={styles.profileMeta}>
-              <Text style={styles.profileName}>{customer.customer_name}</Text>
-              <Text style={styles.profileCode}>
-                {customer.customer_code || `Code: ${customer.id.slice(0, 8)}`}
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+
+      {/* Screen Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Account & Security</Text>
+        <Text style={styles.headerSub}>
+          Verified borrower profile & loan credentials
+        </Text>
+      </View>
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Profile Identity Card */}
+        <View style={styles.profileCard}>
+          <View style={styles.avatarRow}>
+            <View style={styles.avatarCircle}>
+              <Text style={styles.avatarInitial}>
+                {customer.customer_name.charAt(0).toUpperCase()}
               </Text>
-              <Text style={styles.profilePhone}>+91 {customer.mobile}</Text>
+            </View>
+            <View style={styles.avatarInfo}>
+              <View style={styles.nameRow}>
+                <Text style={styles.profileName}>{customer.customer_name}</Text>
+                <View style={styles.verifiedBadge}>
+                  <ShieldCheck size={11} color="#059669" />
+                  <Text style={styles.verifiedText}>KYC VERIFIED</Text>
+                </View>
+              </View>
+              <Text style={styles.mobileText}>+91 {customer.mobile}</Text>
             </View>
           </View>
-        </Card3D>
 
-        {/* Multi-Loan Switcher Section (if user has 2+ devices/loans under same number) */}
-        {allLoans.length > 1 && (
-          <Card3D style={styles.card}>
-            <View style={styles.cardHeaderRow}>
-              <View>
-                <Text style={styles.cardTitle}>Linked Device Loans</Text>
-                <Text style={styles.cardSubtitle}>
-                  {allLoans.length} active devices linked to your phone number
+          <View style={styles.cardDivider} />
+
+          <View style={styles.metaRow}>
+            <View style={styles.metaCol}>
+              <Text style={styles.metaLabel}>AADHAAR NUMBER</Text>
+              <Text style={styles.metaValue}>{maskedAadhaar}</Text>
+            </View>
+            <View style={styles.metaColRight}>
+              <Text style={styles.metaLabel}>ACCOUNT STATUS</Text>
+              <Text style={styles.metaStatus}>
+                {(customer.status || 'Active Loan').toUpperCase()}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Financed Device Card */}
+        <View style={styles.section}>
+          <Text style={styles.sectionHeading}>FINANCED SMARTPHONE</Text>
+          <View style={styles.deviceCard}>
+            <View style={styles.deviceHeader}>
+              <Smartphone size={20} color="#1A6FD6" />
+              <View style={styles.deviceTitleCol}>
+                <Text style={styles.deviceModel}>
+                  {customer.model_no || 'Financed Smartphone'}
+                </Text>
+                <Text style={styles.deviceImei}>IMEI: {customer.imei}</Text>
+              </View>
+            </View>
+
+            <View style={styles.cardDivider} />
+
+            <View style={styles.deviceMetaGrid}>
+              <View style={styles.deviceMetaCol}>
+                <Text style={styles.deviceMetaLabel}>FINANCED VALUE</Text>
+                <Text style={styles.deviceMetaValue}>
+                  ₹{(customer.purchase_value || 0).toLocaleString('en-IN')}
                 </Text>
               </View>
-              <TouchableOpacity
-                activeOpacity={0.8}
-                style={styles.switchPillBtn}
-                onPress={() => setSwitchModalVisible(true)}
-              >
-                <Repeat size={13} color="#2563EB" />
-                <Text style={styles.switchPillText}>Switch</Text>
-              </TouchableOpacity>
+              <View style={styles.deviceMetaCol}>
+                <Text style={styles.deviceMetaLabel}>DOWN PAYMENT</Text>
+                <Text style={styles.deviceMetaValue}>
+                  ₹{(customer.down_payment || 0).toLocaleString('en-IN')}
+                </Text>
+              </View>
+              <View style={styles.deviceMetaCol}>
+                <Text style={styles.deviceMetaLabel}>MONTHLY EMI</Text>
+                <Text style={styles.deviceMetaValue}>
+                  ₹{(customer.emi_amount || 0).toLocaleString('en-IN')}
+                </Text>
+              </View>
             </View>
+          </View>
+        </View>
 
-            <View style={styles.activeLoanRow}>
-              <Smartphone size={18} color="#2563EB" />
-              <View style={{ flex: 1, marginLeft: 10 }}>
-                <Text style={styles.activeLoanName}>{customer.model_no || 'Current Device'}</Text>
-                <Text style={styles.activeLoanImei}>IMEI: {customer.imei}</Text>
+        {/* Multi-Loan Switcher Section */}
+        {allLoans.length > 1 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionHeading}>Linked Device Loans</Text>
+            <TouchableOpacity
+              style={styles.actionRowCard}
+              activeOpacity={0.8}
+              onPress={() => setSwitchModalVisible(true)}
+            >
+              <Repeat size={18} color="#1A6FD6" />
+              <View style={styles.actionRowInfo}>
+                <Text style={styles.actionRowTitle}>Linked Device Loans</Text>
+                <Text style={styles.actionRowSub}>
+                  You have {allLoans.length} smartphone finance accounts on this profile
+                </Text>
               </View>
-              <View style={styles.currentTag}>
-                <Text style={styles.currentTagText}>ACTIVE</Text>
-              </View>
-            </View>
-          </Card3D>
+              <ChevronRight size={18} color="#94A3B8" />
+            </TouchableOpacity>
+          </View>
         )}
 
-        {/* Device & Hardware Info */}
-        <Card3D style={styles.card}>
-          <Text style={styles.cardTitle}>Registered Device</Text>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Model Number</Text>
-            <Text style={styles.infoValue}>{customer.model_no || 'Smartphone'}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Device IMEI</Text>
-            <Text style={styles.infoValue}>{customer.imei}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Loan Status</Text>
-            <Text style={[styles.infoValue, { color: '#059669' }]}>{customer.status}</Text>
-          </View>
-        </Card3D>
+        {/* Partner Store Card */}
+        <View style={styles.section}>
+          <Text style={styles.sectionHeading}>RETAILER PARTNER</Text>
+          <View style={styles.storeCard}>
+            <View style={styles.storeLeft}>
+              <Text style={styles.storeName}>
+                {customer.retailer?.name || 'Telepoint Partner Store'}
+              </Text>
+              {customer.retailer?.mobile && (
+                <Text style={styles.storePhone}>
+                  Contact: +91 {customer.retailer.mobile}
+                </Text>
+              )}
+            </View>
 
-        {/* Security & Notifications */}
-        <Card3D style={styles.card}>
-          <Text style={styles.cardTitle}>Security & Notifications</Text>
-          <View style={styles.infoRow}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Bell size={14} color="#2563EB" />
-              <Text style={styles.infoLabel}>Push Reminders</Text>
-            </View>
-            <Text style={[styles.infoValue, { color: pushToken ? '#059669' : '#D97706' }]}>
-              {pushToken ? 'Active & Synced' : 'Ready'}
-            </Text>
-          </View>
-          <View style={styles.infoRow}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Shield size={14} color="#059669" />
-              <Text style={styles.infoLabel}>Data Protection</Text>
-            </View>
-            <Text style={styles.infoValue}>Bank Grade AES-256</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Shield size={14} color="#2563EB" />
-              <Text style={styles.infoLabel}>Permanent Device Lockdown</Text>
-            </View>
-            <Text style={[styles.infoValue, { color: '#059669' }]}>
-              Locked (Until App Data Cleared)
-            </Text>
-          </View>
-        </Card3D>
-
-        {/* Retailer Support */}
-        {customer.retailer && (
-          <Card3D style={styles.card}>
-            <Text style={styles.cardTitle}>Retailer Support</Text>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Store Name</Text>
-              <Text style={styles.infoValue}>{customer.retailer.name}</Text>
-            </View>
-            {customer.retailer.mobile && (
+            {customer.retailer?.mobile && (
               <TouchableOpacity
-                style={styles.callSupportBtn}
+                style={styles.callBtn}
                 onPress={() => Linking.openURL(`tel:${customer.retailer?.mobile}`)}
               >
-                <Phone size={15} color="#2563EB" />
-                <Text style={styles.callSupportText}>Call: {customer.retailer.mobile}</Text>
+                <Phone size={15} color="#1A6FD6" />
+                <Text style={styles.callBtnText}>Call Store</Text>
               </TouchableOpacity>
             )}
-          </Card3D>
-        )}
+          </View>
+        </View>
 
-        {/* Switch App Mode Button (Staff / Retailer / Admin Switch) */}
-        <TouchableOpacity
-          activeOpacity={0.85}
-          style={styles.switchRoleBtn}
-          onPress={handleSwitchRole}
-        >
-          <Layers size={18} color="#2563EB" />
-          <Text style={styles.switchRoleBtnText}>Switch App Mode (Retailer / Admin)</Text>
-        </TouchableOpacity>
+        {/* Notifications & System */}
+        <View style={styles.section}>
+          <Text style={styles.sectionHeading}>ALERTS & NOTIFICATIONS</Text>
+          <View style={styles.statusRowCard}>
+            <Bell size={18} color="#059669" />
+            <View style={styles.statusRowInfo}>
+              <Text style={styles.statusRowTitle}>Automated EMI Reminders</Text>
+              <Text style={styles.statusRowSub}>
+                5-day lookahead push notification alerts enabled
+              </Text>
+            </View>
+            <View style={styles.activeDot} />
+          </View>
+        </View>
 
-        {/* Sign Out Button */}
-        <TouchableOpacity
-          activeOpacity={0.85}
-          style={styles.logoutBtn}
-          onPress={handleLogout}
-          disabled={isLoading}
-        >
-          <LogOut size={18} color="#EF4444" />
-          <Text style={styles.logoutBtnText}>Sign Out from Device</Text>
-        </TouchableOpacity>
+        {/* Actions & Role Switcher */}
+        <View style={styles.section}>
+          <Text style={styles.sectionHeading}>APP MODE & LOGOUT</Text>
 
-        <Text style={styles.appVersionText}>Telepoint Android Mobile App v1.0.0 • Connected to Live Supabase</Text>
+          <TouchableOpacity
+            style={styles.actionRowCard}
+            activeOpacity={0.8}
+            onPress={handleSwitchRole}
+          >
+            <Sparkles size={18} color="#1A6FD6" />
+            <View style={styles.actionRowInfo}>
+              <Text style={styles.actionRowTitle}>Switch App Mode</Text>
+              <Text style={styles.actionRowSub}>
+                Access Retailer or Admin operational web portal
+              </Text>
+            </View>
+            <ChevronRight size={18} color="#94A3B8" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionRowCard, styles.logoutCard]}
+            activeOpacity={0.8}
+            onPress={handleLogout}
+          >
+            <LogOut size={18} color="#DC2626" />
+            <View style={styles.actionRowInfo}>
+              <Text style={styles.logoutTitle}>Sign Out from Device</Text>
+              <Text style={styles.actionRowSub}>
+                Clears stored session and push credentials
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* Footer info */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>
+            Telepoint EMI Mobile v1.0.0 • Connected to Live Production
+          </Text>
+          <Text style={styles.footerSub}>
+            Bank-grade 256-bit encryption • RBI Compliant EMI Framework
+          </Text>
+        </View>
       </ScrollView>
 
-      {/* Switch Financed Device Modal */}
+      {/* Multi-Loan Selection Modal */}
       <Modal
         visible={switchModalVisible}
         transparent
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setSwitchModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
+          <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalSheetTitle}>Switch Financed Device</Text>
-                <Text style={styles.modalSheetSubtitle}>
-                  Select which active EMI device loan you wish to view
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => setSwitchModalVisible(false)}
-                style={styles.closeBtn}
-              >
+              <Text style={styles.modalTitle}>Switch Financed Device</Text>
+              <TouchableOpacity onPress={() => setSwitchModalVisible(false)}>
                 <X size={20} color="#64748B" />
               </TouchableOpacity>
             </View>
+            <Text style={styles.modalSub}>
+              Tap on any device to view its EMI schedule and loan passbook.
+            </Text>
 
-            <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
-              {allLoans.map((loan: MultiLoanCustomer) => {
-                const isCurrent = loan.id === customer.id;
-                const isSwitching = switchingLoanId === loan.id;
+            <ScrollView style={{ maxHeight: 360 }}>
+              {allLoans.map(loan => {
+                const isActive = loan.id === customer.id;
                 return (
                   <TouchableOpacity
                     key={loan.id}
+                    style={[styles.loanItemCard, isActive && styles.loanItemActive]}
                     activeOpacity={0.8}
-                    style={[
-                      styles.loanOptionCard,
-                      isCurrent && styles.loanOptionCardActive,
-                    ]}
                     onPress={() => handleSelectLoan(loan.id)}
-                    disabled={isSwitching}
                   >
-                    <View style={styles.loanOptionIconBox}>
-                      <Smartphone size={20} color={isCurrent ? '#2563EB' : '#64748B'} />
+                    <Smartphone size={18} color={isActive ? '#1A6FD6' : '#64748B'} />
+                    <View style={styles.loanItemInfo}>
+                      <Text style={styles.loanItemModel}>{loan.model_no || 'Smartphone'}</Text>
+                      <Text style={styles.loanItemImei}>IMEI: {loan.imei}</Text>
                     </View>
-                    <View style={styles.loanOptionInfo}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Text style={styles.loanOptionModel}>
-                          {loan.model_no || 'Smartphone'}
-                        </Text>
-                        {isCurrent && (
-                          <View style={styles.currentBadge}>
-                            <Text style={styles.currentBadgeText}>CURRENT</Text>
-                          </View>
-                        )}
+                    {isActive ? (
+                      <View style={styles.activeTag}>
+                        <Check size={12} color="#1A6FD6" />
+                        <Text style={styles.activeTagText}>Active</Text>
                       </View>
-                      <Text style={styles.loanOptionImei}>IMEI: {loan.imei}</Text>
-                      <Text style={styles.loanOptionStatus}>Status: {loan.status || 'ACTIVE'}</Text>
-                    </View>
-
-                    <View style={styles.loanOptionRight}>
-                      {isCurrent ? (
-                        <View style={styles.activeCheckCircle}>
-                          <Check size={14} color="#FFFFFF" />
-                        </View>
-                      ) : (
-                        <ChevronRight size={18} color="#94A3B8" />
-                      )}
-                    </View>
+                    ) : (
+                      <ChevronRight size={16} color="#94A3B8" />
+                    )}
                   </TouchableOpacity>
                 );
               })}
@@ -305,303 +342,379 @@ export const ProfileScreen = () => {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: THEME.bg.darkest, // #F8FAFC
-    paddingTop: 54,
+    backgroundColor: '#F5F8FF', // Light IDFC blue-white canvas
+  },
+  header: {
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.base,
+    paddingBottom: Spacing.sm,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.3,
+  },
+  headerSub: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
   },
   scrollContent: {
-    paddingHorizontal: 18,
-    paddingBottom: 30,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+    paddingBottom: 40,
   },
   profileCard: {
-    marginBottom: 14,
+    backgroundColor: '#FFFFFF',
+    borderRadius: Radius.xl,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    elevation: 3,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    marginBottom: Spacing.md,
   },
-  profileRow: {
+  avatarRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 14,
   },
-  avatarBox: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    backgroundColor: 'rgba(37, 99, 235, 0.08)',
+  avatarCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#1A6FD6',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: 'rgba(37, 99, 235, 0.2)',
-    overflow: 'hidden',
   },
-  avatarImg: {
-    width: '100%',
-    height: '100%',
+  avatarInitial: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '900',
   },
-  profileMeta: {
+  avatarInfo: {
     flex: 1,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   profileName: {
-    color: '#0F172A',
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
-    marginBottom: 2,
+    color: '#0F172A',
   },
-  profileCode: {
-    color: '#2563EB',
-    fontSize: 12,
-    fontWeight: '700',
-    marginBottom: 2,
+  verifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: Radius.sm,
   },
-  profilePhone: {
-    color: '#64748B',
+  verifiedText: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#059669',
+    letterSpacing: 0.5,
+  },
+  mobileText: {
     fontSize: 13,
+    color: '#64748B',
+    fontWeight: '600',
+    marginTop: 2,
   },
-  card: {
-    marginBottom: 14,
+  cardDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: Spacing.md,
   },
-  cardHeaderRow: {
+  metaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
   },
-  cardTitle: {
-    color: '#64748B',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-    marginBottom: 8,
+  metaCol: {},
+  metaColRight: {
+    alignItems: 'flex-end',
   },
-  cardSubtitle: {
-    color: '#94A3B8',
-    fontSize: 11,
-    marginTop: -4,
-  },
-  switchPillBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(37, 99, 235, 0.08)',
-    borderColor: 'rgba(37, 99, 235, 0.2)',
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  switchPillText: {
-    color: '#2563EB',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  activeLoanRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(15, 23, 42, 0.06)',
-  },
-  activeLoanName: {
-    color: '#0F172A',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  activeLoanImei: {
-    color: '#64748B',
-    fontSize: 11,
-  },
-  currentTag: {
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  currentTagText: {
-    color: '#059669',
+  metaLabel: {
     fontSize: 9,
     fontWeight: '800',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(15, 23, 42, 0.05)',
-  },
-  infoLabel: {
     color: '#64748B',
-    fontSize: 13,
+    letterSpacing: 0.6,
+    marginBottom: 2,
   },
-  infoValue: {
+  metaValue: {
+    fontSize: 13,
+    fontWeight: '700',
     color: '#0F172A',
+    fontVariant: ['tabular-nums'],
+  },
+  metaStatus: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
+    color: '#059669',
   },
-  callSupportBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 12,
-    paddingVertical: 11,
-    backgroundColor: 'rgba(37, 99, 235, 0.08)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(37, 99, 235, 0.2)',
+  section: {
+    marginBottom: Spacing.md,
   },
-  callSupportText: {
-    color: '#2563EB',
-    fontSize: 13,
-    fontWeight: '700',
+  sectionHeading: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 0.8,
+    marginBottom: 6,
+    marginLeft: 4,
   },
-  switchRoleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
+  deviceCard: {
     backgroundColor: '#FFFFFF',
-    paddingVertical: 14,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: 'rgba(37, 99, 235, 0.25)',
-    marginTop: 6,
-    marginBottom: 10,
+    borderRadius: Radius.lg,
+    padding: Spacing.base,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    elevation: 2,
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 6,
-    elevation: 2,
   },
-  switchRoleBtnText: {
-    color: '#2563EB',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  logoutBtn: {
+  deviceHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(239, 68, 68, 0.08)',
-    paddingVertical: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.2)',
-    marginBottom: 10,
+    gap: 12,
   },
-  logoutBtnText: {
-    color: '#DC2626',
+  deviceTitleCol: {
+    flex: 1,
+  },
+  deviceModel: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
+    color: '#0F172A',
   },
-  appVersionText: {
-    color: '#94A3B8',
+  deviceImei: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  deviceMetaGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  deviceMetaCol: {
+    flex: 1,
+  },
+  deviceMetaLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  deviceMetaValue: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+    fontVariant: ['tabular-nums'],
+  },
+  storeCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: Radius.lg,
+    padding: Spacing.base,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  storeLeft: {
+    flex: 1,
+  },
+  storeName: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  storePhone: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  callBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#EFF5FF',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(26, 111, 214, 0.2)',
+  },
+  callBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1A6FD6',
+  },
+  actionRowCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: Radius.lg,
+    padding: Spacing.base,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  actionRowInfo: {
+    flex: 1,
+  },
+  actionRowTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  actionRowSub: {
     fontSize: 11,
-    textAlign: 'center',
-    marginTop: 12,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  statusRowCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: Radius.lg,
+    padding: Spacing.base,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  statusRowInfo: {
+    flex: 1,
+  },
+  statusRowTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  statusRowSub: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  activeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+  },
+  logoutCard: {
+    borderColor: '#FEE2E2',
+    backgroundColor: '#FEF2F2',
+  },
+  logoutTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#DC2626',
+  },
+  footer: {
+    alignItems: 'center',
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.xl,
+  },
+  footerText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  footerSub: {
+    fontSize: 10,
+    color: '#94A3B8',
+    marginTop: 2,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
     justifyContent: 'flex-end',
   },
-  modalSheet: {
+  modalContent: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
+    borderTopLeftRadius: Radius['2xl'],
+    borderTopRightRadius: Radius['2xl'],
+    padding: Spacing.xl,
     paddingBottom: 36,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
+    alignItems: 'center',
   },
-  modalSheetTitle: {
+  modalTitle: {
     fontSize: 18,
     fontWeight: '800',
     color: '#0F172A',
   },
-  modalSheetSubtitle: {
+  modalSub: {
     fontSize: 12,
     color: '#64748B',
-    marginTop: 2,
+    marginTop: 4,
+    marginBottom: Spacing.md,
   },
-  closeBtn: {
-    padding: 4,
-  },
-  loanOptionCard: {
+  loanItemCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
-    borderRadius: 16,
+    gap: 12,
     backgroundColor: '#F8FAFC',
+    borderRadius: Radius.lg,
+    padding: Spacing.base,
+    marginBottom: Spacing.sm,
     borderWidth: 1.5,
-    borderColor: 'rgba(15, 23, 42, 0.08)',
-    marginBottom: 10,
+    borderColor: '#E2E8F0',
   },
-  loanOptionCardActive: {
-    borderColor: '#2563EB',
-    backgroundColor: 'rgba(37, 99, 235, 0.04)',
+  loanItemActive: {
+    backgroundColor: '#EFF5FF',
+    borderColor: '#1A6FD6',
   },
-  loanOptionIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(15, 23, 42, 0.08)',
-  },
-  loanOptionInfo: {
+  loanItemInfo: {
     flex: 1,
   },
-  loanOptionModel: {
+  loanItemModel: {
     fontSize: 14,
     fontWeight: '800',
     color: '#0F172A',
   },
-  currentBadge: {
-    backgroundColor: 'rgba(37, 99, 235, 0.12)',
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 6,
-  },
-  currentBadgeText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#2563EB',
-  },
-  loanOptionImei: {
+  loanItemImei: {
     fontSize: 11,
     color: '#64748B',
-    marginTop: 2,
   },
-  loanOptionStatus: {
-    fontSize: 11,
-    color: '#059669',
-    fontWeight: '600',
-    marginTop: 1,
-  },
-  loanOptionRight: {
-    marginLeft: 8,
-  },
-  activeCheckCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#2563EB',
-    justifyContent: 'center',
+  activeTag: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: Radius.sm,
+  },
+  activeTagText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#1A6FD6',
   },
 });

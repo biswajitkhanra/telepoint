@@ -37,15 +37,17 @@
         "expo-notifications",
         {
           "icon": "./assets/notification-icon.png",
-          "color": "#2563eb"
+          "color": "#1A6FD6"
         }
-      ]
+      ],
+      "expo-font",
+      "expo-secure-store"
     ],
     "extra": {
       "eas": {
         "projectId": "aec8f345-520f-41b7-bead-08a1177a2466"
       },
-      "portalUrl": "https://telepoint.vercel.app"
+      "portalUrl": "https://telepoint-topaz.vercel.app"
     },
     "owner": "biswajitkha"
   }

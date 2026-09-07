@@ -1,4 +1,8 @@
 import Constants from 'expo-constants';
+export * from './constants/colors';
+export * from './constants/typography';
+export * from './constants/design';
+export * from './constants/animations';
 
 /**
  * Mobile configuration.
@@ -11,7 +15,7 @@ import Constants from 'expo-constants';
 export const PORTAL_BASE_URL =
   process.env.EXPO_PUBLIC_PORTAL_URL ||
   Constants.expoConfig?.extra?.portalUrl ||
-  'https://telepoint.vercel.app';
+  'https://telepoint-topaz.vercel.app';
 
 export const STORAGE_KEYS = {
   SESSION: '@telepoint_customer_session',

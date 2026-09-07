@@ -20,19 +20,27 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
 
   if (Platform.OS === 'android') {
     // Android 8.0+ notification channels
-    await Notifications.setNotificationChannelAsync('telepoint-reminders', {
+    await Notifications.setNotificationChannelAsync('emi-reminders', {
       name: 'EMI Reminders',
-      importance: Notifications.AndroidImportance.MAX,
+      importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#2563EB',
+      lightColor: '#1A6FD6',
       sound: 'default',
     });
 
-    await Notifications.setNotificationChannelAsync('telepoint-broadcasts', {
-      name: 'Store Announcements',
+    await Notifications.setNotificationChannelAsync('broadcasts', {
+      name: 'Announcements',
+      importance: Notifications.AndroidImportance.DEFAULT,
+      lightColor: '#1A6FD6',
+      sound: 'default',
+    });
+
+    // Compatibility aliases
+    await Notifications.setNotificationChannelAsync('telepoint-reminders', {
+      name: 'EMI Reminders (Telepoint)',
       importance: Notifications.AndroidImportance.HIGH,
-      vibrationPattern: [0, 300, 200, 300],
-      lightColor: '#F59E0B',
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#1A6FD6',
       sound: 'default',
     });
   }

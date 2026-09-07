@@ -69,6 +69,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             // Silently refresh in background and discover any additional loans
             refreshCustomer(parsed.customer.id, parsed.customer.mobile);
+
+            // Ensure push token is synchronized with the server
+            registerForPushNotificationsAsync().then(async token => {
+              if (token && parsed.customer?.id) {
+                setPushToken(token);
+                await AsyncStorage.setItem(STORAGE_KEYS.TOKEN, token);
+                const deviceId = Device.osInternalBuildId || `${Device.modelName || 'device'}-${Device.osVersion}`;
+                await registerPushToken({
+                  customer_id: parsed.customer.id,
+                  push_token: token,
+                  device_id: deviceId,
+                  device_name: Device.modelName || 'Android Device',
+                  platform: 'android',
+                  app_version: '1.0.0',
+                }).catch(() => {});
+              }
+            }).catch(() => {});
           }
         }
       } catch (e) {
