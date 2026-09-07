@@ -35,21 +35,13 @@
           "icon": "./assets/notification-icon.png",
           "color": "#2563eb"
         }
-      ],
-      "expo-updates"
+      ]
     ],
-    "updates": {
-      "url": "https://u.expo.dev/your-expo-project-id",
-      "enabled": true,
-      "fallbackToCacheTimeout": 0
-    },
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
     "extra": {
       "eas": {
-        "projectId": "your-expo-project-id"
+        "projectId": "59cc4210-babc-4498-93a5-f712a9283187"
       }
-    }
+    },
+    "owner": "biswodip"
   }
 }
