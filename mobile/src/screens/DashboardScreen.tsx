@@ -7,56 +7,83 @@ import {
   RefreshControl,
   TouchableOpacity,
   Linking,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import {
-  Smartphone,
-  Phone,
   Megaphone,
-  CreditCard,
-  AlertTriangle,
+  ChevronRight,
+  ShieldCheck,
+  Clock,
+  CheckCircle2,
   Receipt,
-  HelpCircle,
+  Sparkles,
 } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
-import { Card3D } from '../components/Card3D';
+import { TitaniumLoanCard } from '../components/TitaniumLoanCard';
+import { EmiProgressRing } from '../components/EmiProgressRing';
 import { EmiHeroCard } from '../components/EmiHeroCard';
+import { QuickActionDock } from '../components/QuickActionDock';
+import { ReceiptModal } from '../components/ReceiptModal';
 import { BroadcastModal } from '../components/BroadcastModal';
-import { BroadcastItem } from '../types';
+import { BroadcastItem, EMIScheduleItem } from '../types';
 import { THEME } from '../config';
 
 export const DashboardScreen = ({ navigation }: { navigation: any }) => {
-  const { customer, emis, breakdown, broadcasts, refreshData, isLoading } = useAuth();
+  const { customer, emis, breakdown, broadcasts, refreshData } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [activeBroadcast, setActiveBroadcast] = useState<BroadcastItem | null>(null);
+  const [receiptEmi, setReceiptEmi] = useState<EMIScheduleItem | null>(null);
 
   const onRefresh = async () => {
     setRefreshing(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     await refreshData();
     setRefreshing(false);
   };
 
   if (!customer) return null;
 
-  // Filter unpaid & paid EMIs
+  // Split paid vs unpaid EMIs
   const paidEmis = emis.filter(e => e.status === 'APPROVED');
   const unpaidEmis = emis.filter(e => e.status === 'UNPAID' || e.status === 'PARTIALLY_PAID');
   const nextEmi = unpaidEmis.length > 0 ? unpaidEmis[0] : null;
 
-  // Format currency
+  const totalEmisCount = customer.emi_tenure || Math.max(emis.length, 1);
+  const totalLoanAmount = customer.purchase_value || (customer.emi_amount * totalEmisCount);
+  const paidAmount = paidEmis.reduce((sum, e) => sum + (e.amount || 0), 0);
+
   const formatInr = (n: number) =>
     `₹${new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(n)}`;
 
-  // First EMI charge remaining
-  const firstChargeRemaining = Math.max(
-    0,
-    Number(customer.first_emi_charge_amount || 0) - Number(customer.first_emi_charge_paid_amount || 0)
-  );
+  // Handle direct UPI Payment intent
+  const handlePayUpi = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const payeeMobile = customer.retailer?.mobile;
+    const amount = nextEmi?.amount || breakdown?.total_payable || customer.emi_amount;
 
-  // Total payable
-  const totalPayable =
-    (breakdown?.total_payable ??
-      (nextEmi?.amount || 0) + (breakdown?.fine_due || 0) + firstChargeRemaining);
+    if (payeeMobile) {
+      const upiUrl = `upi://pay?pa=${payeeMobile}@paytm&pn=Telepoint&am=${amount}&cu=INR&tn=${encodeURIComponent(
+        `EMI ${nextEmi?.emi_no || 1} | ${customer.customer_name}`
+      )}`;
+      Linking.canOpenURL(upiUrl).then(supported => {
+        if (supported) {
+          Linking.openURL(upiUrl);
+        } else {
+          Alert.alert(
+            'Retailer UPI Details',
+            `Pay via any UPI App:\nVPA: ${payeeMobile}@paytm\nAmount: ${formatInr(amount)}\nRetailer: ${customer.retailer?.name}`
+          );
+        }
+      });
+    } else {
+      Alert.alert(
+        'Store Payment',
+        `Please contact ${customer.retailer?.name || 'your retailer'} to complete this installment payment.`
+      );
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -66,150 +93,183 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor="#3B82F6"
-            colors={['#3B82F6']}
+            tintColor={THEME.accent.primary}
+            colors={[THEME.accent.primary, THEME.accent.success]}
           />
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Top Header */}
+        {/* Top Header Bar */}
         <View style={styles.topHeader}>
           <View>
-            <Text style={styles.greetingText}>Welcome back,</Text>
+            <View style={styles.greetingRow}>
+              <Text style={styles.greetingText}>HELLO,</Text>
+              <View style={styles.kycShield}>
+                <ShieldCheck size={12} color="#34D399" />
+                <Text style={styles.kycText}>VERIFIED</Text>
+              </View>
+            </View>
             <Text style={styles.customerName}>{customer.customer_name}</Text>
           </View>
+
           <View style={styles.retailerPill}>
-            <Text style={styles.retailerLabel}>RETAILER</Text>
+            <Text style={styles.retailerLabel}>PARTNER STORE</Text>
             <Text style={styles.retailerName} numberOfLines={1}>
-              {customer.retailer?.name || 'Telepoint Partner'}
+              {customer.retailer?.name || 'Telepoint Network'}
             </Text>
           </View>
         </View>
 
-        {/* Live Broadcast Banner (if any) */}
+        {/* Live Broadcast / Store Offer Announcement */}
         {broadcasts.length > 0 && (
           <TouchableOpacity
             activeOpacity={0.88}
             style={styles.broadcastBanner}
-            onPress={() => setActiveBroadcast(broadcasts[0])}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setActiveBroadcast(broadcasts[0]);
+            }}
           >
             <LinearGradient
-              colors={['rgba(245, 158, 11, 0.2)', 'rgba(217, 119, 6, 0.1)']}
+              colors={['rgba(245, 158, 11, 0.22)', 'rgba(217, 119, 6, 0.12)']}
               style={styles.broadcastGradient}
             >
-              <Megaphone size={16} color="#FBBF24" />
-              <Text style={styles.broadcastText} numberOfLines={1}>
-                {broadcasts[0].message}
-              </Text>
-              <Text style={styles.broadcastAction}>View</Text>
+              <View style={styles.broadcastLeft}>
+                <View style={styles.broadcastIconBox}>
+                  <Megaphone size={16} color="#FBBF24" />
+                </View>
+                <View style={styles.broadcastTextCol}>
+                  <Text style={styles.broadcastTag}>STORE BROADCAST</Text>
+                  <Text style={styles.broadcastMessage} numberOfLines={1}>
+                    {broadcasts[0].message}
+                  </Text>
+                </View>
+              </View>
+              <ChevronRight size={18} color="#FBBF24" />
             </LinearGradient>
           </TouchableOpacity>
         )}
 
-        {/* 3D Upcoming EMI Hero Card */}
+        {/* 3D Titanium Device Passbook Card */}
+        <TitaniumLoanCard customer={customer} />
+
+        {/* Next EMI Urgency Hero Card */}
         <EmiHeroCard
           customer={customer}
           nextEmi={nextEmi}
           paidCount={paidEmis.length}
-          totalTenure={customer.emi_tenure}
+          totalTenure={totalEmisCount}
           breakdown={breakdown}
-          onPayPress={() => navigation.navigate('EmiSchedule')}
+          onPayPress={handlePayUpi}
         />
 
-        {/* Total Outstanding Breakdown Card */}
-        <Card3D style={styles.breakdownCard}>
-          <Text style={styles.sectionTitle}>Total Outstanding Due</Text>
-          <Text style={styles.totalDueAmount}>{formatInr(totalPayable)}</Text>
+        {/* Amortization Progress Visualizer */}
+        <EmiProgressRing
+          totalEmis={totalEmisCount}
+          paidEmis={paidEmis.length}
+          totalAmount={totalLoanAmount}
+          paidAmount={paidAmount}
+        />
 
-          <View style={styles.divider} />
+        {/* Fintech Quick Action Dock */}
+        <QuickActionDock
+          onPayUpi={handlePayUpi}
+          onViewReceipts={() => navigation.navigate('Schedule')}
+          retailerPhone={customer.retailer?.mobile}
+          retailerName={customer.retailer?.name}
+        />
 
-          <View style={styles.breakdownRow}>
-            <Text style={styles.breakdownLabel}>Next EMI Installment</Text>
-            <Text style={styles.breakdownValue}>{formatInr(nextEmi?.amount || 0)}</Text>
-          </View>
-
-          {breakdown && breakdown.fine_due > 0 && (
-            <View style={styles.breakdownRow}>
-              <View style={styles.fineLabelRow}>
-                <AlertTriangle size={13} color="#EF4444" />
-                <Text style={[styles.breakdownLabel, { color: '#FCA5A5' }]}>Late Overdue Fine</Text>
-              </View>
-              <Text style={[styles.breakdownValue, { color: '#EF4444' }]}>
-                {formatInr(breakdown.fine_due)}
-              </Text>
-            </View>
-          )}
-
-          {firstChargeRemaining > 0 && (
-            <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>1st EMI Setup Charge</Text>
-              <Text style={styles.breakdownValue}>{formatInr(firstChargeRemaining)}</Text>
-            </View>
-          )}
-
-          <TouchableOpacity
-            style={styles.viewScheduleBtn}
-            onPress={() => navigation.navigate('EmiSchedule')}
-          >
-            <Receipt size={16} color="#60A5FA" />
-            <Text style={styles.viewScheduleText}>View Full Installment Schedule ({emis.length} months)</Text>
-          </TouchableOpacity>
-        </Card3D>
-
-        {/* Device & Loan Details */}
-        <Card3D style={styles.deviceCard}>
-          <Text style={styles.sectionTitle}>Financed Device</Text>
-          <View style={styles.deviceRow}>
-            <View style={styles.deviceIconBox}>
-              <Smartphone size={24} color="#60A5FA" />
-            </View>
-            <View style={styles.deviceMeta}>
-              <Text style={styles.deviceModel}>{customer.model_no || 'Smartphone'}</Text>
-              <Text style={styles.deviceImei}>IMEI: {customer.imei}</Text>
-              <Text style={styles.deviceLoanStatus}>
-                Status: <Text style={{ color: '#10B981', fontWeight: '700' }}>{customer.status}</Text>
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.loanDetailGrid}>
-            <View style={styles.loanGridItem}>
-              <Text style={styles.gridLabel}>Purchase Value</Text>
-              <Text style={styles.gridValue}>{formatInr(customer.purchase_value)}</Text>
-            </View>
-            <View style={styles.loanGridItem}>
-              <Text style={styles.gridLabel}>Down Payment</Text>
-              <Text style={styles.gridValue}>{formatInr(customer.down_payment)}</Text>
-            </View>
-            <View style={styles.loanGridItem}>
-              <Text style={styles.gridLabel}>Disbursed</Text>
-              <Text style={styles.gridValue}>{formatInr(customer.disburse_amount || 0)}</Text>
-            </View>
-            <View style={styles.loanGridItem}>
-              <Text style={styles.gridLabel}>Monthly Due Day</Text>
-              <Text style={styles.gridValue}>{customer.emi_due_day}th of Month</Text>
-            </View>
-          </View>
-
-          {customer.retailer?.mobile && (
+        {/* Recent Installment Activity Feed */}
+        <View style={styles.activitySection}>
+          <View style={styles.activityHeader}>
+            <Text style={styles.activityTitle}>INSTALLMENT ACTIVITY</Text>
             <TouchableOpacity
-              style={styles.retailerCallBtn}
-              onPress={() => Linking.openURL(`tel:${customer.retailer?.mobile}`)}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigation.navigate('Schedule');
+              }}
             >
-              <Phone size={15} color="#93C5FD" />
-              <Text style={styles.retailerCallText}>Call Store: {customer.retailer.mobile}</Text>
+              <Text style={styles.viewAllText}>View All ({emis.length})</Text>
             </TouchableOpacity>
-          )}
-        </Card3D>
+          </View>
+
+          {emis.slice(0, 3).map(emi => {
+            const isPaid = emi.status === 'APPROVED';
+            return (
+              <TouchableOpacity
+                key={emi.id}
+                activeOpacity={0.8}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  if (isPaid) {
+                    setReceiptEmi(emi);
+                  } else {
+                    navigation.navigate('Schedule');
+                  }
+                }}
+                style={styles.activityItem}
+              >
+                <View style={styles.activityLeft}>
+                  <View
+                    style={[
+                      styles.activityIconBox,
+                      isPaid ? styles.iconPaid : styles.iconPending,
+                    ]}
+                  >
+                    {isPaid ? (
+                      <CheckCircle2 size={18} color="#10B981" />
+                    ) : (
+                      <Clock size={18} color="#F59E0B" />
+                    )}
+                  </View>
+                  <View>
+                    <Text style={styles.activityItemTitle}>
+                      Installment #{emi.emi_no}
+                    </Text>
+                    <Text style={styles.activityItemSub}>
+                      {isPaid ? `Paid on ${emi.due_date}` : `Due by ${emi.due_date}`}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.activityRight}>
+                  <Text style={styles.activityAmount}>{formatInr(emi.amount)}</Text>
+                  {isPaid ? (
+                    <View style={styles.receiptChip}>
+                      <Receipt size={10} color="#6EE7B7" />
+                      <Text style={styles.receiptChipText}>SLIP</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.pendingTag}>PENDING</Text>
+                  )}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Security Watermark */}
+        <View style={styles.footerNote}>
+          <Sparkles size={14} color="#64748B" />
+          <Text style={styles.footerNoteText}>
+            Telepoint Smart Finance • Secured by Hardware Device Lock
+          </Text>
+        </View>
       </ScrollView>
 
       {/* Broadcast Detail Modal */}
       <BroadcastModal
-        broadcast={activeBroadcast}
         visible={!!activeBroadcast}
+        broadcast={activeBroadcast}
         onClose={() => setActiveBroadcast(null)}
+      />
+
+      {/* Digital Bank Receipt Modal */}
+      <ReceiptModal
+        visible={!!receiptEmi}
+        emi={receiptEmi}
+        customer={customer}
+        onClose={() => setReceiptEmi(null)}
       />
     </View>
   );
@@ -221,200 +281,217 @@ const styles = StyleSheet.create({
     backgroundColor: THEME.bg.darkest,
   },
   scrollContent: {
-    paddingHorizontal: 18,
-    paddingTop: 54,
-    paddingBottom: 30,
+    paddingBottom: 40,
   },
   topHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    paddingBottom: 10,
+  },
+  greetingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
   },
   greetingText: {
     color: '#94A3B8',
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+  },
+  kycShield: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  kycText: {
+    color: '#34D399',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.6,
   },
   customerName: {
     color: '#FFFFFF',
     fontSize: 22,
-    fontWeight: '800',
-    letterSpacing: -0.3,
+    fontWeight: '900',
+    letterSpacing: 0.2,
   },
   retailerPill: {
-    backgroundColor: '#0F172A',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
-    maxWidth: 140,
+    alignItems: 'flex-end',
+    maxWidth: 160,
   },
   retailerLabel: {
     color: '#64748B',
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
+    marginBottom: 2,
   },
   retailerName: {
     color: '#93C5FD',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
   },
   broadcastBanner: {
-    borderRadius: 14,
+    marginHorizontal: 16,
+    marginVertical: 8,
+    borderRadius: 16,
     overflow: 'hidden',
-    marginBottom: 8,
     borderWidth: 1,
     borderColor: 'rgba(245, 158, 11, 0.3)',
   },
   broadcastGradient: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 8,
+    paddingVertical: 12,
   },
-  broadcastText: {
+  broadcastLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
     flex: 1,
+  },
+  broadcastIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  broadcastTextCol: {
+    flex: 1,
+  },
+  broadcastTag: {
+    color: '#FBBF24',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  broadcastMessage: {
     color: '#FDE68A',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
+    marginTop: 1,
   },
-  broadcastAction: {
-    color: '#F59E0B',
-    fontSize: 12,
-    fontWeight: '800',
-    textDecorationLine: 'underline',
+  activitySection: {
+    marginHorizontal: 16,
+    marginTop: 14,
+    backgroundColor: 'rgba(14, 19, 31, 0.6)',
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
-  breakdownCard: {
-    marginVertical: 10,
-  },
-  sectionTitle: {
-    color: '#94A3B8',
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    marginBottom: 6,
-  },
-  totalDueAmount: {
-    color: '#FFFFFF',
-    fontSize: 32,
-    fontWeight: '800',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    marginVertical: 14,
-  },
-  breakdownRow: {
+  activityHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 14,
   },
-  fineLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  breakdownLabel: {
+  activityTitle: {
     color: '#94A3B8',
-    fontSize: 13,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.1,
   },
-  breakdownValue: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  viewScheduleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 12,
-    paddingVertical: 12,
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.25)',
-  },
-  viewScheduleText: {
-    color: '#93C5FD',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  deviceCard: {
-    marginVertical: 10,
-  },
-  deviceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-  deviceIconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.3)',
-  },
-  deviceMeta: {
-    flex: 1,
-  },
-  deviceModel: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  deviceImei: {
-    color: '#94A3B8',
+  viewAllText: {
+    color: '#60A5FA',
     fontSize: 12,
+    fontWeight: '700',
   },
-  deviceLoanStatus: {
-    color: '#94A3B8',
-    fontSize: 12,
-    marginTop: 2,
-  },
-  loanDetailGrid: {
+  activityItem: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  activityLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
   },
-  loanGridItem: {
-    width: '47%',
-    backgroundColor: '#1E293B',
-    padding: 10,
+  activityIconBox: {
+    width: 36,
+    height: 36,
     borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  gridLabel: {
-    color: '#64748B',
-    fontSize: 11,
-    marginBottom: 4,
+  iconPaid: {
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
   },
-  gridValue: {
+  iconPending: {
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+  },
+  activityItemTitle: {
     color: '#F8FAFC',
     fontSize: 13,
     fontWeight: '700',
   },
-  retailerCallBtn: {
+  activityItemSub: {
+    color: '#64748B',
+    fontSize: 11,
+    marginTop: 2,
+  },
+  activityRight: {
+    alignItems: 'flex-end',
+  },
+  activityAmount: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+    marginBottom: 3,
+  },
+  receiptChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 14,
-    paddingVertical: 11,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 12,
+    gap: 3,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
-  retailerCallText: {
-    color: '#93C5FD',
-    fontSize: 13,
+  receiptChipText: {
+    color: '#6EE7B7',
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  pendingTag: {
+    color: '#FBBF24',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  footerNote: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 24,
+    marginBottom: 8,
+  },
+  footerNoteText: {
+    color: '#64748B',
+    fontSize: 10,
     fontWeight: '600',
   },
 });

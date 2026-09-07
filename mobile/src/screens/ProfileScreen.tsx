@@ -31,14 +31,18 @@ export const ProfileScreen = () => {
 
   const handleLogout = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Alert.alert('Sign Out', 'Are you sure you want to sign out from this device?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign Out',
-        style: 'destructive',
-        onPress: () => logout(),
-      },
-    ]);
+    Alert.alert(
+      'Sign Out Confirmation',
+      'Your session is locked to this device for security. To re-login later, you will need your registered Mobile or Aadhaar number. Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: () => logout(),
+        },
+      ]
+    );
   };
 
   return (
@@ -99,6 +103,15 @@ export const ProfileScreen = () => {
               <Text style={styles.infoLabel}>Data Protection</Text>
             </View>
             <Text style={styles.infoValue}>Bank Grade AES-256</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Shield size={14} color="#3B82F6" />
+              <Text style={styles.infoLabel}>Session Lockdown</Text>
+            </View>
+            <Text style={[styles.infoValue, { color: '#34D399' }]}>
+              Active (Until Clear App Data)
+            </Text>
           </View>
         </Card3D>
 
