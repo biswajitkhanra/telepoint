@@ -147,15 +147,15 @@ export const GradientCard: React.FC<GradientCardProps> = ({
           <View style={styles.topRow}>
             <View style={styles.loanTypePill}>
               <Sparkles size={13} color="#FFFFFF" />
-              <Text style={styles.loanTypeText}>SMARTPHONE FINANCE</Text>
+              <Text style={styles.loanTypeText}>Active Mobile Loan</Text>
             </View>
 
             <DaysLeftBadge daysLeft={daysLeft} triggerHaptics={true} />
           </View>
 
-          {/* Hero amount section — Jupiter Principle #1 */}
+          {/* Hero amount section */}
           <View style={styles.heroAmountSection}>
-            <Text style={styles.heroLabel}>TOTAL LOAN DISBURSED</Text>
+            <Text style={styles.heroLabel}>Total Loan Amount</Text>
             <View style={styles.amountRow}>
               <CountUp
                 end={loanAmount}
@@ -170,7 +170,7 @@ export const GradientCard: React.FC<GradientCardProps> = ({
           <View style={styles.progressSection}>
             <View style={styles.progressLabelRow}>
               <Text style={styles.progressLabelText}>
-                Repayment: {paidMonths}/{tenureMonths} EMIs
+                {paidMonths} of {tenureMonths} EMIs Paid
               </Text>
               <Text style={styles.progressPercentageText}>
                 {Math.round(paidPercentage)}% Paid
@@ -193,7 +193,7 @@ export const GradientCard: React.FC<GradientCardProps> = ({
           {/* Bottom stats row */}
           <View style={styles.bottomStatsRow}>
             <View style={styles.statCol}>
-              <Text style={styles.statLabel}>NEXT EMI AMOUNT</Text>
+              <Text style={styles.statLabel}>Next EMI Amount</Text>
               <CountUp
                 end={nextEmiAmount}
                 prefix="₹"
@@ -203,7 +203,7 @@ export const GradientCard: React.FC<GradientCardProps> = ({
             </View>
 
             <View style={styles.statColRight}>
-              <Text style={styles.statLabel}>DUE DATE</Text>
+              <Text style={styles.statLabel}>Due Date</Text>
               <Text style={styles.statValueDate}>
                 {nextDueDate || 'Fully Paid'}
               </Text>

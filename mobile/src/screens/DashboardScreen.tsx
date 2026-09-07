@@ -232,11 +232,7 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
         <View style={[styles.topHeader, { paddingTop: topInset + 8 }]}>
           <View style={styles.headerLeft}>
             <View style={styles.greetingRow}>
-              <Text style={styles.greetingText}>HELLO,</Text>
-              <View style={styles.kycShield}>
-                <ShieldCheck size={11} color="#059669" />
-                <Text style={styles.kycText}>VERIFIED</Text>
-              </View>
+              <Text style={styles.greetingText}>Welcome,</Text>
             </View>
             <Text style={styles.customerName}>{customer.customer_name}</Text>
 
@@ -273,9 +269,9 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
             </PressableScale>
 
             <View style={styles.retailerPill}>
-              <Text style={styles.retailerLabel}>PARTNER STORE</Text>
+              <Text style={styles.retailerLabel}>PURCHASED FROM</Text>
               <Text style={styles.retailerName} numberOfLines={1}>
-                {customer.retailer?.name || 'Telepoint Partner'}
+                {customer.retailer?.name || 'Telepoint Store'}
               </Text>
             </View>
           </View>
@@ -302,7 +298,7 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
                   <Megaphone size={16} color="#D97706" />
                 </View>
                 <View style={styles.broadcastTextCol}>
-                  <Text style={styles.broadcastTag}>STORE ANNOUNCEMENT</Text>
+                  <Text style={styles.broadcastTag}>STORE NOTICE</Text>
                   <Text style={styles.broadcastMessage} numberOfLines={1}>
                     {broadcasts[0].message}
                   </Text>
@@ -336,7 +332,7 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
               <View style={styles.dueCardHeader}>
                 <View style={styles.dueCardBadgeRow}>
                   <View style={styles.dueWarningDot} />
-                  <Text style={styles.dueCardBadgeText}>CURRENT OUTSTANDING DUE</Text>
+                  <Text style={styles.dueCardBadgeText}>AMOUNT DUE NOW</Text>
                 </View>
                 {customerCodeOf(customer) ? (
                   <View style={styles.customerCodePill}>
@@ -394,7 +390,7 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
           </View>
         )}
 
-        {/* Quick Stats Mini Cards with Living Jelly Physics */}
+        {/* Quick Stats Mini Cards */}
         <View style={styles.quickStatsContainer}>
           <ScrollView
             horizontal
@@ -413,7 +409,7 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
                 style={[styles.statNumberText, { color: '#059669' }]}
                 duration={700}
               />
-              <Text style={styles.statSubText}>{paidEmis.length} installments settled</Text>
+              <Text style={styles.statSubText}>{paidEmis.length} installments paid</Text>
             </JellyCard>
 
             {/* Stat 2: Remaining Balance */}
@@ -428,26 +424,26 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
                 style={[styles.statNumberText, { color: '#1A6FD6' }]}
                 duration={700}
               />
-              <Text style={styles.statSubText}>{unpaidEmis.length} installments due</Text>
+              <Text style={styles.statSubText}>{unpaidEmis.length} EMIs left</Text>
             </JellyCard>
 
             {/* Stat 3: Tenure Progress */}
             <JellyCard accentColor="#4F46E5" style={styles.statJellyCard}>
               <View style={styles.statHeaderRow}>
                 <View style={[styles.statDot, { backgroundColor: '#4F46E5' }]} />
-                <Text style={styles.statLabelText}>TENURE</Text>
+                <Text style={styles.statLabelText}>LOAN TENURE</Text>
               </View>
               <Text style={[styles.statNumberText, { color: '#4F46E5' }]}>
                 {paidEmis.length}/{totalEmisCount}
               </Text>
               <Text style={styles.statSubText}>
-                {Math.round((paidEmis.length / totalEmisCount) * 100)}% loan completed
+                {Math.round((paidEmis.length / totalEmisCount) * 100)}% completed
               </Text>
             </JellyCard>
           </ScrollView>
         </View>
 
-        {/* Fintech Quick Action Dock with Squash-and-Stretch Touch Physics */}
+        {/* Action Dock */}
         <View style={styles.actionDock}>
           <PressableScale
             style={[styles.actionBtn, styles.actionBtnPrimary]}
@@ -464,7 +460,7 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
             scaleTo={0.92}
           >
             <QrCode size={17} color="#1A6FD6" />
-            <Text style={styles.actionBtnQrText}>Scan QR</Text>
+            <Text style={styles.actionBtnQrText}>Show QR</Text>
           </PressableScale>
 
           <PressableScale
@@ -488,7 +484,7 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
         {/* Next 3 Installments Activity Feed */}
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>INSTALLMENT ACTIVITY</Text>
+            <Text style={styles.sectionTitle}>MONTHLY INSTALLMENTS</Text>
             <TouchableOpacity onPress={() => navigation.navigate('EmiSchedule')}>
               <Text style={styles.seeAllText}>View All ({emis.length}) →</Text>
             </TouchableOpacity>

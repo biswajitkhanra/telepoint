@@ -143,7 +143,7 @@ export const LoginScreen = () => {
               style={styles.topRoleSwitchPill}
             >
               <Users size={12} color="#1A6FD6" />
-              <Text style={styles.topRoleSwitchPillText}>Store Retailer or Super Admin? Staff Login ➔</Text>
+              <Text style={styles.topRoleSwitchPillText}>Staff or Store Owner? Login here ➔</Text>
             </TouchableOpacity>
           </View>
 
@@ -153,19 +153,14 @@ export const LoginScreen = () => {
               <TelepointLogo size={68} />
             </View>
             <Text style={styles.brandTitle}>TelePoint</Text>
-            <Text style={styles.brandSubtitle}>EMI Management Portal</Text>
-
-            <View style={styles.securityPill}>
-              <Lock size={12} color="#1A6FD6" />
-              <Text style={styles.securityPillText}>SECURE 256-BIT ENCRYPTION</Text>
-            </View>
+            <Text style={styles.brandSubtitle}>Mobile EMI Payments</Text>
           </View>
 
-          {/* Headline — Jupiter bold & confident */}
+          {/* Headline */}
           <View style={styles.headlineContainer}>
             <Text style={styles.headlineText}>Welcome back</Text>
             <Text style={styles.headlineSub}>
-              Enter your registered credentials to view your smartphone EMI schedule
+              Enter your registered mobile or Aadhaar number to view your EMI details
             </Text>
           </View>
 

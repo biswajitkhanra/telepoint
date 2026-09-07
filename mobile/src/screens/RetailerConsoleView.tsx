@@ -2,7 +2,7 @@
 // 100% Native Mobile App Experience for Retailers (No Webview feel)
 // IDFC Clarity + Jupiter Delight: Real-time MTD stats, Live Due Collections, Call & WhatsApp Actions, Instant Payment Logging
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import {
   Modal,
   Linking,
   RefreshControl,
+  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -94,13 +95,11 @@ interface PaymentRecord {
 }
 
 interface RetailerConsoleViewProps {
-  onOpenWebFallback?: () => void;
   onSwitchAccount?: () => void;
   onSwitchToCustomer?: () => void;
 }
 
 export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
-  onOpenWebFallback,
   onSwitchAccount,
   onSwitchToCustomer,
 }) => {
@@ -109,6 +108,31 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'due' | 'upcoming' | 'ledger' | 'customers'>('due');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Smooth tab animation physics
+  const tabFadeAnim = useRef(new Animated.Value(1)).current;
+  const tabSlideAnim = useRef(new Animated.Value(0)).current;
+
+  const handleSelectTab = (tab: 'due' | 'upcoming' | 'ledger' | 'customers') => {
+    if (tab === activeTab) return;
+    Haptics.selectionAsync();
+    tabFadeAnim.setValue(0);
+    tabSlideAnim.setValue(10);
+    setActiveTab(tab);
+    Animated.parallel([
+      Animated.timing(tabFadeAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.spring(tabSlideAnim, {
+        toValue: 0,
+        tension: 300,
+        friction: 20,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
 
   // Data states
   const [mtdStats, setMtdStats] = useState<MtdStats>({
@@ -186,9 +210,9 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
     }
     const cleanNum = mobile.replace(/\D/g, '').slice(-10);
     const msg = encodeURIComponent(
-      `Hello ${name}, this is a reminder from Telepoint regarding your pending EMI of ₹${dueAmount.toLocaleString(
+      `Dear ${name}, this is a gentle reminder from Telepoint regarding your pending EMI of ₹${dueAmount.toLocaleString(
         'en-IN'
-      )}. Please clear your dues at our store or via UPI to keep your phone active.`
+      )}. Please clear your dues at our store or pay online to keep your mobile active. Helpline: 7003617029.`
     );
     Linking.openURL(`https://wa.me/91${cleanNum}?text=${msg}`);
   };
@@ -311,7 +335,7 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
       >
         {/* Store Welcome Card */}
         <LinearGradient
-          colors={['#0F172A', '#1E293B']}
+          colors={['#0A2540', '#0F172A']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.storeHeaderCard}
@@ -322,7 +346,7 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
             </View>
             <View style={styles.storeHeaderInfo}>
               <View style={styles.storePill}>
-                <Text style={styles.storePillText}>RETAIL STORE DASHBOARD</Text>
+                <Text style={styles.storePillText}>PARTNER STORE DASHBOARD</Text>
               </View>
               <Text style={styles.storeNameText}>
                 {staffUser?.name || staffUser?.username || 'Telepoint Partner Store'}
@@ -347,23 +371,24 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
           </PressableScale>
         </LinearGradient>
 
-        {/* MTD Performance Metrics Jelly Cards */}
+        {/* Store Performance Metrics */}
         <View style={styles.sectionHeaderRow}>
           <View style={styles.sectionTitleRow}>
-            <Text style={styles.sectionTitle}>MTD STORE PERFORMANCE</Text>
+            <Text style={styles.sectionTitle}>STORE PERFORMANCE (THIS MONTH)</Text>
             <View style={styles.liveBadge}>
               <Sparkles size={11} color="#10B981" />
               <Text style={styles.liveBadgeText}>LIVE</Text>
             </View>
           </View>
-          <TouchableOpacity onPress={onOpenWebFallback}>
-            <Text style={styles.sectionLink}>Web Console →</Text>
-          </TouchableOpacity>
+          <View style={styles.syncStatusRow}>
+            <View style={styles.greenDot} />
+            <Text style={styles.syncStatusText}>Connected</Text>
+          </View>
         </View>
 
         <View style={styles.kpiGrid}>
           <JellyCard accentColor="#1A6FD6" style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>DISBURSED (MTD)</Text>
+            <Text style={styles.kpiLabel}>DISBURSED (THIS MONTH)</Text>
             <CountUp
               end={mtdStats.disbursedAmount}
               prefix="₹"
@@ -374,7 +399,7 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
           </JellyCard>
 
           <JellyCard accentColor="#10B981" style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>COLLECTED (MTD)</Text>
+            <Text style={styles.kpiLabel}>COLLECTED (THIS MONTH)</Text>
             <CountUp
               end={mtdStats.collectedAmount}
               prefix="₹"
@@ -385,17 +410,17 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
           </JellyCard>
 
           <JellyCard accentColor="#8B5CF6" style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>ACTIVE PHONES</Text>
+            <Text style={styles.kpiLabel}>ACTIVE LOANS</Text>
             <Text style={[styles.kpiValue, { color: '#7C3AED' }]}>{mtdStats.activePhones}</Text>
-            <Text style={styles.kpiSub}>Live loan contracts</Text>
+            <Text style={styles.kpiSub}>Active customer devices</Text>
           </JellyCard>
 
           <JellyCard accentColor="#F59E0B" style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>PENDING QUEUE</Text>
+            <Text style={styles.kpiLabel}>PENDING APPROVAL</Text>
             <Text style={[styles.kpiValue, { color: '#D97706' }]}>
               {mtdStats.pendingApprovals}
             </Text>
-            <Text style={styles.kpiSub}>Verification waiting</Text>
+            <Text style={styles.kpiSub}>Awaiting admin approval</Text>
           </JellyCard>
         </View>
 
@@ -419,10 +444,7 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
         {/* Operational Segment Tabs */}
         <View style={styles.tabBar}>
           <PressableScale
-            onPress={() => {
-              Haptics.selectionAsync();
-              setActiveTab('due');
-            }}
+            onPress={() => handleSelectTab('due')}
             style={[styles.tabBtn, activeTab === 'due' && styles.tabBtnActive]}
             scaleTo={0.94}
           >
@@ -438,10 +460,7 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
           </PressableScale>
 
           <PressableScale
-            onPress={() => {
-              Haptics.selectionAsync();
-              setActiveTab('upcoming');
-            }}
+            onPress={() => handleSelectTab('upcoming')}
             style={[styles.tabBtn, activeTab === 'upcoming' && styles.tabBtnActive]}
             scaleTo={0.94}
           >
@@ -460,10 +479,7 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
           </PressableScale>
 
           <PressableScale
-            onPress={() => {
-              Haptics.selectionAsync();
-              setActiveTab('ledger');
-            }}
+            onPress={() => handleSelectTab('ledger')}
             style={[styles.tabBtn, activeTab === 'ledger' && styles.tabBtnActive]}
             scaleTo={0.94}
           >
@@ -482,10 +498,7 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
           </PressableScale>
 
           <PressableScale
-            onPress={() => {
-              Haptics.selectionAsync();
-              setActiveTab('customers');
-            }}
+            onPress={() => handleSelectTab('customers')}
             style={[styles.tabBtn, activeTab === 'customers' && styles.tabBtnActive]}
             scaleTo={0.94}
           >
@@ -504,6 +517,13 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
           </PressableScale>
         </View>
 
+        {/* Animated Tab Content with Smooth Transitions */}
+        <Animated.View
+          style={[
+            styles.tabContentContainer,
+            { opacity: tabFadeAnim, transform: [{ translateY: tabSlideAnim }] },
+          ]}
+        >
         {/* TAB 1: OVERDUE ACCOUNTS (Living Jelly Cards with WhatsApp / Call / Collect) */}
         {activeTab === 'due' && (
           <View style={styles.tabContent}>
@@ -746,6 +766,7 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
             )}
           </View>
         )}
+        </Animated.View>
       </ScrollView>
 
       {/* RECORD PAYMENT BOTTOM SHEET MODAL */}
@@ -952,10 +973,28 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#059669',
   },
-  sectionLink: {
-    fontSize: 12,
+  syncStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: Radius.full,
+  },
+  greenDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+  },
+  syncStatusText: {
+    fontSize: 11,
     fontWeight: '700',
-    color: '#1A6FD6',
+    color: '#0F172A',
+  },
+  tabContentContainer: {
+    flex: 1,
   },
   kpiGrid: {
     flexDirection: 'row',

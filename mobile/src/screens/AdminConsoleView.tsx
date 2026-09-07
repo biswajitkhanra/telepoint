@@ -2,7 +2,7 @@
 // 100% Native Mobile App Experience for Super Admin
 // Executive Command Center: Real Portfolio KPIs, 1-Tap Approvals Queue, Retailer Directory, Customer Master & Push Broadcasts
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import {
   Modal,
   Linking,
   RefreshControl,
+  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -94,13 +95,11 @@ interface AdminCustomer {
 }
 
 interface AdminConsoleViewProps {
-  onOpenWebFallback?: () => void;
   onSwitchAccount?: () => void;
   onSwitchToCustomer?: () => void;
 }
 
 export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
-  onOpenWebFallback,
   onSwitchAccount,
   onSwitchToCustomer,
 }) => {
@@ -109,6 +108,31 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'approvals' | 'retailers' | 'customers'>('approvals');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Smooth tab transition physics
+  const tabFadeAnim = useRef(new Animated.Value(1)).current;
+  const tabSlideAnim = useRef(new Animated.Value(0)).current;
+
+  const handleSelectTab = (tab: 'approvals' | 'retailers' | 'customers') => {
+    if (tab === activeTab) return;
+    Haptics.selectionAsync();
+    tabFadeAnim.setValue(0);
+    tabSlideAnim.setValue(10);
+    setActiveTab(tab);
+    Animated.parallel([
+      Animated.timing(tabFadeAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.spring(tabSlideAnim, {
+        toValue: 0,
+        tension: 300,
+        friction: 20,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
 
   // Data states
   const [summary, setSummary] = useState<AdminSummary>({
@@ -358,9 +382,9 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
             </View>
             <View style={styles.headerInfo}>
               <View style={styles.adminBadge}>
-                <Text style={styles.adminBadgeText}>EXECUTIVE CONTROL</Text>
+                <Text style={styles.adminBadgeText}>ADMIN CONTROL CENTER</Text>
               </View>
-              <Text style={styles.adminTitle}>Super Admin HQ</Text>
+              <Text style={styles.adminTitle}>Telepoint Administrator</Text>
             </View>
           </View>
 
@@ -374,35 +398,36 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
             scaleTo={0.95}
           >
             <Bell size={16} color="#FFFFFF" />
-            <Text style={styles.broadcastBannerBtnText}>Dispatch Push Broadcast</Text>
+            <Text style={styles.broadcastBannerBtnText}>Send Push Notification</Text>
           </PressableScale>
         </LinearGradient>
 
         {/* Portfolio Living Jelly Cards */}
         <View style={styles.sectionHeaderRow}>
           <View style={styles.sectionTitleRow}>
-            <Text style={styles.sectionTitle}>PORTFOLIO METRICS</Text>
+            <Text style={styles.sectionTitle}>PORTFOLIO OVERVIEW</Text>
             <View style={styles.livePulsePill}>
               <Sparkles size={11} color="#10B981" />
               <Text style={styles.livePulseText}>LIVE</Text>
             </View>
           </View>
-          <TouchableOpacity onPress={onOpenWebFallback}>
-            <Text style={styles.sectionLink}>Web Reports →</Text>
-          </TouchableOpacity>
+          <View style={styles.syncStatusRow}>
+            <View style={styles.purpleDot} />
+            <Text style={styles.syncStatusText}>Central HQ Active</Text>
+          </View>
         </View>
 
         <View style={styles.kpiGrid}>
           {/* Disbursed */}
           <JellyCard accentColor="#1A6FD6" style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>TOTAL DISBURSED</Text>
+            <Text style={styles.kpiLabel}>TOTAL FINANCED</Text>
             <CountUp
               end={summary.totalDisbursed}
               prefix="₹"
               style={[styles.kpiValue, { color: '#1A6FD6' }]}
               duration={700}
             />
-            <Text style={styles.kpiSub}>Financed market book</Text>
+            <Text style={styles.kpiSub}>Disbursed customer loans</Text>
           </JellyCard>
 
           {/* Collected */}
@@ -414,12 +439,12 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
               style={[styles.kpiValue, { color: '#059669' }]}
               duration={700}
             />
-            <Text style={styles.kpiSub}>Recovered capital & fines</Text>
+            <Text style={styles.kpiSub}>Received EMI payments</Text>
           </JellyCard>
 
           {/* Overdue Risk */}
           <JellyCard accentColor="#E11D48" style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>OVERDUE RISK</Text>
+            <Text style={styles.kpiLabel}>OVERDUE DUES</Text>
             <CountUp
               end={summary.overdueAmount}
               prefix="₹"
@@ -435,7 +460,7 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
             <Text style={[styles.kpiValue, { color: '#7C3AED' }]}>
               {summary.runningCount}
             </Text>
-            <Text style={styles.kpiSub}>{summary.retailersCount} partner shops</Text>
+            <Text style={styles.kpiSub}>{summary.retailersCount} partner stores</Text>
           </JellyCard>
         </View>
 
@@ -459,10 +484,7 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
         {/* Segmented Navigation Tabs */}
         <View style={styles.tabBar}>
           <PressableScale
-            onPress={() => {
-              Haptics.selectionAsync();
-              setActiveTab('approvals');
-            }}
+            onPress={() => handleSelectTab('approvals')}
             style={[styles.tabBtn, activeTab === 'approvals' && styles.tabBtnActive]}
             scaleTo={0.94}
           >
@@ -481,10 +503,7 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
           </PressableScale>
 
           <PressableScale
-            onPress={() => {
-              Haptics.selectionAsync();
-              setActiveTab('retailers');
-            }}
+            onPress={() => handleSelectTab('retailers')}
             style={[styles.tabBtn, activeTab === 'retailers' && styles.tabBtnActive]}
             scaleTo={0.94}
           >
@@ -503,10 +522,7 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
           </PressableScale>
 
           <PressableScale
-            onPress={() => {
-              Haptics.selectionAsync();
-              setActiveTab('customers');
-            }}
+            onPress={() => handleSelectTab('customers')}
             style={[styles.tabBtn, activeTab === 'customers' && styles.tabBtnActive]}
             scaleTo={0.94}
           >
@@ -520,11 +536,18 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
                 activeTab === 'customers' && styles.tabBtnTextActiveCustomers,
               ]}
             >
-              Borrowers ({recentCustomers.length})
+              Customers ({recentCustomers.length})
             </Text>
           </PressableScale>
         </View>
 
+        {/* Animated Tab Content with Smooth Transitions */}
+        <Animated.View
+          style={[
+            styles.tabContentContainer,
+            { opacity: tabFadeAnim, transform: [{ translateY: tabSlideAnim }] },
+          ]}
+        >
         {/* TAB 1: APPROVALS QUEUE (Priority 1-Tap Actions) */}
         {activeTab === 'approvals' && (
           <View style={styles.tabContent}>
@@ -714,6 +737,7 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
             )}
           </View>
         )}
+        </Animated.View>
       </ScrollView>
 
       {/* REJECT MODAL */}
@@ -913,10 +937,28 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#059669',
   },
-  sectionLink: {
-    fontSize: 12,
+  syncStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#F5F3FF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: Radius.full,
+  },
+  purpleDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#8B5CF6',
+  },
+  syncStatusText: {
+    fontSize: 11,
     fontWeight: '700',
-    color: '#1A6FD6',
+    color: '#0F172A',
+  },
+  tabContentContainer: {
+    flex: 1,
   },
   kpiGrid: {
     flexDirection: 'row',

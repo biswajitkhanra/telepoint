@@ -89,24 +89,23 @@ export const RoleSelectionScreen = () => {
             <TelepointLogo size={68} />
           </View>
           <Text style={styles.appName}>TELEPOINT</Text>
-          <Text style={styles.appTagline}>Bank-Grade Secure EMI Platform</Text>
+          <Text style={styles.appTagline}>Smartphone EMI & Finance</Text>
         </View>
 
         {/* Onboarding Heading */}
         <View style={styles.introBox}>
           <Text style={styles.introTitle}>Who is using this phone?</Text>
           <Text style={styles.introSubtitle}>
-            Select your account type to customize your experience. This will be
-            remembered for this phone.
+            Choose your account type to get started. You can change this anytime.
           </Text>
         </View>
 
         {/* Role Cards */}
         <View style={styles.cardsContainer}>
           <RoleCard
-            title="Customer / Borrower"
-            tag="SMARTPHONE EMI"
-            subtitle="Track your financed phone installment schedules, upcoming dues, pay directly via UPI, and download payment receipts."
+            title="Customer"
+            tag="PHONE EMI"
+            subtitle="View your monthly EMI schedule, check due dates, pay easily via UPI, and download receipts."
             icon={<Smartphone size={28} color="#2563EB" />}
             accentColor="#2563EB"
             tagBg="rgba(37, 99, 235, 0.1)"
@@ -116,8 +115,8 @@ export const RoleSelectionScreen = () => {
 
           <RoleCard
             title="Retailer or Admin"
-            tag="STORE / MANAGEMENT"
-            subtitle="Manage store phone loans, verify customer payments, view live collection reports, borrower ledgers, and platform analytics."
+            tag="STORE LOGIN"
+            subtitle="Store owners and admins: collect customer EMIs, approve payments, and view store reports."
             icon={<ShieldCheck size={28} color="#059669" />}
             accentColor="#059669"
             tagBg="rgba(16, 185, 129, 0.12)"
@@ -130,7 +129,7 @@ export const RoleSelectionScreen = () => {
         <View style={styles.guaranteeBox}>
           <Lock size={14} color="#64748B" />
           <Text style={styles.guaranteeText}>
-            Your role preference is saved securely on this device. You can easily switch accounts or roles later in settings.
+            Your selection is remembered on this device so you stay logged in.
           </Text>
         </View>
       </ScrollView>

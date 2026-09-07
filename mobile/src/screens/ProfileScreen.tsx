@@ -122,9 +122,9 @@ export const ProfileScreen = () => {
 
       {/* Screen Header with Notch Inset */}
       <View style={[styles.header, { paddingTop: topInset + 12 }]}>
-        <Text style={styles.headerTitle}>Account & Security</Text>
+        <Text style={styles.headerTitle}>Account & Profile</Text>
         <Text style={styles.headerSub}>
-          Verified borrower profile & loan credentials
+          Your profile & loan details
         </Text>
       </View>
 
@@ -145,7 +145,7 @@ export const ProfileScreen = () => {
                 <Text style={styles.profileName}>{customer.customer_name}</Text>
                 <View style={styles.verifiedBadge}>
                   <ShieldCheck size={11} color="#059669" />
-                  <Text style={styles.verifiedText}>KYC VERIFIED</Text>
+                  <Text style={styles.verifiedText}>Active Customer</Text>
                 </View>
               </View>
               <Text style={styles.mobileText}>+91 {customer.mobile}</Text>
@@ -155,7 +155,7 @@ export const ProfileScreen = () => {
           {/* Customer ID Badge */}
           {custCode ? (
             <View style={styles.customerIdRow}>
-              <Text style={styles.customerIdLabel}>PERMANENT CUSTOMER ID</Text>
+              <Text style={styles.customerIdLabel}>CUSTOMER ID</Text>
               <View style={styles.customerIdPill}>
                 <Text style={styles.customerIdValue}>{custCode}</Text>
               </View>
@@ -172,7 +172,7 @@ export const ProfileScreen = () => {
             <View style={styles.metaColRight}>
               <Text style={styles.metaLabel}>ACCOUNT STATUS</Text>
               <Text style={styles.metaStatus}>
-                {(customer.status || 'Active Loan').toUpperCase()}
+                {(customer.status || 'Active').toUpperCase()}
               </Text>
             </View>
           </View>

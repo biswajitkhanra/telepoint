@@ -92,7 +92,7 @@ export const EmiScheduleScreen = () => {
         <View>
           <Text style={styles.headerTitle}>EMI Schedule</Text>
           <Text style={styles.headerSub}>
-            Complete installment breakdown & ledger
+            Track and pay your monthly installments
           </Text>
         </View>
         <View style={styles.tenurePill}>
@@ -107,7 +107,7 @@ export const EmiScheduleScreen = () => {
         <JellyCard accentColor="#1A6FD6" style={styles.summaryJellyCard}>
           <View style={styles.summaryCard}>
             <View style={styles.summaryCol}>
-              <Text style={styles.summaryLabel}>TOTAL SETTLED</Text>
+              <Text style={styles.summaryLabel}>TOTAL PAID</Text>
               <CountUp
                 end={totalPaidAmount}
                 prefix="₹"
@@ -117,7 +117,7 @@ export const EmiScheduleScreen = () => {
             </View>
             <View style={styles.summaryDivider} />
             <View style={styles.summaryCol}>
-              <Text style={styles.summaryLabel}>TOTAL OUTSTANDING</Text>
+              <Text style={styles.summaryLabel}>REMAINING</Text>
               <CountUp
                 end={totalOutstanding}
                 prefix="₹"
