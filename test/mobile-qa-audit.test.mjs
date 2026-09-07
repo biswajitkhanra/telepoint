@@ -79,8 +79,6 @@ test('QA Audit 4: Live Supabase Backend & Session Lockdown', () => {
 
 test('QA Audit 5: EAS Standalone Production APK Configuration', () => {
   const appJson = JSON.parse(fs.readFileSync('mobile/app.json', 'utf8'));
-  assert.equal(appJson.expo.owner, 'biswodip', 'Project owner is biswodip');
-  assert.equal(appJson.expo.extra.eas.projectId, '59cc4210-babc-4498-93a5-f712a9283187', 'Project linked to valid UUID EAS ID');
   assert.equal(appJson.expo.android.package, 'com.telepoint.customer', 'Android package configured');
 
   const easJson = JSON.parse(fs.readFileSync('mobile/eas.json', 'utf8'));

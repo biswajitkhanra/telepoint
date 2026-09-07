@@ -36,12 +36,6 @@
           "color": "#2563eb"
         }
       ]
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "59cc4210-babc-4498-93a5-f712a9283187"
-      }
-    },
-    "owner": "biswodip"
+    ]
   }
 }
