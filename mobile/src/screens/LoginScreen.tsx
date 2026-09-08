@@ -31,7 +31,7 @@ import {
   X,
   Lock,
 } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
+import { Haptics } from '../utils/haptics';
 import { useAuth } from '../context/AuthContext';
 import { TelepointLogo } from '../components/TelepointLogo';
 import { MultiLoanCustomer } from '../types';
@@ -403,6 +403,9 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+    maxWidth: 480,
+    width: '100%',
+    alignSelf: 'center',
   },
   scrollContent: {
     flexGrow: 1,

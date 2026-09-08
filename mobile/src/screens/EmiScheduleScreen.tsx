@@ -13,7 +13,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Haptics from 'expo-haptics';
+import { Haptics } from '../utils/haptics';
 import { Zap } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import { EMIRow } from '../components/EMIRow';

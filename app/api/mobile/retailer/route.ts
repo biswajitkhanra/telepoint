@@ -5,6 +5,7 @@ import { firstChargeRemaining } from '@/lib/firstCharge';
 import { fetchAllByIds, fetchAllPaged } from '@/lib/dbFetch';
 import { todayIST, addDaysIST, midnightIST, diffDaysIST, IST_OFFSET_MS } from '@/lib/ist';
 import { EMISchedule } from '@/lib/types';
+import { applyApprovedRequestEffects, recomputeCustomerCompletion } from '@/lib/paymentReconcile';
 
 export const dynamic = 'force-dynamic';
 
@@ -244,33 +245,194 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const svc = createServiceClient();
-    const body = await req.json();
-    const { retailer_id, customer_id, emi_no, amount, mode, utr } = body;
+    const body = await req.json().catch(() => ({}));
+    const {
+      retailer_id,
+      customer_id,
+      emi_ids,
+      emi_nos,
+      emi_no,
+      amount,
+      total_amount,
+      total_emi_amount,
+      scheduled_emi_amount,
+      fine_amount,
+      fine_breakdown,
+      first_emi_charge_amount,
+      mode,
+      utr,
+      notes,
+      retail_pin,
+      fine_for_emi_no,
+      fine_due_date,
+      collected_by_role,
+      collect_type,
+      is_admin_direct,
+    } = body;
 
-    if (!retailer_id || !customer_id || !amount) {
-      return NextResponse.json({ error: 'retailer_id, customer_id, and amount are required' }, { status: 400 });
+    const noEmi = collect_type === 'fine_only' || collect_type === 'first_charge_only';
+    const effectiveTotal = Number(total_amount || amount || 0);
+
+    if (!customer_id || effectiveTotal <= 0) {
+      return NextResponse.json({ error: 'customer_id and valid collection amount are required' }, { status: 400 });
     }
 
-    const { data: payReq, error } = await svc
+    if (mode === 'UPI' && !utr?.trim()) {
+      return NextResponse.json({ error: 'UTR / Reference number is required for UPI payments' }, { status: 400 });
+    }
+
+    // 1. Fetch customer details
+    const { data: customer, error: custErr } = await svc
+      .from('customers')
+      .select('id, retailer_id, customer_name, imei, mobile')
+      .eq('id', customer_id)
+      .single();
+
+    if (custErr || !customer) {
+      return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
+    }
+
+    // Resolve effective retailer ID
+    let effectiveRetailerId = retailer_id;
+    if (!effectiveRetailerId || effectiveRetailerId === '00000000-0000-0000-0000-000000000000') {
+      effectiveRetailerId = customer.retailer_id;
+    }
+
+    const isAdmin = collected_by_role === 'admin' || is_admin_direct;
+
+    // 2. Verify Retailer PIN if not admin
+    if (!isAdmin && retail_pin) {
+      const { data: ret } = await svc
+        .from('retailers')
+        .select('id, retail_pin, is_active')
+        .eq('id', effectiveRetailerId)
+        .single();
+
+      if (ret?.retail_pin && ret.retail_pin !== String(retail_pin).trim()) {
+        return NextResponse.json({ error: 'Incorrect Retailer PIN' }, { status: 401 });
+      }
+    }
+
+    // 3. Sequence Enforcement: Ensure lowest unpaid EMI is paid in order
+    const selectedEmiNos = Array.isArray(emi_nos) && emi_nos.length > 0
+      ? emi_nos
+      : (emi_no ? [emi_no] : []);
+
+    if (!noEmi && selectedEmiNos.length > 0 && !isAdmin) {
+      const { data: allUnpaid } = await svc
+        .from('emi_schedule')
+        .select('emi_no')
+        .eq('customer_id', customer_id)
+        .in('status', ['UNPAID', 'PARTIALLY_PAID'])
+        .order('emi_no', { ascending: true })
+        .limit(1);
+
+      const lowestUnpaidEmiNo = allUnpaid?.[0]?.emi_no;
+      if (lowestUnpaidEmiNo !== undefined) {
+        const submittedMin = Math.min(...(selectedEmiNos as number[]));
+        if (submittedMin > lowestUnpaidEmiNo) {
+          return NextResponse.json(
+            { error: `EMI sequence violation. EMI #${lowestUnpaidEmiNo} must be paid before EMI #${submittedMin}.` },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
+    // 4. Duplicate / Already paid check
+    const selectedEmiIds = Array.isArray(emi_ids) ? emi_ids : [];
+    if (!noEmi && selectedEmiIds.length > 0) {
+      const { data: ch } = await svc
+        .from('emi_schedule')
+        .select('id, status, emi_no')
+        .in('id', selectedEmiIds)
+        .eq('customer_id', customer_id);
+
+      for (const e of ch || []) {
+        if (e.status === 'APPROVED') {
+          return NextResponse.json({ error: `EMI #${e.emi_no} is already fully settled` }, { status: 409 });
+        }
+        if (e.status === 'PENDING_APPROVAL') {
+          return NextResponse.json({ error: `EMI #${e.emi_no} already has a pending approval request` }, { status: 409 });
+        }
+      }
+    }
+
+    const now = new Date().toISOString();
+
+    // 5. Create Payment Request Record
+    const { data: payReq, error: reqErr } = await svc
       .from('payment_requests')
       .insert({
-        retailer_id,
         customer_id,
-        emi_no: emi_no || 1,
-        total_amount: Number(amount),
-        total_emi_amount: Number(amount),
+        retailer_id: effectiveRetailerId,
+        submitted_by: effectiveRetailerId,
+        total_amount: effectiveTotal,
+        total_emi_amount: Number(total_emi_amount || (selectedEmiIds.length ? effectiveTotal : 0)),
+        scheduled_emi_amount: Number(scheduled_emi_amount || 0),
+        fine_amount: Number(fine_amount || 0),
+        fine_breakdown: Array.isArray(fine_breakdown) ? fine_breakdown : null,
+        first_emi_charge_amount: Number(first_emi_charge_amount || 0),
         mode: mode || 'CASH',
-        utr: utr || null,
-        status: 'PENDING',
+        utr: mode === 'UPI' ? (utr ? utr.trim() : null) : null,
+        notes: notes || null,
+        status: isAdmin ? 'APPROVED' : 'PENDING',
+        selected_emi_nos: selectedEmiNos,
+        fine_for_emi_no: fine_for_emi_no || (selectedEmiNos[0] ?? null),
+        fine_due_date: fine_due_date || null,
+        collected_by_role: isAdmin ? 'admin' : 'retailer',
+        approved_at: isAdmin ? now : null,
       })
       .select()
       .single();
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (reqErr || !payReq) {
+      return NextResponse.json({ error: reqErr?.message || 'Failed to record collection request' }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, payment_request: payReq });
+    // 6. Insert items into payment_request_items
+    if (!noEmi && selectedEmiIds.length > 0) {
+      const eachAmount = Number(total_emi_amount || effectiveTotal) / selectedEmiIds.length;
+      const items = selectedEmiIds.map((eid: string, i: number) => ({
+        payment_request_id: payReq.id,
+        emi_schedule_id: eid,
+        emi_no: selectedEmiNos[i] || 1,
+        amount: eachAmount,
+      }));
+      await svc.from('payment_request_items').insert(items);
+
+      // Lock collection request timestamp on target EMIs
+      await svc
+        .from('emi_schedule')
+        .update({
+          collection_requested_at: now,
+          status: isAdmin ? 'APPROVED' : 'PENDING_APPROVAL',
+        })
+        .in('id', selectedEmiIds);
+    }
+
+    // 7. If Admin Direct Approval, reconcile balances & complete customer if needed
+    if (isAdmin) {
+      await applyApprovedRequestEffects(svc, payReq, effectiveRetailerId, now);
+      await recomputeCustomerCompletion(svc, customer_id);
+    }
+
+    return NextResponse.json({
+      success: true,
+      payment_request: payReq,
+      request_id: payReq.id,
+      receipt: {
+        receipt_id: `REC-${payReq.id.slice(0, 8).toUpperCase()}`,
+        customer_name: customer.customer_name,
+        imei: customer.imei,
+        mobile: customer.mobile,
+        total_amount: effectiveTotal,
+        mode: mode || 'CASH',
+        utr: utr || null,
+        timestamp: now,
+        status: isAdmin ? 'APPROVED' : 'PENDING_APPROVAL',
+      },
+    });
   } catch (err: any) {
     return NextResponse.json({ error: err?.message || 'Failed to submit payment' }, { status: 500 });
   }

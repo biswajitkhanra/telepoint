@@ -21,7 +21,7 @@ import {
   Receipt,
   FileText,
 } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
+import { Haptics } from '../utils/haptics';
 import { EMIScheduleItem } from '../types';
 import { Colors } from '../constants/colors';
 import { Radius, Spacing, Shadow } from '../constants/design';

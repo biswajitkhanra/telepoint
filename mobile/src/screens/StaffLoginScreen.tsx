@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as Haptics from 'expo-haptics';
+import { Haptics } from '../utils/haptics';
 import {
   Shield,
   Store,
@@ -402,6 +402,9 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+    maxWidth: 480,
+    width: '100%',
+    alignSelf: 'center',
   },
   scrollContent: {
     flexGrow: 1,

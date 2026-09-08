@@ -12,7 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import * as Haptics from 'expo-haptics';
+import { Haptics } from '../utils/haptics';
 import {
   LayoutDashboard,
   CalendarDays,
@@ -22,15 +22,17 @@ import {
 import { Colors } from '../constants/colors';
 import { Radius, Spacing, Shadow } from '../constants/design';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import { useWindowDimensions } from 'react-native';
 
 export const BottomTabBar: React.FC<BottomTabBarProps> = ({
   state,
   descriptors,
   navigation,
 }) => {
+  const { width: windowWidth } = useWindowDimensions();
+  const containerWidth = Math.min(windowWidth, 520);
   const totalTabs = state.routes.length;
-  const tabWidth = (SCREEN_WIDTH - Spacing.lg * 2) / totalTabs;
+  const tabWidth = Math.max(0, (containerWidth - Spacing.lg * 2) / totalTabs);
   const translateX = useRef(new Animated.Value(state.index * tabWidth)).current;
 
   useEffect(() => {

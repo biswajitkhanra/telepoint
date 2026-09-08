@@ -8,13 +8,14 @@ import {
   StyleProp,
   ViewStyle,
   GestureResponderEvent,
+  StyleSheet,
 } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
 } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
+import { Haptics } from '../utils/haptics';
 
 interface PressableScaleProps extends PressableProps {
   children: React.ReactNode;
@@ -76,11 +77,19 @@ export const PressableScale: React.FC<PressableScaleProps> = ({
     if (onPressOut) onPressOut(e);
   };
 
+  const flatStyle = (StyleSheet.flatten(style) || {}) as ViewStyle;
+  const containerFlexStyle: ViewStyle = {};
+  if (flatStyle.flex !== undefined) containerFlexStyle.flex = flatStyle.flex;
+  if (flatStyle.flexGrow !== undefined) containerFlexStyle.flexGrow = flatStyle.flexGrow;
+  if (flatStyle.flexShrink !== undefined) containerFlexStyle.flexShrink = flatStyle.flexShrink;
+  if (flatStyle.width !== undefined) containerFlexStyle.width = flatStyle.width;
+
   return (
     <Pressable
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       onPress={onPress}
+      style={containerFlexStyle}
       {...rest}
     >
       <Animated.View style={[style, animatedStyle]}>

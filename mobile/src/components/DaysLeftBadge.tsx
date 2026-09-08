@@ -4,7 +4,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
 import { AlertCircle, Clock } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
+import { Haptics } from '../utils/haptics';
 import { Colors } from '../constants/colors';
 
 interface DaysLeftBadgeProps {

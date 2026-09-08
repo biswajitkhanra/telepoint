@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as Haptics from 'expo-haptics';
+import { Haptics } from '../utils/haptics';
 import {
   Megaphone,
   ChevronRight,
@@ -705,6 +705,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 40,
+    maxWidth: 520,
+    width: '100%',
+    alignSelf: 'center',
   },
   topHeader: {
     flexDirection: 'row',

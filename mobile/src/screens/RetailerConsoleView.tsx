@@ -24,7 +24,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as Haptics from 'expo-haptics';
+import { Haptics } from '../utils/haptics';
 import {
   PhoneCall,
   MessageCircle,
@@ -47,6 +47,7 @@ import { CountUp } from '../components/CountUp';
 import { JellyCard } from '../components/JellyCard';
 import { PressableScale } from '../components/PressableScale';
 import { CustomerDetailModal } from '../components/CustomerDetailModal';
+import { CollectPaymentSheet } from '../components/CollectPaymentSheet';
 import { PORTAL_BASE_URL } from '../config';
 import { Colors } from '../constants/colors';
 import { Spacing, Radius, Shadow } from '../constants/design';
@@ -335,7 +336,7 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <View style={[styles.container, styles.mainWrapper]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -402,41 +403,45 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
         </View>
 
         <View style={styles.kpiGrid}>
-          <JellyCard accentColor="#1A6FD6" style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>DISBURSED (THIS MONTH)</Text>
-            <CountUp
-              end={mtdStats.disbursedAmount}
-              prefix="₹"
-              style={[styles.kpiValue, { color: '#1A6FD6' }]}
-              duration={700}
-            />
-            <Text style={styles.kpiSub}>New loans financed</Text>
-          </JellyCard>
+          <View style={styles.kpiRow}>
+            <JellyCard accentColor="#1A6FD6" style={styles.kpiCard}>
+              <Text style={styles.kpiLabel}>DISBURSED (THIS MONTH)</Text>
+              <CountUp
+                end={mtdStats.disbursedAmount}
+                prefix="₹"
+                style={[styles.kpiValue, { color: '#1A6FD6' }]}
+                duration={700}
+              />
+              <Text style={styles.kpiSub}>New loans financed</Text>
+            </JellyCard>
 
-          <JellyCard accentColor="#10B981" style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>COLLECTED (THIS MONTH)</Text>
-            <CountUp
-              end={mtdStats.collectedAmount}
-              prefix="₹"
-              style={[styles.kpiValue, { color: '#059669' }]}
-              duration={700}
-            />
-            <Text style={styles.kpiSub}>Settled installments</Text>
-          </JellyCard>
+            <JellyCard accentColor="#10B981" style={styles.kpiCard}>
+              <Text style={styles.kpiLabel}>COLLECTED (THIS MONTH)</Text>
+              <CountUp
+                end={mtdStats.collectedAmount}
+                prefix="₹"
+                style={[styles.kpiValue, { color: '#059669' }]}
+                duration={700}
+              />
+              <Text style={styles.kpiSub}>Settled installments</Text>
+            </JellyCard>
+          </View>
 
-          <JellyCard accentColor="#8B5CF6" style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>ACTIVE LOANS</Text>
-            <Text style={[styles.kpiValue, { color: '#7C3AED' }]}>{mtdStats.activePhones}</Text>
-            <Text style={styles.kpiSub}>Active customer devices</Text>
-          </JellyCard>
+          <View style={styles.kpiRow}>
+            <JellyCard accentColor="#8B5CF6" style={styles.kpiCard}>
+              <Text style={styles.kpiLabel}>ACTIVE LOANS</Text>
+              <Text style={[styles.kpiValue, { color: '#7C3AED' }]}>{mtdStats.activePhones}</Text>
+              <Text style={styles.kpiSub}>Active customer devices</Text>
+            </JellyCard>
 
-          <JellyCard accentColor="#F59E0B" style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>PENDING APPROVAL</Text>
-            <Text style={[styles.kpiValue, { color: '#D97706' }]}>
-              {mtdStats.pendingApprovals}
-            </Text>
-            <Text style={styles.kpiSub}>Awaiting admin approval</Text>
-          </JellyCard>
+            <JellyCard accentColor="#F59E0B" style={styles.kpiCard}>
+              <Text style={styles.kpiLabel}>PENDING APPROVAL</Text>
+              <Text style={[styles.kpiValue, { color: '#D97706' }]}>
+                {mtdStats.pendingApprovals}
+              </Text>
+              <Text style={styles.kpiSub}>Awaiting admin approval</Text>
+            </JellyCard>
+          </View>
         </View>
 
         {/* Global Search Bar */}
@@ -554,31 +559,35 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
                   key={item.customer_id}
                   accentColor="#E11D48"
                   style={styles.customerJellyCard}
-                  onPress={() => handleOpenCustomerDetail(item.customer_id)}
                 >
-                  <View style={styles.cardTopRow}>
-                    <View>
-                      <Text style={styles.customerName}>{item.customer_name}</Text>
-                      <Text style={styles.customerSub}>
-                        IMEI: {item.imei || 'N/A'} • {item.overdue_count} EMI{item.overdue_count > 1 ? 's' : ''} Overdue
-                      </Text>
+                  <TouchableOpacity
+                    onPress={() => handleOpenCustomerDetail(item.customer_id)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.cardTopRow}>
+                      <View style={{ flex: 1, paddingRight: 8 }}>
+                        <Text style={styles.customerName}>{item.customer_name}</Text>
+                        <Text style={styles.customerSub}>
+                          IMEI: {item.imei || 'N/A'} • {item.overdue_count} EMI{item.overdue_count > 1 ? 's' : ''} Overdue
+                        </Text>
+                      </View>
+                      <View style={styles.dueBadge}>
+                        <Text style={styles.dueBadgeText}>₹{item.total_due.toLocaleString('en-IN')}</Text>
+                      </View>
                     </View>
-                    <View style={styles.dueBadge}>
-                      <Text style={styles.dueBadgeText}>₹{item.total_due.toLocaleString('en-IN')}</Text>
-                    </View>
-                  </View>
 
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Earliest Due Date:</Text>
-                    <Text style={styles.detailValueOverdue}>{item.earliest_due_date}</Text>
-                  </View>
-
-                  {item.total_fine > 0 && (
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Late Fine Accrued:</Text>
-                      <Text style={styles.detailValueFine}>+ ₹{item.total_fine.toLocaleString('en-IN')}</Text>
+                      <Text style={styles.detailLabel}>Earliest Due Date:</Text>
+                      <Text style={styles.detailValueOverdue}>{item.earliest_due_date}</Text>
                     </View>
-                  )}
+
+                    {item.total_fine > 0 && (
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Late Fine Accrued:</Text>
+                        <Text style={styles.detailValueFine}>+ ₹{item.total_fine.toLocaleString('en-IN')}</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
 
                   {/* Action Button Row */}
                   <View style={styles.actionButtonRow}>
@@ -587,7 +596,7 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
                       style={styles.callButton}
                       scaleTo={0.92}
                     >
-                      <PhoneCall size={14} color="#FFFFFF" />
+                      <PhoneCall size={14} color="#1A6FD6" />
                       <Text style={styles.callButtonText}>Call</Text>
                     </PressableScale>
 
@@ -598,7 +607,7 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
                       style={styles.whatsAppButton}
                       scaleTo={0.92}
                     >
-                      <MessageCircle size={14} color="#FFFFFF" />
+                      <MessageCircle size={14} color="#059669" />
                       <Text style={styles.whatsAppButtonText}>WhatsApp</Text>
                     </PressableScale>
 
@@ -634,26 +643,30 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
                   key={`${item.customer_id}-${item.emi_no}`}
                   accentColor="#1A6FD6"
                   style={styles.customerJellyCard}
-                  onPress={() => handleOpenCustomerDetail(item.customer_id)}
                 >
-                  <View style={styles.cardTopRow}>
-                    <View>
-                      <Text style={styles.customerName}>{item.customer_name}</Text>
-                      <Text style={styles.customerSub}>
-                        IMEI: {item.imei || 'N/A'} • EMI #{item.emi_no}
+                  <TouchableOpacity
+                    onPress={() => handleOpenCustomerDetail(item.customer_id)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.cardTopRow}>
+                      <View style={{ flex: 1, paddingRight: 8 }}>
+                        <Text style={styles.customerName}>{item.customer_name}</Text>
+                        <Text style={styles.customerSub}>
+                          IMEI: {item.imei || 'N/A'} • EMI #{item.emi_no}
+                        </Text>
+                      </View>
+                      <View style={styles.upcomingBadge}>
+                        <Text style={styles.upcomingBadgeText}>₹{item.emi_amount.toLocaleString('en-IN')}</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Maturing On:</Text>
+                      <Text style={styles.detailValuePrimary}>
+                        {item.due_date} ({item.days_remaining === 0 ? 'Today' : `in ${item.days_remaining}d`})
                       </Text>
                     </View>
-                    <View style={styles.upcomingBadge}>
-                      <Text style={styles.upcomingBadgeText}>₹{item.emi_amount.toLocaleString('en-IN')}</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Maturing On:</Text>
-                    <Text style={styles.detailValuePrimary}>
-                      {item.due_date} ({item.days_remaining === 0 ? 'Today' : `in ${item.days_remaining}d`})
-                    </Text>
-                  </View>
+                  </TouchableOpacity>
 
                   <View style={styles.actionButtonRow}>
                     <PressableScale
@@ -661,7 +674,7 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
                       style={styles.callButton}
                       scaleTo={0.92}
                     >
-                      <PhoneCall size={14} color="#FFFFFF" />
+                      <PhoneCall size={14} color="#1A6FD6" />
                       <Text style={styles.callButtonText}>Call</Text>
                     </PressableScale>
 
@@ -672,7 +685,7 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
                       style={styles.whatsAppButton}
                       scaleTo={0.92}
                     >
-                      <MessageCircle size={14} color="#FFFFFF" />
+                      <MessageCircle size={14} color="#059669" />
                       <Text style={styles.whatsAppButtonText}>WhatsApp</Text>
                     </PressableScale>
 
@@ -811,96 +824,19 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
         onRefreshParent={loadRetailerData}
       />
 
-      {/* RECORD PAYMENT BOTTOM SHEET MODAL */}
-      <Modal
+      {/* 100% NATIVE FULL-FEATURED COLLECT PAYMENT SHEET */}
+      <CollectPaymentSheet
         visible={collectModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setCollectModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Record EMI Collection</Text>
-              <TouchableOpacity onPress={() => setCollectModalVisible(false)}>
-                <X size={20} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.modalCustomerName}>
-              Customer: <Text style={{ fontWeight: '700', color: '#0F172A' }}>{collectTargetCustomer.name || 'Selected Customer'}</Text>
-            </Text>
-
-            {/* Amount Input */}
-            <Text style={styles.inputLabel}>Collection Amount (₹)</Text>
-            <View style={styles.amountInputRow}>
-              <Text style={styles.rupeePrefix}>₹</Text>
-              <TextInput
-                style={styles.amountInput}
-                keyboardType="numeric"
-                value={collectTargetCustomer.amount}
-                onChangeText={t =>
-                  setCollectTargetCustomer(prev => ({ ...prev, amount: t }))
-                }
-                placeholder="Enter amount"
-                placeholderTextColor="#94A3B8"
-              />
-            </View>
-
-            {/* Payment Mode Selector */}
-            <Text style={styles.inputLabel}>Payment Method</Text>
-            <View style={styles.modeRow}>
-              <TouchableOpacity
-                onPress={() => setCollectMode('CASH')}
-                style={[styles.modeBtn, collectMode === 'CASH' && styles.modeBtnActive]}
-              >
-                <Text style={[styles.modeBtnText, collectMode === 'CASH' && styles.modeBtnTextActive]}>
-                  💵 Cash
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setCollectMode('UPI')}
-                style={[styles.modeBtn, collectMode === 'UPI' && styles.modeBtnActive]}
-              >
-                <Text style={[styles.modeBtnText, collectMode === 'UPI' && styles.modeBtnTextActive]}>
-                  ⚡ UPI / QR
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* UTR Input if UPI */}
-            {collectMode === 'UPI' && (
-              <>
-                <Text style={styles.inputLabel}>UPI Reference / UTR Number (Optional)</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={collectUtr}
-                  onChangeText={setCollectUtr}
-                  placeholder="e.g. 423982938192"
-                  placeholderTextColor="#94A3B8"
-                />
-              </>
-            )}
-
-            {/* Submit Button */}
-            <PressableScale
-              onPress={handleSubmitPayment}
-              disabled={submittingPayment}
-              style={styles.submitPaymentBtn}
-              scaleTo={0.96}
-            >
-              {submittingPayment ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <>
-                  <Send size={16} color="#FFFFFF" />
-                  <Text style={styles.submitPaymentBtnText}>Record Payment</Text>
-                </>
-              )}
-            </PressableScale>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setCollectModalVisible(false)}
+        customerId={collectTargetCustomer.id}
+        customerName={collectTargetCustomer.name}
+        initialAmount={parseFloat(collectTargetCustomer.amount) || undefined}
+        isAdmin={false}
+        retailerId={staffUser?.retailerId}
+        onPaymentSuccess={() => {
+          loadRetailerData();
+        }}
+      />
     </View>
   );
 };
@@ -909,6 +845,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8FAFC',
+  },
+  mainWrapper: {
+    maxWidth: 520,
+    width: '100%',
+    alignSelf: 'center',
   },
   centerContainer: {
     flex: 1,
@@ -1039,13 +980,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   kpiGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 10,
     marginBottom: Spacing.md,
   },
+  kpiRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
   kpiCard: {
-    width: '48%',
+    flex: 1,
     padding: 14,
     borderRadius: Radius.md,
   },
@@ -1085,16 +1028,18 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
     backgroundColor: '#E2E8F0',
-    padding: 3,
+    padding: 4,
     borderRadius: Radius.md,
     marginBottom: Spacing.md,
+    gap: 4,
   },
   tabBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
+    paddingVertical: 9,
+    paddingHorizontal: 4,
     borderRadius: Radius.sm,
     gap: 4,
   },
@@ -1103,7 +1048,7 @@ const styles = StyleSheet.create({
     ...Shadow.sm,
   },
   tabBtnText: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '600',
     color: '#64748B',
   },
@@ -1194,7 +1139,7 @@ const styles = StyleSheet.create({
   },
   actionButtonRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
     marginTop: 12,
     paddingTop: 10,
     borderTopWidth: 1,
@@ -1202,47 +1147,62 @@ const styles = StyleSheet.create({
   },
   callButton: {
     flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0284C7',
-    paddingVertical: 8,
-    borderRadius: Radius.sm,
-    gap: 6,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    paddingVertical: 9,
+    paddingHorizontal: 6,
+    borderRadius: Radius.md,
+    gap: 5,
   },
   callButtonText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#1A6FD6',
   },
   whatsAppButton: {
     flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#22C55E',
-    paddingVertical: 8,
-    borderRadius: Radius.sm,
-    gap: 6,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    paddingVertical: 9,
+    paddingHorizontal: 6,
+    borderRadius: Radius.md,
+    gap: 5,
   },
   whatsAppButtonText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#059669',
   },
   collectButton: {
-    flex: 1,
+    flex: 1.2,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0F172A',
-    paddingVertical: 8,
-    borderRadius: Radius.sm,
-    gap: 6,
+    backgroundColor: '#1A6FD6',
+    paddingVertical: 9,
+    paddingHorizontal: 8,
+    borderRadius: Radius.md,
+    gap: 5,
+    shadowColor: '#1A6FD6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
   },
   collectButtonText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#FFFFFF',
   },
   emptyCard: {

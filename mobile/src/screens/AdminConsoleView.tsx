@@ -24,7 +24,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as Haptics from 'expo-haptics';
+import { Haptics } from '../utils/haptics';
 import {
   Shield,
   CheckCircle2,
@@ -47,6 +47,7 @@ import { CountUp } from '../components/CountUp';
 import { JellyCard } from '../components/JellyCard';
 import { PressableScale } from '../components/PressableScale';
 import { CustomerDetailModal } from '../components/CustomerDetailModal';
+import { CollectPaymentSheet } from '../components/CollectPaymentSheet';
 import { PORTAL_BASE_URL } from '../config';
 import { Colors } from '../constants/colors';
 import { Spacing, Radius, Shadow } from '../constants/design';
@@ -178,6 +179,20 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
   const [broadcastModalVisible, setBroadcastModalVisible] = useState(false);
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [sendingBroadcast, setSendingBroadcast] = useState(false);
+
+  // Admin Direct Collect Modal
+  const [collectModalVisible, setCollectModalVisible] = useState(false);
+  const [collectTargetCustomer, setCollectTargetCustomer] = useState<{
+    id: string;
+    name: string;
+    dueAmount: number;
+  }>({ id: '', name: '', dueAmount: 0 });
+
+  const handleOpenDirectCollect = (id: string, name: string, dueAmount: number) => {
+    Haptics.selectionAsync();
+    setCollectTargetCustomer({ id, name, dueAmount });
+    setCollectModalVisible(true);
+  };
 
   const loadAdminData = useCallback(async () => {
     try {
@@ -371,7 +386,7 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <View style={[styles.container, styles.mainWrapper]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -433,50 +448,50 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
         </View>
 
         <View style={styles.kpiGrid}>
-          {/* Disbursed */}
-          <JellyCard accentColor="#1A6FD6" style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>TOTAL FINANCED</Text>
-            <CountUp
-              end={summary.totalDisbursed}
-              prefix="₹"
-              style={[styles.kpiValue, { color: '#1A6FD6' }]}
-              duration={700}
-            />
-            <Text style={styles.kpiSub}>Disbursed customer loans</Text>
-          </JellyCard>
+          <View style={styles.kpiRow}>
+            <JellyCard accentColor="#1A6FD6" style={styles.kpiCard}>
+              <Text style={styles.kpiLabel}>TOTAL FINANCED</Text>
+              <CountUp
+                end={summary.totalDisbursed}
+                prefix="₹"
+                style={[styles.kpiValue, { color: '#1A6FD6' }]}
+                duration={700}
+              />
+              <Text style={styles.kpiSub}>Disbursed loans</Text>
+            </JellyCard>
 
-          {/* Collected */}
-          <JellyCard accentColor="#10B981" style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>TOTAL COLLECTED</Text>
-            <CountUp
-              end={summary.totalCollected}
-              prefix="₹"
-              style={[styles.kpiValue, { color: '#059669' }]}
-              duration={700}
-            />
-            <Text style={styles.kpiSub}>Received EMI payments</Text>
-          </JellyCard>
+            <JellyCard accentColor="#10B981" style={styles.kpiCard}>
+              <Text style={styles.kpiLabel}>TOTAL COLLECTED</Text>
+              <CountUp
+                end={summary.totalCollected}
+                prefix="₹"
+                style={[styles.kpiValue, { color: '#059669' }]}
+                duration={700}
+              />
+              <Text style={styles.kpiSub}>Received payments</Text>
+            </JellyCard>
+          </View>
 
-          {/* Overdue Risk */}
-          <JellyCard accentColor="#E11D48" style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>OVERDUE DUES</Text>
-            <CountUp
-              end={summary.overdueAmount}
-              prefix="₹"
-              style={[styles.kpiValue, { color: '#E11D48' }]}
-              duration={700}
-            />
-            <Text style={styles.kpiSub}>{summary.overdueCount} accounts overdue</Text>
-          </JellyCard>
+          <View style={styles.kpiRow}>
+            <JellyCard accentColor="#E11D48" style={styles.kpiCard}>
+              <Text style={styles.kpiLabel}>OVERDUE DUES</Text>
+              <CountUp
+                end={summary.overdueAmount}
+                prefix="₹"
+                style={[styles.kpiValue, { color: '#E11D48' }]}
+                duration={700}
+              />
+              <Text style={styles.kpiSub}>{summary.overdueCount} accounts overdue</Text>
+            </JellyCard>
 
-          {/* Running Portfolios */}
-          <JellyCard accentColor="#8B5CF6" style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>ACTIVE LOANS</Text>
-            <Text style={[styles.kpiValue, { color: '#7C3AED' }]}>
-              {summary.runningCount}
-            </Text>
-            <Text style={styles.kpiSub}>{summary.retailersCount} partner stores</Text>
-          </JellyCard>
+            <JellyCard accentColor="#8B5CF6" style={styles.kpiCard}>
+              <Text style={styles.kpiLabel}>ACTIVE LOANS</Text>
+              <Text style={[styles.kpiValue, { color: '#7C3AED' }]}>
+                {summary.runningCount}
+              </Text>
+              <Text style={styles.kpiSub}>{summary.retailersCount} partner stores</Text>
+            </JellyCard>
+          </View>
         </View>
 
         {/* Global Search Bar */}
@@ -584,9 +599,9 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
                     accentColor="#F59E0B"
                     style={styles.approvalJellyCard}
                   >
-                    <TouchableOpacity
+                    <PressableScale
                       onPress={() => handleOpenCustomerDetail(item.customer_id)}
-                      activeOpacity={0.8}
+                      scaleTo={0.98}
                       style={styles.approvalTop}
                     >
                       <View style={{ flex: 1 }}>
@@ -606,7 +621,7 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
                           <Text style={styles.pendingBadgeText}>PENDING</Text>
                         </View>
                       </View>
-                    </TouchableOpacity>
+                    </PressableScale>
 
                     {item.utr ? (
                       <View style={styles.utrBox}>
@@ -716,10 +731,10 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
                 const isCompleted = c.status === 'COMPLETED';
 
                 return (
-                  <TouchableOpacity
+                  <PressableScale
                     key={c.id}
                     onPress={() => handleOpenCustomerDetail(c.id)}
-                    activeOpacity={0.8}
+                    scaleTo={0.98}
                   >
                     <View style={styles.borrowerCard}>
                       <View style={styles.borrowerLeft}>
@@ -756,7 +771,7 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
                         </PressableScale>
                       </View>
                     </View>
-                  </TouchableOpacity>
+                  </PressableScale>
                 );
               })
             )}
@@ -764,15 +779,6 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
         )}
         </Animated.View>
       </ScrollView>
-
-      {/* FULL CUSTOMER & LOAN LEDGER DETAIL MODAL */}
-      <CustomerDetailModal
-        visible={customerModalVisible}
-        customerId={selectedCustomerId}
-        onClose={() => setCustomerModalVisible(false)}
-        isAdmin
-        onRefreshParent={loadAdminData}
-      />
 
       {/* REJECT MODAL */}
       <Modal
@@ -857,6 +863,32 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
           </View>
         </View>
       </Modal>
+
+      {/* CUSTOMER DETAIL LEDGER MODAL */}
+      <CustomerDetailModal
+        visible={customerModalVisible}
+        customerId={selectedCustomerId}
+        onClose={() => setCustomerModalVisible(false)}
+        isAdmin={true}
+        onCollectPayment={target => {
+          setCustomerModalVisible(false);
+          handleOpenDirectCollect(target.id, target.name, target.dueAmount);
+        }}
+        onRefreshParent={loadAdminData}
+      />
+
+      {/* ADMIN DIRECT COLLECT PAYMENT SHEET */}
+      <CollectPaymentSheet
+        visible={collectModalVisible}
+        onClose={() => setCollectModalVisible(false)}
+        customerId={collectTargetCustomer.id}
+        customerName={collectTargetCustomer.name}
+        initialAmount={collectTargetCustomer.dueAmount || undefined}
+        isAdmin={true}
+        onPaymentSuccess={() => {
+          loadAdminData();
+        }}
+      />
     </View>
   );
 };
@@ -865,6 +897,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8FAFC',
+  },
+  mainWrapper: {
+    maxWidth: 520,
+    width: '100%',
+    alignSelf: 'center',
   },
   centerContainer: {
     flex: 1,
@@ -995,13 +1032,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   kpiGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 10,
     marginBottom: Spacing.md,
   },
+  kpiRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
   kpiCard: {
-    width: '48%',
+    flex: 1,
     padding: 14,
     borderRadius: Radius.md,
   },
@@ -1041,25 +1080,27 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
     backgroundColor: '#E2E8F0',
-    padding: 3,
+    padding: 4,
     borderRadius: Radius.md,
     marginBottom: Spacing.md,
+    gap: 6,
   },
   tabBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
     borderRadius: Radius.sm,
-    gap: 4,
+    gap: 6,
   },
   tabBtnActive: {
     backgroundColor: '#FFFFFF',
     ...Shadow.sm,
   },
   tabBtnText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
     color: '#64748B',
   },

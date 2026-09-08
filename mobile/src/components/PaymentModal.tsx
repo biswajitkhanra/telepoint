@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import * as Clipboard from 'expo-clipboard';
-import * as Haptics from 'expo-haptics';
+import { Haptics } from '../utils/haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   X,

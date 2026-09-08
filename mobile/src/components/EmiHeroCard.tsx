@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Bell, ShieldCheck, ArrowUpRight, Calendar, AlertCircle } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
+import { Haptics } from '../utils/haptics';
 import { EMIScheduleItem, Customer, DueBreakdown } from '../types';
 import { THEME } from '../config';
 

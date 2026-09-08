@@ -12,10 +12,21 @@ export * from './constants/animations';
  * If running on Android Emulator against local Next.js dev server,
  * default is http://10.0.2.2:3000.
  */
-export const PORTAL_BASE_URL =
+import { Platform } from 'react-native';
+
+const LIVE_PORTAL =
   process.env.EXPO_PUBLIC_PORTAL_URL ||
   Constants.expoConfig?.extra?.portalUrl ||
   'https://telepoint-topaz.vercel.app';
+
+// When running in browser on localhost (Expo Web preview), route through the CORS proxy at http://localhost:3001
+// On native Android / iOS builds, connect directly to the live backend.
+const isWebLocalhost =
+  Platform.OS === 'web' &&
+  typeof window !== 'undefined' &&
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+export const PORTAL_BASE_URL = isWebLocalhost ? 'http://localhost:3001' : LIVE_PORTAL;
 
 export const STORAGE_KEYS = {
   SESSION: '@telepoint_customer_session',
