@@ -1,11 +1,10 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from 'react-hot-toast';
-import Footer from '@/components/Footer';
 
 export const metadata: Metadata = {
-  title: 'EMI Management Portal',
-  description: 'Professional EMI collection and approval portal',
+  title: 'Telepoint — EMI Management',
+  description: 'Professional EMI collection and management portal',
   icons: {
     icon: [
       { url: '/logo.svg', type: 'image/svg+xml' },
@@ -22,28 +21,35 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono&display=swap" rel="stylesheet" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono&display=swap"
+          rel="stylesheet"
+        />
         <link rel="icon" type="image/svg+xml" href="/logo.svg" />
         <link rel="apple-touch-icon" href="/icon-192.svg" />
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#3b82f6" />
+        <meta name="theme-color" content="#1e293b" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
+        />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        {/* Theme boot — applies the saved theme before first paint (no flash).
-            Light is the default; dark applies only when explicitly chosen in
-            Settings (or via the System option when the OS prefers dark). */}
+        <meta name="mobile-web-app-capable" content="yes" />
+        {/* Theme boot — applies saved theme before first paint (no flash). */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('tp-theme');var d=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d)document.documentElement.classList.add('dark');}catch(e){}})();`,
+            __html: `(function(){
+  try{var t=localStorage.getItem('tp-theme');var d=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d)document.documentElement.classList.add('dark');}catch(e){}
+  function setVh(){document.documentElement.style.setProperty('--vh',window.innerHeight*0.01+'px');}
+  setVh();window.addEventListener('resize',setVh);
+})();`,
           }}
         />
       </head>
-      <body className="overflow-x-hidden pb-20 flex flex-col min-h-screen">
-        <div className="flex-1">
-          {children}
-        </div>
-        <Footer />
+      {/* app-shell: fixed 100dvh viewport, no global scroll, flex column. */}
+      <body className="app-shell bg-surface-2 text-ink font-sans antialiased">
+        {children}
         <Toaster
           position="top-center"
           toastOptions={{
@@ -56,3 +62,4 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </html>
   );
 }
+

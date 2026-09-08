@@ -339,10 +339,13 @@ export default function RetailerDashboard() {
   const paidCount = customerEmis.filter(e => e.status === 'APPROVED').length;
 
   return (
-    <div className="min-h-screen page-bg">
+    <div className="flex flex-col flex-1 overflow-hidden bg-surface-2">
       <NavBar role="retailer" userName={retailer?.name || 'Retailer'} />
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24">
+      {/* Scrollable content pane — ONLY this scrolls, never the window */}
+      <div className="flex-1 overflow-hidden relative">
+        <div className="absolute inset-0 scrollable-pane">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-safe">
         {/* Welcome Banner */}
         <motion.div
           className="card p-5 mb-8 flex items-center justify-between sheen-track border-l-4 border-brand-500 bg-gradient-to-r from-blue-50 via-white to-indigo-50"
@@ -869,7 +872,10 @@ export default function RetailerDashboard() {
             />
           </div>
         )}
-      </div>
+
+          </div>{/* closes max-w-6xl */}
+        </div>{/* closes absolute scrollable-pane */}
+      </div>{/* closes flex-1 overflow-hidden relative */}
 
       {/* Payment Modal */}
       <AnimatePresence>
@@ -889,13 +895,12 @@ export default function RetailerDashboard() {
           />
         )}
       </AnimatePresence>
-      <BottomNav role="retailer" />
 
-      {/* Single-customer open: stack-unfold loader (UI-only placeholder —
-          the top card unfolds to full screen BEFORE the real-data popup shows) */}
+      {/* Single-customer open: stack-unfold loader */}
       <AnimatePresence>
         {customerLoading && <StackUnfold name={selectedCustomer?.customer_name} />}
       </AnimatePresence>
+      <BottomNav role="retailer" />
     </div>
   );
 }

@@ -332,12 +332,15 @@ export default function AdminDashboard() {
   const paidCount = customerEmis.filter((e) => e.status === 'APPROVED').length;
 
   return (
-    <div className="min-h-screen page-bg">
+    <div className="flex flex-col flex-1 overflow-hidden bg-surface-2">
       <NavBar role="admin" userName="TELEPOINT" pendingCount={pendingCount} />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Scrollable content pane — ONLY this scrolls, never the window */}
+      <div className="flex-1 overflow-hidden relative">
+        <div className="absolute inset-0 scrollable-pane">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-safe">
         {/* Tab Navigation */}
-        <div className="flex items-center gap-1 mb-8 bg-surface-2 rounded-2xl p-1.5 border border-surface-4 overflow-x-auto" style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}>
+        <div className="flex items-center gap-1 mb-6 bg-surface-2 rounded-2xl p-1.5 border border-surface-4 overflow-x-auto" style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}>
           {([
             { key: 'search', label: '🔍 Search' },
             { key: 'retailers', label: '🏪 Shops' },
@@ -924,7 +927,9 @@ export default function AdminDashboard() {
         )}
         </motion.div>
 
-      </div>
+          </div>{/* closes max-w-7xl */}
+        </div>{/* closes absolute scrollable-pane */}
+      </div>{/* closes flex-1 overflow-hidden relative */}
 
       {/* ===== MODALS ===== */}
 
@@ -1141,13 +1146,12 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
-      <BottomNav role="admin" pendingCount={pendingCount} />
-
       {/* Single-customer open: stack-unfold loader (UI-only placeholder —
           the top card unfolds to full screen BEFORE the real-data popup shows) */}
       <AnimatePresence>
         {customerLoading && <StackUnfold name={selectedCustomer?.customer_name} />}
       </AnimatePresence>
+      <BottomNav role="admin" pendingCount={pendingCount} />
     </div>
   );
 }

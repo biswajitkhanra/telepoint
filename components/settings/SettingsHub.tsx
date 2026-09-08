@@ -264,6 +264,63 @@ export default function SettingsHub({
               </div>
             </dl>
           </Panel>
+
+          {/* ── Attribution ── */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            className="relative overflow-hidden rounded-2xl border border-violet-200/60 dark:border-violet-500/20"
+            style={{
+              background: 'linear-gradient(135deg, rgba(168,85,247,0.06) 0%, rgba(59,130,246,0.06) 50%, rgba(6,182,212,0.06) 100%)',
+              boxShadow: '0 0 0 1px rgba(168,85,247,0.12), 0 8px 32px rgba(168,85,247,0.08)',
+            }}
+          >
+            {/* Ambient glow orbs */}
+            <div className="absolute -top-6 -left-6 w-24 h-24 rounded-full opacity-20 blur-2xl"
+              style={{ background: 'radial-gradient(circle, #a855f7, transparent)' }} />
+            <div className="absolute -bottom-6 -right-6 w-24 h-24 rounded-full opacity-20 blur-2xl"
+              style={{ background: 'radial-gradient(circle, #3b82f6, transparent)' }} />
+
+            <div className="relative p-5 sm:p-6 text-center space-y-3">
+              {/* Decorative top line */}
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-violet-300/50 to-transparent" />
+                <span className="text-violet-400 text-lg">✦</span>
+                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-blue-300/50 to-transparent" />
+              </div>
+
+              <p className="text-[11px] font-medium text-ink-muted tracking-widest uppercase">
+                Mastermind Behind The Code
+              </p>
+
+              <motion.p
+                className="text-2xl font-bold tracking-tight attribution-gradient"
+                animate={{ backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'] }}
+                transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+                style={{
+                  background: 'linear-gradient(135deg, #a855f7 0%, #3b82f6 40%, #06b6d4 70%, #a855f7 100%)',
+                  backgroundSize: '300% auto',
+                  WebkitBackgroundClip: 'text',
+                  backgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                }}
+              >
+                Biswodip Goj
+              </motion.p>
+
+              <p className="text-[11px] text-ink-muted">
+                Designed & engineered with precision
+              </p>
+
+              <div className="flex items-center gap-3 mt-4">
+                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-violet-300/50 to-transparent" />
+                <span className="text-blue-400 text-lg">✦</span>
+                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-blue-300/50 to-transparent" />
+              </div>
+            </div>
+          </motion.div>
+
         </div>
       </div>
     </motion.div>
