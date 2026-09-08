@@ -65,6 +65,7 @@ export default function CustomerPortal() {
   const [broadcastMessages, setBroadcastMessages] = useState<{ id: string; message: string; image_url?: string | null; expires_at: string; sender_name?: string; sender_role?: string }[]>([]);
   const [dismissedBroadcasts, setDismissedBroadcasts] = useState<Set<string>>(new Set());
   const [isLaunchingUpi, setIsLaunchingUpi] = useState(false);
+  const [pendingWhatsappShare, setPendingWhatsappShare] = useState(false);
   const [showStatement, setShowStatement] = useState(false);
 
   // Restore session from localStorage OR auto-login via token
@@ -374,14 +375,60 @@ export default function CustomerPortal() {
     });
   }
 
+  async function shareOnWhatsapp(totalAmount: number) {
+    const text = [
+      'TelePoint EMI Payment Update',
+      `Customer: ${customer?.customer_name || '-'}`,
+      `Mobile: ${customer?.mobile || '-'}`,
+      `IMEI: ${customer?.imei || '-'}`,
+      `EMI Due: ${fmt(dueSummary.emiDue)}`,
+      `Fine Due: ${fmt(dueSummary.totalFineRemaining)}`,
+      `1st EMI Charge: ${fmt(dueSummary.firstChargeDue)}`,
+      `Total Paid: ${fmt(totalAmount)}`,
+      `Paid On: ${format(new Date(), 'd MMM yyyy, h:mm a')}`,
+    ].join('\n');
+    const file = await buildReceiptFile(totalAmount);
+    try {
+      if (file && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], text, title: 'TelePoint Receipt' });
+        return;
+      }
+    } catch {
+      // fall back to whatsapp deep link
+    }
+    window.open(`https://wa.me/917003617029?text=${encodeURIComponent(text)}`, '_blank');
+    if (file) {
+      const url = URL.createObjectURL(file);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.name;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast('Receipt image downloaded. Attach it in WhatsApp if needed.');
+    }
+  }
+
   async function handleOnlinePay() {
     if (!customer || dueSummary.totalDue <= 0) return;
     const amount = Number(dueSummary.totalDue.toFixed(2));
     const note = buildUpiNote();
     const upiUrl = `upi://pay?pa=biswajit.khanra82@ybl&pn=TelePoint&am=${amount}&cu=INR&tn=${encodeURIComponent(note)}`;
+    setPendingWhatsappShare(true);
     setIsLaunchingUpi(true);
     window.location.href = upiUrl;
   }
+
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState === 'visible' && pendingWhatsappShare && isLaunchingUpi) {
+        setIsLaunchingUpi(false);
+        setPendingWhatsappShare(false);
+        shareOnWhatsapp(dueSummary.totalDue);
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [pendingWhatsappShare, isLaunchingUpi, dueSummary.totalDue]);
 
   if (!session) {
     // Multi-loan selection screen

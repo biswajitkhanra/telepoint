@@ -50,6 +50,24 @@ export default function CustomerAppDownload({ customerId, customerName, mobile }
     navigator.clipboard.writeText(appUrl).then(() => toast.success('Link copied!'));
   }
 
+  function shareWhatsApp() {
+    const msg = [
+      `📱 *TelePoint EMI App*`,
+      ``,
+      `Dear ${customerName},`,
+      `Your EMI portal app is ready!`,
+      ``,
+      `👉 Open this link to access your EMI details:`,
+      appUrl,
+      ``,
+      `📌 Save this link or add to home screen for quick access.`,
+      `You can check EMI schedule, fine status, and payment history anytime.`,
+      ``,
+      `— TelePoint`,
+    ].join('\n');
+    window.open(`https://wa.me/${mobile.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
+  }
+
   return (
     <>
       <button
@@ -99,7 +117,10 @@ export default function CustomerAppDownload({ customerId, customerName, mobile }
 
               {/* Actions */}
               <div className="flex flex-col gap-2">
-                <button onClick={copyLink} className="btn-secondary w-full py-3">
+                <button onClick={shareWhatsApp} className="btn w-full py-3 bg-green-500 hover:bg-green-600 text-white">
+                  📤 Send via WhatsApp
+                </button>
+                <button onClick={copyLink} className="btn-secondary w-full py-2.5">
                   📋 Copy Link
                 </button>
                 <button onClick={() => setShowPanel(false)} className="btn-ghost w-full py-2.5">
