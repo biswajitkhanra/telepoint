@@ -50,9 +50,7 @@ export const ProfileScreen = () => {
     isLoading,
     allLoans,
     switchActiveLoan,
-    resetRolePreference,
     switchCustomerLogin,
-    switchRole,
   } = useAuth();
   const [switchModalVisible, setSwitchModalVisible] = useState(false);
   const [switchingLoanId, setSwitchingLoanId] = useState<string | null>(null);
@@ -79,23 +77,6 @@ export const ProfileScreen = () => {
           text: 'Sign Out',
           style: 'destructive',
           onPress: () => logout(),
-        },
-      ]
-    );
-  };
-
-  const handleSwitchRole = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Alert.alert(
-      'Switch App Mode',
-      'Do you want to switch to the Retailer & Admin Staff Portal? You can return to Customer mode anytime.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Switch to Staff Mode',
-          onPress: async () => {
-            await switchRole('staff');
-          },
         },
       ]
     );
@@ -316,9 +297,9 @@ export const ProfileScreen = () => {
           </View>
         </View>
 
-        {/* Account Switching Actions */}
+        {/* Account Actions */}
         <View style={styles.section}>
-          <Text style={styles.sectionHeading}>ACCOUNT & ROLE SWITCHING</Text>
+          <Text style={styles.sectionHeading}>ACCOUNT ACTIONS</Text>
 
           {/* Switch to Another Customer Login */}
           <PressableScale
@@ -331,26 +312,8 @@ export const ProfileScreen = () => {
                 <User size={18} color="#1A6FD6" />
               </View>
               <View>
-                <Text style={styles.switchModeTitle}>Log in as Another Customer</Text>
-                <Text style={styles.switchModeSub}>Switch Mobile or Aadhaar number</Text>
-              </View>
-            </View>
-            <ChevronRight size={18} color="#94A3B8" />
-          </PressableScale>
-
-          {/* Switch App Mode (Staff / Customer) */}
-          <PressableScale
-            style={[styles.switchModeCard, { marginTop: 10 }]}
-            onPress={handleSwitchRole}
-            scaleTo={0.96}
-          >
-            <View style={styles.switchModeLeft}>
-              <View style={styles.switchIconBox}>
-                <Repeat size={18} color="#1A6FD6" />
-              </View>
-              <View>
-                <Text style={styles.switchModeTitle}>Switch App Mode</Text>
-                <Text style={styles.switchModeSub}>Switch to Retailer or Admin Staff Portal</Text>
+                <Text style={styles.switchModeTitle}>Log in with Another Phone Number</Text>
+                <Text style={styles.switchModeSub}>Switch registered mobile or Aadhaar</Text>
               </View>
             </View>
             <ChevronRight size={18} color="#94A3B8" />

@@ -32,7 +32,6 @@ import {
   AlertCircle,
   Zap,
   QrCode,
-  User,
   ArrowRight,
   Clock,
 } from 'lucide-react-native';
@@ -63,8 +62,6 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
     refreshData,
     allLoans,
     switchActiveLoan,
-    switchCustomerLogin,
-    switchRole,
   } = useAuth();
 
   const [refreshing, setRefreshing] = useState(false);
@@ -73,7 +70,6 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
   const [switchModalVisible, setSwitchModalVisible] = useState(false);
   const [switchingLoanId, setSwitchingLoanId] = useState<string | null>(null);
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
-  const [accountMenuVisible, setAccountMenuVisible] = useState(false);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -258,19 +254,6 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
           </View>
 
           <View style={styles.headerRightCol}>
-            {/* Account & Role Switcher Pill */}
-            <PressableScale
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setAccountMenuVisible(true);
-              }}
-              style={styles.accountActionPill}
-              scaleTo={0.92}
-            >
-              <User size={12} color="#1A6FD6" />
-              <Text style={styles.accountActionPillText}>Account ▾</Text>
-            </PressableScale>
-
             <View style={styles.retailerPill}>
               <Text style={styles.retailerLabel}>PURCHASED FROM</Text>
               <Text style={styles.retailerName} numberOfLines={1}>
@@ -630,53 +613,6 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
         </View>
       </Modal>
 
-      {/* Account Options Quick Menu */}
-      <Modal visible={accountMenuVisible} transparent animationType="fade" onRequestClose={() => setAccountMenuVisible(false)}>
-        <TouchableOpacity
-          activeOpacity={1}
-          style={styles.menuOverlay}
-          onPress={() => setAccountMenuVisible(false)}
-        >
-          <View style={[styles.menuSheet, { top: topInset + 60 }]}>
-            <Text style={styles.menuHeaderTitle}>Account Options</Text>
-
-            {allLoans.length > 1 && (
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => {
-                  setAccountMenuVisible(false);
-                  setSwitchModalVisible(true);
-                }}
-              >
-                <Smartphone size={16} color="#1A6FD6" />
-                <Text style={styles.menuItemText}>Switch Financed Device ({allLoans.length})</Text>
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setAccountMenuVisible(false);
-                switchCustomerLogin();
-              }}
-            >
-              <User size={16} color="#1A6FD6" />
-              <Text style={styles.menuItemText}>Log in as Another Customer</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setAccountMenuVisible(false);
-                switchRole('staff');
-              }}
-            >
-              <Zap size={16} color="#4F46E5" />
-              <Text style={styles.menuItemText}>Switch to Staff Mode (Retailer/Admin)</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
 
       {/* Interactive Payment Intent & Dynamic QR Modal */}
       <PaymentModal
@@ -784,23 +720,7 @@ const styles = StyleSheet.create({
   },
   headerRightCol: {
     alignItems: 'flex-end',
-    gap: 6,
-  },
-  accountActionPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-  },
-  accountActionPillText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#1A6FD6',
+    justifyContent: 'center',
   },
   retailerPill: {
     alignItems: 'flex-end',
@@ -1297,42 +1217,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  menuOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    justifyContent: 'flex-start',
-    alignItems: 'flex-end',
-    paddingHorizontal: 20,
-  },
-  menuSheet: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: Radius.lg,
-    padding: 12,
-    width: 250,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  menuHeaderTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#64748B',
-    marginBottom: 8,
-    paddingHorizontal: 6,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 6,
-    borderRadius: 8,
-  },
-  menuItemText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#0F172A',
-  },
+
 });

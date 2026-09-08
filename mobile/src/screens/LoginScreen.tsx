@@ -15,6 +15,7 @@ import {
   Modal,
   SafeAreaView,
   StatusBar,
+  Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -32,7 +33,6 @@ import {
   Sparkles,
   Fingerprint,
   CheckCircle2,
-  Users,
   X,
   Lock,
 } from 'lucide-react-native';
@@ -46,7 +46,7 @@ import { Spacing, Radius, Shadow } from '../constants/design';
 export const LoginScreen = () => {
   const insets = useSafeAreaInsets();
   const topInset = Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight || 28 : 0);
-  const { login, isLoading, resetRolePreference, setRolePreference } = useAuth();
+  const { login, isLoading } = useAuth();
   const [authMode, setAuthMode] = useState<'mobile' | 'aadhaar'>('mobile');
   const [mobile, setMobile] = useState('');
   const [aadhaar, setAadhaar] = useState('');
@@ -137,20 +137,6 @@ export const LoginScreen = () => {
           <View style={styles.orbTopLeft} pointerEvents="none" />
           <View style={styles.orbBottomRight} pointerEvents="none" />
 
-          {/* Top Switch to Staff Portal Pill */}
-          <View style={styles.topSwitchRoleContainer}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={async () => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                await setRolePreference('staff');
-              }}
-              style={styles.topRoleSwitchPill}
-            >
-              <Users size={12} color="#1A6FD6" />
-              <Text style={styles.topRoleSwitchPillText}>Staff or Store Owner? Login here ➔</Text>
-            </TouchableOpacity>
-          </View>
 
           {/* Brand Header — Anti-gravity float-in */}
           <Animated.View
@@ -311,35 +297,27 @@ export const LoginScreen = () => {
             </TouchableOpacity>
 
             <View style={styles.sessionLockRow}>
-              <Fingerprint size={15} color="#1A6FD6" />
+              <Shield size={14} color="#059669" />
               <Text style={styles.sessionLockText}>
-                Persistent device lockdown • Kept signed in safely
+                Secure customer portal • Your session stays signed in safely
               </Text>
             </View>
           </View>
 
-          {/* Mode Switcher Option (For Staff / Admins) */}
+          {/* Customer Helpline & Support */}
           <TouchableOpacity
             activeOpacity={0.8}
-            style={styles.switchStaffBtn}
-            onPress={async () => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              await setRolePreference('staff');
+            style={styles.footerNote}
+            onPress={() => {
+              Haptics.selectionAsync();
+              Linking.openURL('tel:7003617029').catch(() => {});
             }}
           >
-            <Users size={15} color="#1A6FD6" />
-            <Text style={styles.switchStaffText}>
-              Are you a Store Retailer or Super Admin? Open Staff Login →
+            <Sparkles size={14} color="#1A6FD6" />
+            <Text style={styles.footerText}>
+              Need help logging in? Call Helpline: <Text style={{ fontWeight: '800', color: '#1A6FD6' }}>+91 70036 17029</Text>
             </Text>
           </TouchableOpacity>
-
-          {/* Footer note with fixed central helpline */}
-          <View style={styles.footerNote}>
-            <Sparkles size={13} color="#64748B" />
-            <Text style={styles.footerText}>
-              Need assistance? Central Helpline: +91 70036 17029
-            </Text>
-          </View>
         </ScrollView>
 
         {/* Multi-Loan Selection Modal */}
@@ -445,26 +423,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#EEF2FF',
     opacity: 0.6,
   },
-  topSwitchRoleContainer: {
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  topRoleSwitchPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#EFF5FF',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    borderColor: 'rgba(26, 111, 214, 0.25)',
-  },
-  topRoleSwitchPillText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#1A6FD6',
-  },
+
   header: {
     alignItems: 'center',
     marginBottom: 20,

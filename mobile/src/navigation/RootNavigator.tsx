@@ -7,9 +7,6 @@ import { NavigationContainer, NavigationContainerRef } from '@react-navigation/n
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
-import { RoleSelectionScreen } from '../screens/RoleSelectionScreen';
-import { StaffLoginScreen } from '../screens/StaffLoginScreen';
-import { StaffPortalScreen } from '../screens/StaffPortalScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { DashboardScreen } from '../screens/DashboardScreen';
 import { EmiScheduleScreen } from '../screens/EmiScheduleScreen';
@@ -64,7 +61,7 @@ function MainTabs() {
 }
 
 export const RootNavigator = () => {
-  const { customer, deviceRole, staffRole, isLoading } = useAuth();
+  const { customer, isLoading } = useAuth();
   const navigationRef = useRef<NavigationContainerRef<any>>(null);
 
   // Background EMI check scheduler & notification tap listener
@@ -95,22 +92,11 @@ export const RootNavigator = () => {
   return (
     <NavigationContainer ref={navigationRef}>
       <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
-        {deviceRole === null ? (
-          // First-time launch: ask user if Customer vs Staff (Admin/Retailer)
-          <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
-        ) : deviceRole === 'staff' ? (
-          !staffRole ? (
-            // Dedicated Staff Login with Admin vs Retailer dual tabs
-            <Stack.Screen name="StaffLogin" component={StaffLoginScreen} />
-          ) : (
-            // Staff mode: Admin / Retailer webview portal with quick switcher
-            <Stack.Screen name="StaffPortal" component={StaffPortalScreen} />
-          )
-        ) : !customer ? (
-          // Customer mode without active session
+        {!customer ? (
+          // Customer login screen
           <Stack.Screen name="Login" component={LoginScreen} />
         ) : (
-          // Customer mode with active persistent session
+          // Customer main tabs dashboard
           <Stack.Screen name="MainTabs" component={MainTabs} />
         )}
       </Stack.Navigator>
