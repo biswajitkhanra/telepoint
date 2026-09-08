@@ -85,3 +85,70 @@ export interface MultiLoanCustomer {
   emi_amount?: number;
   retailer?: unknown;
 }
+
+export interface AdminPortfolio {
+  disburse: number;
+  loanAmount: number;
+  totalCollected: number;
+  emiCollected: number;
+  fineCollected: number;
+  firstChargeCollected: number;
+  emiDue: number;
+  fineDue: number;
+  firstChargeDue: number;
+  totalDue: number;
+  customerCount: number;
+  runningCount: number;
+  completedCount: number;
+  settledCount: number;
+  npaCount: number;
+  upcoming30d: number;
+  overdueCustomers: number;
+  overdueEmiAmount: number;
+  expectedLossCount: number;
+  expectedLossEmiDue: number;
+  todayCollection: {
+    amount: number;
+    count: number;
+  };
+}
+
+export interface PeriodMetrics {
+  loanGiven: number;
+  collected: number;
+  customers: number;
+  dueEmis: number;
+  bouncedEmis: number;
+}
+
+export interface AdminYoYAnalytics {
+  thisYear: PeriodMetrics;
+  lastYear: PeriodMetrics;
+  leadLeaderboard: { retailerId: string; name: string; value: number }[];
+  collectionLeaderboard: { retailerId: string; name: string; value: number }[];
+  topBrands: { name: string; count: number; amount: number }[];
+  topProducts: { name: string; count: number; amount: number }[];
+  selectedMonth: number;
+  selectedYear: number;
+}
+
+export interface RetailerRecoveryItem {
+  retailerId: string;
+  name: string;
+  isActive: boolean;
+  runningCount: number;
+  npaCount: number;
+  settledCount: number;
+  loanGiven: number;
+  emiCollected: number;
+  fineCollected: number;
+  firstChargeCollected: number;
+  totalCollected: number;
+  deficit: number;
+}
+
+export interface FineSettings {
+  default_fine_amount: number;
+  weekly_fine_increment: number;
+}
+
