@@ -31,14 +31,17 @@ import {
   XCircle,
   Clock,
   PhoneCall,
+  MessageCircle,
   Search,
   Users,
   Store,
   Send,
   AlertTriangle,
   TrendingUp,
+  TrendingDown,
   Sparkles,
   ChevronRight,
+  ChevronLeft,
   X,
   Bell,
   Check,
@@ -64,6 +67,10 @@ interface AdminSummary {
   overdueAmount: number;
   pendingApprovalsCount: number;
   retailersCount: number;
+  analytics?: {
+    thisYear: { loanGiven: number; collected: number; customers: number; dueEmis: number; bouncedEmis: number };
+    lastYear: { loanGiven: number; collected: number; customers: number; dueEmis: number; bouncedEmis: number };
+  };
 }
 
 interface PendingApproval {
@@ -116,6 +123,8 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'approvals' | 'retailers' | 'customers'>('approvals');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const insets = useSafeAreaInsets();
 
   // Smooth tab transition physics
@@ -194,9 +203,11 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
     setCollectModalVisible(true);
   };
 
-  const loadAdminData = useCallback(async () => {
+  const loadAdminData = useCallback(async (m?: number, y?: number) => {
     try {
-      const res = await fetch(`${PORTAL_BASE_URL}/api/mobile/admin`, {
+      const monthToFetch = m ?? selectedMonth;
+      const yearToFetch = y ?? selectedYear;
+      const res = await fetch(`${PORTAL_BASE_URL}/api/mobile/admin?month=${monthToFetch}&year=${yearToFetch}`, {
         cache: 'no-store',
       });
       if (res.ok) {
@@ -211,7 +222,7 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedMonth, selectedYear]);
 
   useEffect(() => {
     loadAdminData();
@@ -343,13 +354,46 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
   };
 
   // Call Action
-  const handleCall = (mobile: string | null, name: string) => {
+  const handleCall = (mobile: string | null | undefined, name: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (!mobile) {
       Alert.alert('No Mobile', `No phone registered for ${name}.`);
       return;
     }
-    Linking.openURL(`tel:${mobile}`);
+    const cleanNum = mobile.replace(/\D/g, '');
+    const finalNum = cleanNum.length >= 10 ? cleanNum.slice(-10) : cleanNum;
+    Linking.openURL(`tel:${finalNum}`).catch(() => {
+      Alert.alert('Call Failed', 'Unable to initiate call on this device.');
+    });
+  };
+
+  // WhatsApp Action
+  const handleWhatsApp = (mobile: string | null | undefined, name: string, customMsg?: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (!mobile) {
+      Alert.alert('No Mobile', `No phone registered for ${name}.`);
+      return;
+    }
+    const cleanNum = mobile.replace(/\D/g, '').slice(-10);
+    const msg = encodeURIComponent(
+      customMsg ||
+        `Hello ${name}, this is Telepoint Super Admin. Please let us know if you need any assistance regarding your account.`
+    );
+    const waUrl = `whatsapp://send?phone=91${cleanNum}&text=${msg}`;
+    const webUrl = `https://wa.me/91${cleanNum}?text=${msg}`;
+    Linking.canOpenURL(waUrl)
+      .then(supported => {
+        if (supported) {
+          return Linking.openURL(waUrl);
+        } else {
+          return Linking.openURL(webUrl);
+        }
+      })
+      .catch(() => {
+        Linking.openURL(webUrl).catch(() => {
+          Alert.alert('WhatsApp Error', 'Could not open WhatsApp on this device.');
+        });
+      });
   };
 
   // Filtered queries
@@ -432,67 +476,89 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
           </PressableScale>
         </LinearGradient>
 
-        {/* Portfolio Living Jelly Cards */}
-        <View style={styles.sectionHeaderRow}>
-          <View style={styles.sectionTitleRow}>
-            <Text style={styles.sectionTitle}>PORTFOLIO OVERVIEW</Text>
-            <View style={styles.livePulsePill}>
-              <Sparkles size={11} color="#10B981" />
-              <Text style={styles.livePulseText}>LIVE</Text>
-            </View>
+        {/* Month/Year Selector & YoY Analytics */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingHorizontal: Spacing.md, marginTop: 12 }}>
+          <View>
+            <Text style={{ fontSize: 18, fontWeight: '800', color: Colors.textPrimary, fontFamily: 'System' }}>YoY Analytics</Text>
+            <Text style={{ fontSize: 12, color: Colors.textTertiary, marginTop: 2 }}>Compared to same month last year</Text>
           </View>
-          <View style={styles.syncStatusRow}>
-            <View style={styles.purpleDot} />
-            <Text style={styles.syncStatusText}>Central HQ Active</Text>
-          </View>
-        </View>
-
-        <View style={styles.kpiGrid}>
-          <View style={styles.kpiRow}>
-            <JellyCard accentColor="#1A6FD6" style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>TOTAL FINANCED</Text>
-              <CountUp
-                end={summary.totalDisbursed}
-                prefix="₹"
-                style={[styles.kpiValue, { color: '#1A6FD6' }]}
-                duration={700}
-              />
-              <Text style={styles.kpiSub}>Disbursed loans</Text>
-            </JellyCard>
-
-            <JellyCard accentColor="#10B981" style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>TOTAL COLLECTED</Text>
-              <CountUp
-                end={summary.totalCollected}
-                prefix="₹"
-                style={[styles.kpiValue, { color: '#059669' }]}
-                duration={700}
-              />
-              <Text style={styles.kpiSub}>Received payments</Text>
-            </JellyCard>
-          </View>
-
-          <View style={styles.kpiRow}>
-            <JellyCard accentColor="#E11D48" style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>OVERDUE DUES</Text>
-              <CountUp
-                end={summary.overdueAmount}
-                prefix="₹"
-                style={[styles.kpiValue, { color: '#E11D48' }]}
-                duration={700}
-              />
-              <Text style={styles.kpiSub}>{summary.overdueCount} accounts overdue</Text>
-            </JellyCard>
-
-            <JellyCard accentColor="#8B5CF6" style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>ACTIVE LOANS</Text>
-              <Text style={[styles.kpiValue, { color: '#7C3AED' }]}>
-                {summary.runningCount}
+          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+            <TouchableOpacity onPress={() => {
+              const m = selectedMonth === 1 ? 12 : selectedMonth - 1;
+              const y = selectedMonth === 1 ? selectedYear - 1 : selectedYear;
+              setSelectedMonth(m); setSelectedYear(y); loadAdminData(m, y);
+            }} style={{ padding: 8, backgroundColor: Colors.bgSurface, borderRadius: 8 }}>
+              <ChevronLeft size={16} color={Colors.textPrimary} />
+            </TouchableOpacity>
+            <View style={{ paddingVertical: 8, paddingHorizontal: 12, backgroundColor: Colors.bgSurface, borderRadius: 8 }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: Colors.textPrimary }}>
+                {new Date(selectedYear, selectedMonth - 1).toLocaleString('default', { month: 'short' })} {selectedYear}
               </Text>
-              <Text style={styles.kpiSub}>{summary.retailersCount} partner stores</Text>
-            </JellyCard>
+            </View>
+            <TouchableOpacity onPress={() => {
+              const m = selectedMonth === 12 ? 1 : selectedMonth + 1;
+              const y = selectedMonth === 12 ? selectedYear + 1 : selectedYear;
+              setSelectedMonth(m); setSelectedYear(y); loadAdminData(m, y);
+            }} style={{ padding: 8, backgroundColor: Colors.bgSurface, borderRadius: 8 }}>
+              <ChevronRight size={16} color={Colors.textPrimary} />
+            </TouchableOpacity>
           </View>
         </View>
+
+        {summary.analytics && (() => {
+          const TrendBadge = ({ current, prev, invertColor = false }: { current: number, prev: number, invertColor?: boolean }) => {
+            if (prev === 0 && current === 0) return <Text style={{ fontSize: 11, color: Colors.textTertiary, marginTop: 4 }}>No data</Text>;
+            const pct = prev === 0 ? 100 : ((current - prev) / Math.abs(prev)) * 100;
+            const isPositive = pct > 0;
+            const color = invertColor ? (isPositive ? '#E11D48' : '#10B981') : (isPositive ? '#10B981' : '#E11D48');
+            return (
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
+                {isPositive ? <TrendingUp size={12} color={color} /> : <TrendingDown size={12} color={color} />}
+                <Text style={{ fontSize: 11, fontWeight: '700', color, marginLeft: 4 }}>
+                  {isPositive ? '+' : ''}{pct.toFixed(1)}% vs last yr
+                </Text>
+              </View>
+            );
+          };
+
+          return (
+            <View style={styles.kpiGrid}>
+              <View style={styles.kpiRow}>
+                <JellyCard accentColor="#1A6FD6" style={styles.kpiCard} mountDelay={100}>
+                  <Text style={styles.kpiLabel}>LOAN GIVEN</Text>
+                  <CountUp end={summary.analytics.thisYear.loanGiven} prefix="₹" style={[styles.kpiValue, { color: '#1A6FD6' }]} duration={700} />
+                  <TrendBadge current={summary.analytics.thisYear.loanGiven} prev={summary.analytics.lastYear.loanGiven} />
+                </JellyCard>
+
+                <JellyCard accentColor="#10B981" style={styles.kpiCard} mountDelay={180}>
+                  <Text style={styles.kpiLabel}>COLLECTED</Text>
+                  <CountUp end={summary.analytics.thisYear.collected} prefix="₹" style={[styles.kpiValue, { color: '#059669' }]} duration={700} />
+                  <TrendBadge current={summary.analytics.thisYear.collected} prev={summary.analytics.lastYear.collected} />
+                </JellyCard>
+              </View>
+
+              <View style={styles.kpiRow}>
+                <JellyCard accentColor="#E11D48" style={styles.kpiCard} mountDelay={260}>
+                  <Text style={styles.kpiLabel}>BOUNCE RATE</Text>
+                  <Text style={[styles.kpiValue, { color: '#E11D48' }]}>
+                    {(summary.analytics.thisYear.dueEmis > 0 ? (summary.analytics.thisYear.bouncedEmis / summary.analytics.thisYear.dueEmis) * 100 : 0).toFixed(1)}%
+                  </Text>
+                  <TrendBadge 
+                    current={summary.analytics.thisYear.dueEmis > 0 ? summary.analytics.thisYear.bouncedEmis / summary.analytics.thisYear.dueEmis : 0} 
+                    prev={summary.analytics.lastYear.dueEmis > 0 ? summary.analytics.lastYear.bouncedEmis / summary.analytics.lastYear.dueEmis : 0} 
+                    invertColor
+                  />
+                </JellyCard>
+
+                <JellyCard accentColor="#8B5CF6" style={styles.kpiCard} mountDelay={340}>
+                  <Text style={styles.kpiLabel}>NEW CUSTOMERS</Text>
+                  <Text style={[styles.kpiValue, { color: '#7C3AED' }]}>{summary.analytics.thisYear.customers}</Text>
+                  <TrendBadge current={summary.analytics.thisYear.customers} prev={summary.analytics.lastYear.customers} />
+                </JellyCard>
+              </View>
+            </View>
+          );
+        })()}
 
         {/* Global Search Bar */}
         <View style={styles.searchContainer}>
@@ -590,7 +656,7 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
                 </Text>
               </View>
             ) : (
-              pendingApprovals.map(item => {
+              pendingApprovals.map((item, idx) => {
                 const isProcessing = processingId === item.id;
 
                 return (
@@ -598,6 +664,7 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
                     key={item.id}
                     accentColor="#F59E0B"
                     style={styles.approvalJellyCard}
+                    mountDelay={Math.min(idx, 6) * 50}
                   >
                     <PressableScale
                       onPress={() => handleOpenCustomerDetail(item.customer_id)}
@@ -627,6 +694,34 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
                       <View style={styles.utrBox}>
                         <Text style={styles.utrLabel}>UTR / Reference:</Text>
                         <Text style={styles.utrVal}>{item.utr}</Text>
+                      </View>
+                    ) : null}
+
+                    {/* Direct Customer Call / WhatsApp Verification */}
+                    {item.mobile ? (
+                      <View style={styles.approvalContactRow}>
+                        <PressableScale
+                          onPress={() => handleCall(item.mobile, item.customer_name)}
+                          style={styles.approvalCallBtn}
+                          scaleTo={0.92}
+                        >
+                          <PhoneCall size={13} color="#1A6FD6" />
+                          <Text style={styles.approvalContactBtnText}>Call Customer</Text>
+                        </PressableScale>
+                        <PressableScale
+                          onPress={() =>
+                            handleWhatsApp(
+                              item.mobile,
+                              item.customer_name,
+                              `Hello ${item.customer_name}, this is Telepoint Administration regarding your payment verification of ₹${item.total_amount.toLocaleString('en-IN')}.`
+                            )
+                          }
+                          style={styles.approvalWaBtn}
+                          scaleTo={0.92}
+                        >
+                          <MessageCircle size={13} color="#059669" />
+                          <Text style={styles.approvalContactWaText}>WhatsApp</Text>
+                        </PressableScale>
                       </View>
                     ) : null}
 
@@ -683,14 +778,30 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
                         Username: @{r.username}
                       </Text>
                     </View>
-                    <PressableScale
-                      onPress={() => handleCall(r.mobile, r.name)}
-                      style={styles.callStoreBtn}
-                      scaleTo={0.9}
-                    >
-                      <PhoneCall size={15} color="#FFFFFF" />
-                      <Text style={styles.callStoreBtnText}>Call Store</Text>
-                    </PressableScale>
+                    <View style={styles.retailerActionBtns}>
+                      <PressableScale
+                        onPress={() => handleCall(r.mobile, r.name)}
+                        style={styles.callStoreBtn}
+                        scaleTo={0.9}
+                      >
+                        <PhoneCall size={13} color="#FFFFFF" />
+                        <Text style={styles.callStoreBtnText}>Call</Text>
+                      </PressableScale>
+                      <PressableScale
+                        onPress={() =>
+                          handleWhatsApp(
+                            r.mobile,
+                            r.name,
+                            `Hello ${r.name}, this is Telepoint Super Admin. Please let us know if you need any assistance with your partner store account.`
+                          )
+                        }
+                        style={styles.waStoreBtn}
+                        scaleTo={0.9}
+                      >
+                        <MessageCircle size={13} color="#FFFFFF" />
+                        <Text style={styles.callStoreBtnText}>WhatsApp</Text>
+                      </PressableScale>
+                    </View>
                   </View>
 
                   <View style={styles.retailerStatsRow}>
@@ -762,13 +873,22 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
                             {c.status}
                           </Text>
                         </View>
-                        <PressableScale
-                          onPress={() => handleCall(c.mobile, c.customer_name)}
-                          style={styles.borrowerCallBtn}
-                          scaleTo={0.9}
-                        >
-                          <PhoneCall size={14} color="#1A6FD6" />
-                        </PressableScale>
+                        <View style={styles.borrowerActionsRow}>
+                          <PressableScale
+                            onPress={() => handleCall(c.mobile, c.customer_name)}
+                            style={styles.borrowerCallBtn}
+                            scaleTo={0.9}
+                          >
+                            <PhoneCall size={14} color="#1A6FD6" />
+                          </PressableScale>
+                          <PressableScale
+                            onPress={() => handleWhatsApp(c.mobile, c.customer_name)}
+                            style={styles.borrowerWaBtn}
+                            scaleTo={0.9}
+                          >
+                            <MessageCircle size={14} color="#059669" />
+                          </PressableScale>
+                        </View>
                       </View>
                     </View>
                   </PressableScale>
@@ -1265,6 +1385,19 @@ const styles = StyleSheet.create({
     borderRadius: Radius.sm,
     gap: 4,
   },
+  retailerActionBtns: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  waStoreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#059669',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: Radius.sm,
+    gap: 4,
+  },
   callStoreBtnText: {
     fontSize: 11,
     fontWeight: '700',
@@ -1346,6 +1479,10 @@ const styles = StyleSheet.create({
   statusPillTextCompleted: {
     color: '#059669',
   },
+  borrowerActionsRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
   borrowerCallBtn: {
     width: 32,
     height: 32,
@@ -1353,6 +1490,55 @@ const styles = StyleSheet.create({
     backgroundColor: '#EFF6FF',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  borrowerWaBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#ECFDF5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  approvalContactRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 10,
+  },
+  approvalCallBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    paddingVertical: 7,
+    paddingHorizontal: 8,
+    borderRadius: Radius.sm,
+  },
+  approvalContactBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1A6FD6',
+  },
+  approvalWaBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    paddingVertical: 7,
+    paddingHorizontal: 8,
+    borderRadius: Radius.sm,
+  },
+  approvalContactWaText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#059669',
   },
   modalOverlay: {
     flex: 1,

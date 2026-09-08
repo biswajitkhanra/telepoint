@@ -369,10 +369,15 @@ export const ProfileScreen = () => {
           </PressableScale>
         </View>
 
-        {/* App Version Info */}
+        {/* App Version & About */}
         <View style={styles.versionFooter}>
           <Text style={styles.versionText}>Telepoint EMI • Version 1.0.0 (Production)</Text>
           <Text style={styles.versionSubText}>Protected with 256-Bit SSL Encryption</Text>
+          <View style={styles.attributionCard}>
+            <Text style={styles.attributionLabel}>ABOUT</Text>
+            <Text style={styles.attributionHero}>Mastermind Behind The Code: Biswodip Goj</Text>
+            <Text style={styles.attributionSub}>Telepoint — Bank-Grade Secure EMI Portal</Text>
+          </View>
         </View>
       </ScrollView>
 
@@ -804,6 +809,38 @@ const styles = StyleSheet.create({
   versionSubText: {
     fontSize: 10,
     color: '#CBD5E1',
+  },
+  attributionCard: {
+    marginTop: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    backgroundColor: '#FAFBFE',
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: '#E8ECF4',
+    alignItems: 'center',
+    width: '100%',
+  },
+  attributionLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#94A3B8',
+    letterSpacing: 1.5,
+    marginBottom: 6,
+  },
+  attributionHero: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#4F46E5',
+    textAlign: 'center',
+    letterSpacing: 0.3,
+  },
+  attributionSub: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#94A3B8',
+    marginTop: 4,
+    textAlign: 'center',
   },
   modalOverlay: {
     flex: 1,

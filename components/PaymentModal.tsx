@@ -302,24 +302,6 @@ export default function PaymentModal({
               <div className="flex justify-between"><span className="font-bold">Total</span><span className="num text-xl font-bold text-brand-600">{fmt(total)}</span></div>
               <div className="text-[10px] text-ink-muted">{mode === 'UPI' && utr ? `UTR: ${utr}` : mode}</div>
             </div>
-            <button
-              onClick={() => {
-                const lines = [
-                  `🧾 *TelePoint EMI Receipt*`, '',
-                  `👤 ${customer.customer_name}`, `📱 ${customer.mobile}`,
-                  `🔢 IMEI: ${customer.imei}`, '',
-                  emiAmt > 0    ? `💳 EMI #${selectedEmiNo}: ${fmt(emiAmt)}` : '',
-                  chargeAmt > 0 ? `⭐ Charge: ${fmt(chargeAmt)}` : '',
-                  ...fineBreakdown.map(f => `⚠️ Fine (EMI #${f.emi_no}): ${fmt(f.amount)}`),
-                  `💰 *Total: ${fmt(total)}*`, `🏷️ ${mode}`,
-                  mode === 'UPI' && utr ? `UTR: ${utr}` : '',
-                  `📅 ${format(now, 'd MMM yyyy, h:mm a')}`, '', '— TelePoint',
-                ].filter(Boolean).join('\n');
-                window.open(`https://wa.me/?text=${encodeURIComponent(lines)}`, '_blank');
-              }}
-              className="btn w-full py-3 bg-green-500 hover:bg-green-600 text-white rounded-xl font-semibold">
-              📤 Share on WhatsApp
-            </button>
             <button onClick={() => { onSubmitted(); onClose(); }} className="btn-ghost w-full py-2.5">
               Close
             </button>

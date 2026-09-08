@@ -1,6 +1,6 @@
 // screens/DashboardScreen.tsx
-// IDFC First Bank clarity + Jupiter Neo delight: Numbers as heroes, 3D tilt Hero Gradient Card, quick stats & multi-loan switching
-// 100% Data Precision matching Web Engine + Livable Fluid Jelly Physics
+// Anti-Gravity Dashboard: Numbers as heroes, 3D tilt Hero Gradient Card, staggered spring animations
+// 100% Data Precision matching Web Engine + Anti-Gravity Fluid Jelly Physics
 
 import React, { useState, useMemo } from 'react';
 import {
@@ -150,7 +150,10 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
 
   // 6. Paid vs Unpaid EMIs
   const isEmiPaid = (e: EMIScheduleItem) =>
-    e.status === 'collected' || e.status === 'APPROVED' || !!e.paid_at;
+    e.status === 'collected' || e.status === 'APPROVED';
+
+  const isEmiPartiallyPaid = (e: EMIScheduleItem) =>
+    e.status === 'PARTIALLY_PAID';
 
   const paidEmis = sortedEmis.filter(isEmiPaid);
   const unpaidEmis = sortedEmis.filter(e => !isEmiPaid(e));
@@ -328,6 +331,7 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
               accentColor="#EF4444"
               onPress={handlePayUpi}
               style={styles.dueJellyCard}
+              mountDelay={200}
             >
               <View style={styles.dueCardHeader}>
                 <View style={styles.dueCardBadgeRow}>
@@ -398,7 +402,7 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
             contentContainerStyle={styles.quickStatsScroll}
           >
             {/* Stat 1: Total Paid */}
-            <JellyCard accentColor="#10B981" style={styles.statJellyCard}>
+            <JellyCard accentColor="#10B981" style={styles.statJellyCard} mountDelay={300}>
               <View style={styles.statHeaderRow}>
                 <View style={[styles.statDot, { backgroundColor: '#10B981' }]} />
                 <Text style={styles.statLabelText}>TOTAL PAID</Text>
@@ -413,7 +417,7 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
             </JellyCard>
 
             {/* Stat 2: Remaining Balance */}
-            <JellyCard accentColor="#1A6FD6" style={styles.statJellyCard}>
+            <JellyCard accentColor="#1A6FD6" style={styles.statJellyCard} mountDelay={380}>
               <View style={styles.statHeaderRow}>
                 <View style={[styles.statDot, { backgroundColor: '#1A6FD6' }]} />
                 <Text style={styles.statLabelText}>REMAINING</Text>
@@ -428,7 +432,7 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
             </JellyCard>
 
             {/* Stat 3: Tenure Progress */}
-            <JellyCard accentColor="#4F46E5" style={styles.statJellyCard}>
+            <JellyCard accentColor="#4F46E5" style={styles.statJellyCard} mountDelay={460}>
               <View style={styles.statHeaderRow}>
                 <View style={[styles.statDot, { backgroundColor: '#4F46E5' }]} />
                 <Text style={styles.statLabelText}>LOAN TENURE</Text>
@@ -519,6 +523,8 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
                     >
                       {paid ? (
                         <Check size={16} color="#059669" />
+                      ) : isEmiPartiallyPaid(emi) ? (
+                        <Zap size={16} color="#D97706" />
                       ) : isOverdue ? (
                         <AlertCircle size={16} color="#DC2626" />
                       ) : (
@@ -527,7 +533,10 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
                     </View>
 
                     <View>
-                      <Text style={styles.installmentTitle}>Installment #{emi.emi_no}</Text>
+                      <Text style={styles.installmentTitle}>
+                        Installment #{emi.emi_no}
+                        {isEmiPartiallyPaid(emi) && ' (Partial)'}
+                      </Text>
                       <Text style={styles.installmentDate}>
                         {paid && emi.paid_at
                           ? `Paid on ${new Date(emi.paid_at).toLocaleDateString('en-IN', {
@@ -544,7 +553,9 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
 
                   <View style={styles.installmentRight}>
                     <Text style={styles.installmentAmount}>
-                      ₹{(emi.amount || customer.emi_amount).toLocaleString('en-IN')}
+                      ₹{isEmiPartiallyPaid(emi)
+                        ? Math.max(0, Number(emi.amount || 0) - Number(emi.partial_paid_amount || 0)).toLocaleString('en-IN')
+                        : (emi.amount || customer.emi_amount).toLocaleString('en-IN')}
                     </Text>
 
                     {paid ? (

@@ -32,6 +32,17 @@ export async function GET(req: NextRequest) {
     const today = todayIST();
     const todayMs = midnightIST(today);
 
+    const url = new URL(req.url);
+    const reqMonth = parseInt(url.searchParams.get('month') || String(new Date().getMonth() + 1), 10);
+    const reqYear = parseInt(url.searchParams.get('year') || String(new Date().getFullYear()), 10);
+
+    // Fetch YoY Analytics using RPC
+    let analyticsData = null;
+    const { data: rpcData, error: rpcErr } = await svc.rpc('get_emi_analysis', { p_month: reqMonth, p_year: reqYear });
+    if (!rpcErr && rpcData) {
+      analyticsData = rpcData;
+    }
+
     // 1. Fetch fine settings
     const { data: fs } = await svc
       .from('fine_settings')
@@ -201,6 +212,7 @@ export async function GET(req: NextRequest) {
         overdueAmount,
         pendingApprovalsCount: formattedPending.length,
         retailersCount: retailers.length,
+        analytics: analyticsData, // New Rich Analytics Data
       },
       pendingApprovals: formattedPending,
       retailers: formattedRetailers,

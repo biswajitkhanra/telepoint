@@ -25,6 +25,7 @@ import { PressableScale } from '../components/PressableScale';
 import { EMIScheduleItem } from '../types';
 import { Colors } from '../constants/colors';
 import { Spacing, Radius } from '../constants/design';
+import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { calculateTotalFineFromEmis } from '../utils/fineCalc';
 import { firstChargeRemaining } from '../utils/firstCharge';
 
@@ -104,7 +105,7 @@ export const EmiScheduleScreen = () => {
 
       {/* Summary Jelly Card */}
       <View style={styles.summaryContainer}>
-        <JellyCard accentColor="#1A6FD6" style={styles.summaryJellyCard}>
+        <JellyCard accentColor="#1A6FD6" style={styles.summaryJellyCard} mountDelay={150}>
           <View style={styles.summaryCard}>
             <View style={styles.summaryCol}>
               <Text style={styles.summaryLabel}>TOTAL PAID</Text>
@@ -218,11 +219,15 @@ export const EmiScheduleScreen = () => {
           />
         }
         renderItem={({ item, index }) => (
-          <EMIRow
-            item={item}
-            index={index}
-            onReceiptPress={() => setSelectedReceiptEmi(item)}
-          />
+          <Animated.View
+            entering={FadeInDown.delay(Math.min(index, 10) * 45).springify().damping(14).stiffness(110).mass(0.7)}
+          >
+            <EMIRow
+              item={item}
+              index={index}
+              onReceiptPress={() => setSelectedReceiptEmi(item)}
+            />
+          </Animated.View>
         )}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>

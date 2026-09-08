@@ -38,6 +38,7 @@ export const PressableScale: React.FC<PressableScaleProps> = ({
 }) => {
   const scaleX = useSharedValue(1);
   const scaleY = useSharedValue(1);
+  const pressOpacity = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => {
     return {
@@ -45,6 +46,7 @@ export const PressableScale: React.FC<PressableScaleProps> = ({
         { scaleX: scaleX.value },
         { scaleY: scaleY.value },
       ],
+      opacity: pressOpacity.value,
     };
   });
 
@@ -53,8 +55,10 @@ export const PressableScale: React.FC<PressableScaleProps> = ({
     const targetY = scaleTo;
     const targetX = jelly ? 1 + (1 - scaleTo) * 0.75 : scaleTo;
 
-    scaleX.value = withSpring(targetX, { damping: 10, stiffness: 240, mass: 0.5 });
-    scaleY.value = withSpring(targetY, { damping: 10, stiffness: 240, mass: 0.5 });
+    // Anti-gravity spring physics: custom damping for fluid response
+    scaleX.value = withSpring(targetX, { damping: 12, stiffness: 280, mass: 0.4 });
+    scaleY.value = withSpring(targetY, { damping: 12, stiffness: 280, mass: 0.4 });
+    pressOpacity.value = withSpring(0.85, { damping: 20, stiffness: 300 });
 
     if (hapticStyle === 'light') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -70,9 +74,10 @@ export const PressableScale: React.FC<PressableScaleProps> = ({
   };
 
   const handlePressOut = (e: GestureResponderEvent) => {
-    // Spring release with low friction for authentic jelly wobble
-    scaleX.value = withSpring(1, { damping: 6, stiffness: 200, mass: 1 });
-    scaleY.value = withSpring(1, { damping: 6, stiffness: 200, mass: 1 });
+    // Anti-gravity release: low damping (5) for pronounced wobble overshoot
+    scaleX.value = withSpring(1, { damping: 5, stiffness: 180, mass: 0.9 });
+    scaleY.value = withSpring(1, { damping: 5, stiffness: 180, mass: 0.9 });
+    pressOpacity.value = withSpring(1, { damping: 15, stiffness: 200 });
 
     if (onPressOut) onPressOut(e);
   };

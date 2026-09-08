@@ -16,6 +16,12 @@ import {
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import * as Clipboard from 'expo-clipboard';
+import Animated, {
+  FadeIn,
+  FadeOut,
+  SlideInDown,
+  ZoomIn,
+} from 'react-native-reanimated';
 import { Haptics } from '../utils/haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -253,9 +259,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.sheetContainer}>
+    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
+      <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(150)} style={styles.overlay}>
+        <Animated.View
+          entering={SlideInDown.springify().damping(16).stiffness(120).mass(0.8)}
+          style={styles.sheetContainer}
+        >
           {/* Header */}
           <View style={styles.sheetHeader}>
             <View style={styles.headerTitleRow}>
@@ -389,8 +398,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 <Text style={styles.qrAmountHero}>₹{selectedAmount.toLocaleString('en-IN')}</Text>
               </View>
 
-              {/* Dynamic SVG QR Code Box */}
-              <View style={styles.qrFrameWrapper}>
+              {/* Dynamic SVG QR Code Box with Elastic Zoom */}
+              <Animated.View
+                entering={ZoomIn.springify().damping(12).stiffness(100).mass(0.6)}
+                style={styles.qrFrameWrapper}
+              >
                 <View style={styles.qrWhiteCanvas}>
                   <QRCode
                     value={upiUri}
@@ -399,7 +411,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     backgroundColor="#FFFFFF"
                   />
                 </View>
-              </View>
+              </Animated.View>
 
               {/* Payee VPA & Copy Pill with Jelly Feedback */}
               <PressableScale onPress={handleCopyVpa} style={styles.vpaPill} scaleTo={0.97}>
@@ -475,8 +487,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               )}
             </View>
           </ScrollView>
-        </View>
-      </View>
+        </Animated.View>
+      </Animated.View>
     </Modal>
   );
 };

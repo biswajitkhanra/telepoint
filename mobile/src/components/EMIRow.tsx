@@ -144,7 +144,9 @@ export const EMIRow: React.FC<EMIRowProps> = ({ item, index, onReceiptPress }) =
         {/* Amount & Expand indicator */}
         <View style={styles.amountCol}>
           <Text style={[styles.amountText, isPaid && styles.paidAmountText]}>
-            ₹{item.amount.toLocaleString('en-IN')}
+            ₹{isPartial 
+              ? Math.max(0, Number(item.amount || 0) - Number(item.partial_paid_amount || 0)).toLocaleString('en-IN')
+              : (item.amount || 0).toLocaleString('en-IN')}
           </Text>
           <View style={styles.expandRow}>
             <Text style={styles.detailsLabel}>Details</Text>
@@ -192,6 +194,15 @@ export const EMIRow: React.FC<EMIRowProps> = ({ item, index, onReceiptPress }) =
             <View style={styles.drawerRow}>
               <Text style={styles.drawerLabel}>UTR / Ref No.</Text>
               <Text style={styles.drawerValueMono}>{item.utr}</Text>
+            </View>
+          )}
+
+          {isPartial && Number(item.partial_paid_amount || 0) > 0 && (
+            <View style={styles.drawerRow}>
+              <Text style={styles.drawerLabel}>Partial Amount Paid</Text>
+              <Text style={[styles.drawerValue, { color: '#059669' }]}>
+                ₹{Number(item.partial_paid_amount).toLocaleString('en-IN')}
+              </Text>
             </View>
           )}
 

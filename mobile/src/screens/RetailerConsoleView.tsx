@@ -208,17 +208,21 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
   };
 
   // Direct Call Action
-  const handleCallCustomer = (mobile: string, name: string) => {
+  const handleCallCustomer = (mobile: string | null | undefined, name: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (!mobile) {
       Alert.alert('No Mobile Number', `No phone number registered for ${name}.`);
       return;
     }
-    Linking.openURL(`tel:${mobile}`);
+    const cleanNum = mobile.replace(/\D/g, '');
+    const finalNum = cleanNum.length >= 10 ? cleanNum.slice(-10) : cleanNum;
+    Linking.openURL(`tel:${finalNum}`).catch(() => {
+      Alert.alert('Call Failed', 'Unable to initiate call on this device.');
+    });
   };
 
   // Direct WhatsApp Reminder Action
-  const handleWhatsAppReminder = (mobile: string, name: string, dueAmount: number) => {
+  const handleWhatsAppReminder = (mobile: string | null | undefined, name: string, dueAmount: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (!mobile) {
       Alert.alert('No Mobile Number', `No phone number registered for ${name}.`);
@@ -226,11 +230,27 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
     }
     const cleanNum = mobile.replace(/\D/g, '').slice(-10);
     const msg = encodeURIComponent(
-      `Dear ${name}, this is a gentle reminder from Telepoint regarding your pending EMI of ₹${dueAmount.toLocaleString(
-        'en-IN'
-      )}. Please clear your dues at our store or pay online to keep your mobile active. Helpline: 7003617029.`
+      dueAmount > 0
+        ? `Dear ${name}, this is a gentle reminder from Telepoint regarding your pending EMI of ₹${dueAmount.toLocaleString(
+            'en-IN'
+          )}. Please clear your dues at our store or pay online to keep your mobile active. Helpline: 7003617029.`
+        : `Hello ${name}, greetings from Telepoint! Please let us know if you need any assistance regarding your device EMI account.`
     );
-    Linking.openURL(`https://wa.me/91${cleanNum}?text=${msg}`);
+    const waUrl = `whatsapp://send?phone=91${cleanNum}&text=${msg}`;
+    const webUrl = `https://wa.me/91${cleanNum}?text=${msg}`;
+    Linking.canOpenURL(waUrl)
+      .then(supported => {
+        if (supported) {
+          return Linking.openURL(waUrl);
+        } else {
+          return Linking.openURL(webUrl);
+        }
+      })
+      .catch(() => {
+        Linking.openURL(webUrl).catch(() => {
+          Alert.alert('WhatsApp Error', 'Could not open WhatsApp on this device.');
+        });
+      });
   };
 
   // Open Collect Modal pre-filled
@@ -370,21 +390,6 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
             </View>
           </View>
 
-          {/* Quick Record Button in Header */}
-          <PressableScale
-            onPress={() => {
-              if (customerList.length > 0) {
-                openCollectModal(customerList[0].id, customerList[0].customer_name, 1500);
-              } else {
-                openCollectModal('', '', 1000);
-              }
-            }}
-            style={styles.recordPaymentHeaderBtn}
-            scaleTo={0.95}
-          >
-            <PlusCircle size={18} color="#0F172A" />
-            <Text style={styles.recordPaymentHeaderText}>Collect EMI</Text>
-          </PressableScale>
         </LinearGradient>
 
         {/* Store Performance Metrics */}
@@ -404,7 +409,7 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
 
         <View style={styles.kpiGrid}>
           <View style={styles.kpiRow}>
-            <JellyCard accentColor="#1A6FD6" style={styles.kpiCard}>
+            <JellyCard accentColor="#1A6FD6" style={styles.kpiCard} mountDelay={100}>
               <Text style={styles.kpiLabel}>DISBURSED (THIS MONTH)</Text>
               <CountUp
                 end={mtdStats.disbursedAmount}
@@ -415,7 +420,7 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
               <Text style={styles.kpiSub}>New loans financed</Text>
             </JellyCard>
 
-            <JellyCard accentColor="#10B981" style={styles.kpiCard}>
+            <JellyCard accentColor="#10B981" style={styles.kpiCard} mountDelay={180}>
               <Text style={styles.kpiLabel}>COLLECTED (THIS MONTH)</Text>
               <CountUp
                 end={mtdStats.collectedAmount}
@@ -428,13 +433,13 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
           </View>
 
           <View style={styles.kpiRow}>
-            <JellyCard accentColor="#8B5CF6" style={styles.kpiCard}>
+            <JellyCard accentColor="#8B5CF6" style={styles.kpiCard} mountDelay={260}>
               <Text style={styles.kpiLabel}>ACTIVE LOANS</Text>
               <Text style={[styles.kpiValue, { color: '#7C3AED' }]}>{mtdStats.activePhones}</Text>
               <Text style={styles.kpiSub}>Active customer devices</Text>
             </JellyCard>
 
-            <JellyCard accentColor="#F59E0B" style={styles.kpiCard}>
+            <JellyCard accentColor="#F59E0B" style={styles.kpiCard} mountDelay={340}>
               <Text style={styles.kpiLabel}>PENDING APPROVAL</Text>
               <Text style={[styles.kpiValue, { color: '#D97706' }]}>
                 {mtdStats.pendingApprovals}
@@ -554,11 +559,12 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
                 <Text style={styles.emptySub}>All customers under your store are currently up to date on their EMIs.</Text>
               </View>
             ) : (
-              filteredDue.map(item => (
+              filteredDue.map((item, idx) => (
                 <JellyCard
                   key={item.customer_id}
                   accentColor="#E11D48"
                   style={styles.customerJellyCard}
+                  mountDelay={Math.min(idx, 6) * 50}
                 >
                   <TouchableOpacity
                     onPress={() => handleOpenCustomerDetail(item.customer_id)}
@@ -568,7 +574,7 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
                       <View style={{ flex: 1, paddingRight: 8 }}>
                         <Text style={styles.customerName}>{item.customer_name}</Text>
                         <Text style={styles.customerSub}>
-                          IMEI: {item.imei || 'N/A'} • {item.overdue_count} EMI{item.overdue_count > 1 ? 's' : ''} Overdue
+                          {item.mobile ? `📱 ${item.mobile} • ` : ''}IMEI: {item.imei || 'N/A'} • {item.overdue_count} EMI{item.overdue_count > 1 ? 's' : ''} Overdue
                         </Text>
                       </View>
                       <View style={styles.dueBadge}>
@@ -589,7 +595,7 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
                     )}
                   </TouchableOpacity>
 
-                  {/* Action Button Row */}
+                  {/* 1-Tap Quick Action Row: Call, WhatsApp Reminder, Collect Payment */}
                   <View style={styles.actionButtonRow}>
                     <PressableScale
                       onPress={() => handleCallCustomer(item.mobile, item.customer_name)}
@@ -601,9 +607,7 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
                     </PressableScale>
 
                     <PressableScale
-                      onPress={() =>
-                        handleWhatsAppReminder(item.mobile, item.customer_name, item.total_due)
-                      }
+                      onPress={() => handleWhatsAppReminder(item.mobile, item.customer_name, item.total_due)}
                       style={styles.whatsAppButton}
                       scaleTo={0.92}
                     >
@@ -612,11 +616,9 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
                     </PressableScale>
 
                     <PressableScale
-                      onPress={() =>
-                        openCollectModal(item.customer_id, item.customer_name, item.total_due)
-                      }
+                      onPress={() => openCollectModal(item.customer_id, item.customer_name, item.total_due)}
                       style={styles.collectButton}
-                      scaleTo={0.92}
+                      scaleTo={0.94}
                     >
                       <CreditCard size={14} color="#FFFFFF" />
                       <Text style={styles.collectButtonText}>Collect</Text>
@@ -638,11 +640,12 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
                 <Text style={styles.emptySub}>No installments are maturing within the upcoming 5 days.</Text>
               </View>
             ) : (
-              filteredUpcoming.map(item => (
+              filteredUpcoming.map((item, idx) => (
                 <JellyCard
                   key={`${item.customer_id}-${item.emi_no}`}
                   accentColor="#1A6FD6"
                   style={styles.customerJellyCard}
+                  mountDelay={Math.min(idx, 6) * 50}
                 >
                   <TouchableOpacity
                     onPress={() => handleOpenCustomerDetail(item.customer_id)}
@@ -652,7 +655,7 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
                       <View style={{ flex: 1, paddingRight: 8 }}>
                         <Text style={styles.customerName}>{item.customer_name}</Text>
                         <Text style={styles.customerSub}>
-                          IMEI: {item.imei || 'N/A'} • EMI #{item.emi_no}
+                          {item.mobile ? `📱 ${item.mobile} • ` : ''}IMEI: {item.imei || 'N/A'} • EMI #{item.emi_no}
                         </Text>
                       </View>
                       <View style={styles.upcomingBadge}>
@@ -668,6 +671,7 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
                     </View>
                   </TouchableOpacity>
 
+                  {/* 1-Tap Quick Action Row: Call, WhatsApp Reminder, Collect */}
                   <View style={styles.actionButtonRow}>
                     <PressableScale
                       onPress={() => handleCallCustomer(item.mobile, item.customer_name)}
@@ -679,9 +683,7 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
                     </PressableScale>
 
                     <PressableScale
-                      onPress={() =>
-                        handleWhatsAppReminder(item.mobile, item.customer_name, item.emi_amount)
-                      }
+                      onPress={() => handleWhatsAppReminder(item.mobile, item.customer_name, item.emi_amount)}
                       style={styles.whatsAppButton}
                       scaleTo={0.92}
                     >
@@ -690,11 +692,9 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
                     </PressableScale>
 
                     <PressableScale
-                      onPress={() =>
-                        openCollectModal(item.customer_id, item.customer_name, item.emi_amount)
-                      }
+                      onPress={() => openCollectModal(item.customer_id, item.customer_name, item.emi_amount)}
                       style={styles.collectButton}
-                      scaleTo={0.92}
+                      scaleTo={0.94}
                     >
                       <CreditCard size={14} color="#FFFFFF" />
                       <Text style={styles.collectButtonText}>Collect</Text>
@@ -785,24 +785,31 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
                     <View style={styles.custDirLeft}>
                       <Text style={styles.custDirName}>{c.customer_name}</Text>
                       <Text style={styles.custDirSub}>
-                        {c.mobile || 'No Mobile'} • IMEI: {c.imei || 'N/A'}
+                        {c.mobile ? `📱 ${c.mobile}` : 'No Mobile'} • IMEI: {c.imei || 'N/A'}
                       </Text>
                     </View>
                     <View style={styles.custDirRight}>
-                      <PressableScale
-                        onPress={() => handleCallCustomer(c.mobile || '', c.customer_name)}
-                        style={styles.custDirCallBtn}
-                        scaleTo={0.9}
-                      >
-                        <PhoneCall size={14} color="#1A6FD6" />
-                      </PressableScale>
-                      <PressableScale
-                        onPress={() => openCollectModal(c.id, c.customer_name, 1500)}
-                        style={styles.custDirCollectBtn}
-                        scaleTo={0.9}
-                      >
-                        <CreditCard size={14} color="#059669" />
-                      </PressableScale>
+                      {c.mobile ? (
+                        <>
+                          <PressableScale
+                            onPress={() => handleCallCustomer(c.mobile, c.customer_name)}
+                            style={styles.custDirCallBtn}
+                            scaleTo={0.88}
+                          >
+                            <PhoneCall size={15} color="#1A6FD6" />
+                          </PressableScale>
+                          <PressableScale
+                            onPress={() => handleWhatsAppReminder(c.mobile, c.customer_name, 0)}
+                            style={styles.custDirWaBtn}
+                            scaleTo={0.88}
+                          >
+                            <MessageCircle size={15} color="#059669" />
+                          </PressableScale>
+                        </>
+                      ) : null}
+                      <View style={{ justifyContent: 'center', paddingLeft: 4 }}>
+                        <ChevronRight size={18} color="#CBD5E1" />
+                      </View>
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -1328,6 +1335,16 @@ const styles = StyleSheet.create({
     height: 34,
     borderRadius: 17,
     backgroundColor: '#ECFDF5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  custDirWaBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
     justifyContent: 'center',
     alignItems: 'center',
   },

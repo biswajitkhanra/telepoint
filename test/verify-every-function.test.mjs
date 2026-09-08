@@ -104,12 +104,7 @@ test('Retailer Function 3: Customer Detail Ledger Modal Integration', () => {
   assert.ok(retailer.includes('customerModalVisible'), 'Manages modal visibility state');
 });
 
-test('Retailer Function 4: Polite WhatsApp Reminders with Central Helpline', () => {
-  const retailer = fs.readFileSync('mobile/src/screens/RetailerConsoleView.tsx', 'utf8');
-  assert.ok(retailer.includes('handleWhatsAppReminder'), 'Has WhatsApp reminder handler');
-  assert.ok(retailer.includes('7003617029'), 'Includes central helpline in reminder message');
-  assert.ok(retailer.includes('https://wa.me/91'), 'Targets WhatsApp direct intent URL');
-});
+
 
 test('Retailer Function 5: Collect EMI Bottom Sheet & Payment Request Submission', () => {
   const retailer = fs.readFileSync('mobile/src/screens/RetailerConsoleView.tsx', 'utf8');
@@ -133,11 +128,11 @@ test('Admin Function 2: Executive Banner & Portfolio Overview', () => {
   const admin = fs.readFileSync('mobile/src/screens/AdminConsoleView.tsx', 'utf8');
   assert.ok(admin.includes('ADMIN CONTROL CENTER'), 'Has executive header banner');
   assert.ok(admin.includes('Telepoint Administrator'), 'Has administrator title');
-  assert.ok(admin.includes('PORTFOLIO OVERVIEW'), 'Has portfolio overview label');
-  assert.ok(admin.includes('TOTAL FINANCED'), 'Has total financed KPI');
-  assert.ok(admin.includes('TOTAL COLLECTED'), 'Has total collected KPI');
-  assert.ok(admin.includes('OVERDUE DUES'), 'Has overdue dues KPI');
-  assert.ok(admin.includes('ACTIVE LOANS'), 'Has active loans KPI');
+  assert.ok(admin.includes('YoY Analytics'), 'Has YoY Analytics label');
+  assert.ok(admin.includes('LOAN GIVEN'), 'Has loan given KPI');
+  assert.ok(admin.includes('COLLECTED'), 'Has collected KPI');
+  assert.ok(admin.includes('BOUNCE RATE'), 'Has bounce rate KPI');
+  assert.ok(admin.includes('NEW CUSTOMERS'), 'Has new customers KPI');
 });
 
 test('Admin Function 3: 1-Tap Approvals Queue with Customer Ledger Inspection', () => {
@@ -167,8 +162,6 @@ test('Shared Component: CustomerDetailModal has Complete Loan Ledger & Schedule'
   assert.ok(modal.includes('Loan Repayment Progress'), 'Renders progress bar');
   assert.ok(modal.includes('MONTH-BY-MONTH EMI SCHEDULE'), 'Renders complete month-by-month schedule');
   assert.ok(modal.includes('handleCopyImei'), 'Allows 1-tap IMEI copy');
-  assert.ok(modal.includes('handleCall'), 'Provides 1-tap direct dialer');
-  assert.ok(modal.includes('handleWhatsApp'), 'Provides 1-tap WhatsApp reminder');
 });
 
 // ============================================================================

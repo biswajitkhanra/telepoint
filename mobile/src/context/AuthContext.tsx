@@ -144,6 +144,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   async function switchActiveLoan(loanId: string) {
     setIsLoading(true);
+    // Clear transient state to prevent UI bleed
+    setCustomer(null);
+    setEmis([]);
+    setBreakdown(null);
+    setBroadcasts([]);
     try {
       const res = await loginCustomer({ customer_id: loanId });
       if (res.customer) {

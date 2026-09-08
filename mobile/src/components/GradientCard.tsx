@@ -10,6 +10,12 @@ import {
   PanResponder,
   Dimensions,
 } from 'react-native';
+import ReAnimated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withDelay,
+} from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Sparkles, ArrowUpRight } from 'lucide-react-native';
 import { CountUp } from './CountUp';
@@ -47,6 +53,26 @@ export const GradientCard: React.FC<GradientCardProps> = ({
   // 3D perspective tilt values
   const tiltX = useRef(new Animated.Value(0)).current;
   const tiltY = useRef(new Animated.Value(0)).current;
+
+  // Anti-gravity mount animation (reanimated spring)
+  const mountTranslateY = useSharedValue(40);
+  const mountOpacity = useSharedValue(0);
+  const mountScale = useSharedValue(0.95);
+
+  useEffect(() => {
+    // Mount: float up with spring physics
+    mountTranslateY.value = withDelay(100, withSpring(0, { damping: 14, stiffness: 80, mass: 0.8 }));
+    mountOpacity.value = withDelay(100, withSpring(1, { damping: 20, stiffness: 100 }));
+    mountScale.value = withDelay(100, withSpring(1, { damping: 12, stiffness: 90, mass: 0.7 }));
+  }, []);
+
+  const mountStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: mountTranslateY.value },
+      { scale: mountScale.value },
+    ],
+    opacity: mountOpacity.value,
+  }));
 
   useEffect(() => {
     const glow = Animated.loop(
@@ -109,7 +135,7 @@ export const GradientCard: React.FC<GradientCardProps> = ({
   });
 
   return (
-    <View style={styles.outerContainer}>
+    <ReAnimated.View style={[styles.outerContainer, mountStyle]}>
       {/* Background ambient glow */}
       <Animated.View
         style={[
@@ -211,7 +237,7 @@ export const GradientCard: React.FC<GradientCardProps> = ({
           </View>
         </LinearGradient>
       </Animated.View>
-    </View>
+    </ReAnimated.View>
   );
 };
 

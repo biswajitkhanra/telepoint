@@ -18,6 +18,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  FadeInDown,
+  FadeIn,
+  SlideInDown,
+} from 'react-native-reanimated';
 import {
   Shield,
   Smartphone,
@@ -147,22 +152,28 @@ export const LoginScreen = () => {
             </TouchableOpacity>
           </View>
 
-          {/* Brand Header */}
-          <View style={styles.header}>
+          {/* Brand Header — Anti-gravity float-in */}
+          <Animated.View
+            entering={SlideInDown.delay(100).springify().damping(14).stiffness(80).mass(0.8)}
+            style={styles.header}
+          >
             <View style={styles.logoContainer}>
               <TelepointLogo size={68} />
             </View>
             <Text style={styles.brandTitle}>TelePoint</Text>
             <Text style={styles.brandSubtitle}>Mobile EMI Payments</Text>
-          </View>
+          </Animated.View>
 
-          {/* Headline */}
-          <View style={styles.headlineContainer}>
+          {/* Headline — staggered fade-in */}
+          <Animated.View
+            entering={FadeInDown.delay(250).springify().damping(16).stiffness(90)}
+            style={styles.headlineContainer}
+          >
             <Text style={styles.headlineText}>Welcome back</Text>
             <Text style={styles.headlineSub}>
               Enter your registered mobile or Aadhaar number to view your EMI details
             </Text>
-          </View>
+          </Animated.View>
 
           {/* Segment Toggle: Mobile | Aadhaar */}
           <View style={styles.toggleContainer}>

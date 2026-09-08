@@ -18,6 +18,12 @@ import {
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  FadeIn,
+  FadeOut,
+  SlideInDown,
+  FadeInDown,
+} from 'react-native-reanimated';
 import { Haptics } from '../utils/haptics';
 import {
   X,
@@ -109,23 +115,49 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
     setTimeout(() => setCopiedImei(false), 2000);
   };
 
-  const handleCall = (num?: string | null) => {
-    if (!num) {
-      Alert.alert('No Number', 'No phone number available for this contact.');
+  const handleCall = (phoneToCall?: string) => {
+    const rawNumber = phoneToCall || customer?.mobile;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (!rawNumber) {
+      Alert.alert('No Mobile Number', 'No phone number registered for this customer.');
       return;
     }
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Linking.openURL(`tel:${num}`);
+    const cleanNum = rawNumber.replace(/\D/g, '');
+    const finalNum = cleanNum.length >= 10 ? cleanNum.slice(-10) : cleanNum;
+    Linking.openURL(`tel:${finalNum}`).catch(() => {
+      Alert.alert('Call Failed', 'Unable to initiate call on this device.');
+    });
   };
 
-  const handleWhatsApp = () => {
-    if (!customer?.mobile) return;
+  const handleWhatsApp = (phoneToChat?: string) => {
+    const rawNumber = phoneToChat || customer?.mobile;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const cleanNum = customer.mobile.replace(/\D/g, '').slice(-10);
+    if (!rawNumber) {
+      Alert.alert('No Mobile Number', 'No phone number registered for this customer.');
+      return;
+    }
+    const cleanNum = rawNumber.replace(/\D/g, '').slice(-10);
     const msg = encodeURIComponent(
-      `Hello ${customer.customer_name}, this is Telepoint regarding your financed smartphone (${customer.model_no || 'device'}). Please let us know if you need any assistance with your EMI schedule. Helpline: 7003617029.`
+      `Hello ${customer?.customer_name || 'Customer'}, regarding your Telepoint device loan (IMEI: ${customer?.imei || 'N/A'}). ` +
+        (totalPayableNow > 0
+          ? `You have an active payable installment of ₹${totalPayableNow.toLocaleString('en-IN')}. Please visit the store or pay online to keep your smartphone services active.`
+          : `We hope your smartphone is running great! Feel free to reach out if you need any assistance with your account.`)
     );
-    Linking.openURL(`https://wa.me/91${cleanNum}?text=${msg}`);
+    const waUrl = `whatsapp://send?phone=91${cleanNum}&text=${msg}`;
+    const webUrl = `https://wa.me/91${cleanNum}?text=${msg}`;
+    Linking.canOpenURL(waUrl)
+      .then(supported => {
+        if (supported) {
+          return Linking.openURL(waUrl);
+        } else {
+          return Linking.openURL(webUrl);
+        }
+      })
+      .catch(() => {
+        Linking.openURL(webUrl).catch(() => {
+          Alert.alert('WhatsApp Error', 'Could not open WhatsApp on this device.');
+        });
+      });
   };
 
   const paidCount = emis.filter(e => e.status === 'APPROVED').length;
@@ -148,9 +180,12 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.modalOverlay}>
-        <View style={styles.sheetContainer}>
+    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
+      <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(150)} style={styles.modalOverlay}>
+        <Animated.View
+          entering={SlideInDown.springify().damping(16).stiffness(120).mass(0.8)}
+          style={styles.sheetContainer}
+        >
           {/* Top Sheet Drag Handle & Title */}
           <View style={styles.dragPill} />
 
@@ -186,6 +221,40 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
               {customer?.father_name ? (
                 <Text style={styles.fatherName}>Father: {customer.father_name}</Text>
               ) : null}
+              {customer?.mobile ? (
+                <View style={styles.headerPhoneRow}>
+                  <Text style={styles.headerPhoneText}>📱 +91 {customer.mobile}</Text>
+                  <TouchableOpacity
+                    onPress={() => handleCall(customer.mobile)}
+                    style={styles.headerPhoneChipCall}
+                    activeOpacity={0.7}
+                  >
+                    <PhoneCall size={11} color="#1A6FD6" />
+                    <Text style={styles.headerPhoneChipTextCall}>Call</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => handleWhatsApp(customer.mobile)}
+                    style={styles.headerPhoneChipWa}
+                    activeOpacity={0.7}
+                  >
+                    <MessageCircle size={11} color="#059669" />
+                    <Text style={styles.headerPhoneChipTextWa}>WhatsApp</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+              {customer?.alternate_number_1 ? (
+                <View style={styles.headerAltPhoneRow}>
+                  <Text style={styles.headerAltPhoneText}>Alt: {customer.alternate_number_1}</Text>
+                  <TouchableOpacity
+                    onPress={() => handleCall(customer.alternate_number_1)}
+                    style={styles.headerPhoneChipCall}
+                    activeOpacity={0.7}
+                  >
+                    <PhoneCall size={10} color="#1A6FD6" />
+                    <Text style={styles.headerPhoneChipTextCall}>Call Alt</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
             </View>
 
             <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
@@ -212,12 +281,13 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
                 contentContainerStyle={styles.scrollBody}
               >
                 {/* Financed Device & Contract Banner */}
-                <LinearGradient
-                  colors={['#0F172A', '#1E293B']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.deviceBanner}
-                >
+                <Animated.View entering={FadeInDown.delay(100).springify().damping(14).stiffness(110)}>
+                  <LinearGradient
+                    colors={['#0F172A', '#1E293B']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.deviceBanner}
+                  >
                   <View style={styles.deviceTopRow}>
                     <View style={styles.deviceIconCircle}>
                       <Smartphone size={22} color="#38BDF8" />
@@ -275,10 +345,11 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
                     </View>
                   </View>
                 </LinearGradient>
+              </Animated.View>
 
                 {/* Amount Due Card (if active loan) */}
                 {customer.status === 'RUNNING' && (
-                  <View style={styles.dueCard}>
+                  <Animated.View entering={FadeInDown.delay(180).springify().damping(14).stiffness(110)} style={styles.dueCard}>
                     <View style={styles.dueCardHeader}>
                       <View style={styles.dueTitleCol}>
                         <Text style={styles.dueCardTitle}>CURRENT AMOUNT PAYABLE</Text>
@@ -301,7 +372,7 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
                         </Text>
                       </View>
                     )}
-                  </View>
+                  </Animated.View>
                 )}
 
                 {/* Complete Month-by-Month Installment Ledger */}
@@ -311,20 +382,23 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
                 </View>
 
                 <View style={styles.scheduleList}>
-                  {emis.map(e => {
+                  {emis.map((e, idx) => {
                     const isPaid = e.status === 'APPROVED';
                     const isPartial = e.status === 'PARTIALLY_PAID';
                     const isPending = e.status === 'PENDING_APPROVAL';
 
                     return (
-                      <View
+                      <Animated.View
                         key={e.id || `${e.emi_no}`}
-                        style={[
-                          styles.emiRowCard,
-                          isPaid && styles.emiCardPaid,
-                          isPending && styles.emiCardPending,
-                        ]}
+                        entering={FadeInDown.delay(Math.min(idx, 8) * 35).springify().damping(15).stiffness(120)}
                       >
+                        <View
+                          style={[
+                            styles.emiRowCard,
+                            isPaid && styles.emiCardPaid,
+                            isPending && styles.emiCardPending,
+                          ]}
+                        >
                         <View style={styles.emiNoCircle}>
                           <Text style={[styles.emiNoText, isPaid && { color: '#059669' }]}>#{e.emi_no}</Text>
                         </View>
@@ -382,6 +456,7 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
                           </View>
                         </View>
                       </View>
+                    </Animated.View>
                     );
                   })}
                 </View>
@@ -389,12 +464,12 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
 
               {/* STICKY FOOTER ACTIONS (ALWAYS VISIBLE AT BOTTOM) */}
               <View style={styles.sheetFooter}>
-                <PressableScale onPress={() => handleCall(customer.mobile)} style={styles.footerCallBtn} scaleTo={0.94}>
+                <PressableScale onPress={() => handleCall()} style={styles.footerCallBtn} scaleTo={0.92}>
                   <PhoneCall size={16} color="#1A6FD6" />
                   <Text style={styles.footerCallText}>Call</Text>
                 </PressableScale>
 
-                <PressableScale onPress={handleWhatsApp} style={styles.footerWhatsAppBtn} scaleTo={0.94}>
+                <PressableScale onPress={() => handleWhatsApp()} style={styles.footerWhatsAppBtn} scaleTo={0.92}>
                   <MessageCircle size={16} color="#059669" />
                   <Text style={styles.footerWhatsAppText}>WhatsApp</Text>
                 </PressableScale>
@@ -410,8 +485,8 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
               </View>
             </View>
           )}
-        </View>
-      </View>
+        </Animated.View>
+      </Animated.View>
     </Modal>
   );
 };
@@ -504,6 +579,61 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748B',
     marginTop: 2,
+  },
+  headerPhoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 6,
+    flexWrap: 'wrap',
+  },
+  headerPhoneText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  headerPhoneChipCall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  headerPhoneChipTextCall: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1A6FD6',
+  },
+  headerPhoneChipWa: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  headerPhoneChipTextWa: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  headerAltPhoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 3,
+  },
+  headerAltPhoneText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
   },
   closeBtn: {
     width: 32,

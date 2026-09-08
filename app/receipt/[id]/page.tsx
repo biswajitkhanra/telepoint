@@ -59,28 +59,6 @@ export default async function ReceiptPage({ params }: { params: { id: string } }
             filename={`receipt-${params.id.slice(0, 8)}.pdf`}
             label="⬇️ Download PDF"
           />
-          <a
-            href={`https://wa.me/?text=${encodeURIComponent(
-              [
-                `🧾 *TelePoint EMI Receipt*`,
-                ``,
-                `👤 ${customer?.customer_name ?? ''}`,
-                `📱 ${customer?.mobile ?? ''}`,
-                `🔢 IMEI: ${customer?.imei ?? ''}`,
-                ``,
-                `💰 Total Paid: ₹${request.total_amount}`,
-                `🏷️ Mode: ${request.mode}`,
-                `📅 ${formatInTimeZone(new Date(request.created_at), 'Asia/Kolkata', 'd MMM yyyy')}`,
-                ``,
-                `Receipt: ${process.env.NEXT_PUBLIC_APP_URL || ''}/receipt/${params.id}`,
-              ].join('\n')
-            )}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ padding: '0.625rem 1.25rem', background: '#25d366', color: 'white', border: 'none', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none' }}
-          >
-            📲 Share WhatsApp
-          </a>
         </div>
 
         {/* Receipt card */}

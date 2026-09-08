@@ -32,6 +32,8 @@ interface JellyCardProps {
   glow?: boolean;
   breathing?: boolean;
   activeScale?: number;
+  /** Delay before mount animation (ms). Stagger this for list cascade. */
+  mountDelay?: number;
 }
 
 export const JellyCard: React.FC<JellyCardProps> = ({
@@ -42,12 +44,27 @@ export const JellyCard: React.FC<JellyCardProps> = ({
   glow = true,
   breathing = true,
   activeScale = 0.96,
+  mountDelay = 0,
 }) => {
   const breathAnim = useSharedValue(1);
   const sheenAnim = useSharedValue(0);
 
   const pressScaleX = useSharedValue(1);
   const pressScaleY = useSharedValue(1);
+
+  // Mount animation: float up from below
+  const mountTranslateY = useSharedValue(25);
+  const mountOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    // Staggered mount animation
+    const timer = setTimeout(() => {
+      mountTranslateY.value = withSpring(0, { damping: 14, stiffness: 90, mass: 0.7 });
+      mountOpacity.value = withSpring(1, { damping: 20, stiffness: 100 });
+    }, mountDelay);
+
+    return () => clearTimeout(timer);
+  }, [mountDelay]);
 
   useEffect(() => {
     if (!breathing) return;
@@ -74,16 +91,19 @@ export const JellyCard: React.FC<JellyCardProps> = ({
   const animatedStyle = useAnimatedStyle(() => {
     return {
       transform: [
+        { translateY: mountTranslateY.value },
         { scale: breathAnim.value },
         { scaleX: pressScaleX.value },
         { scaleY: pressScaleY.value },
       ],
+      opacity: mountOpacity.value,
     };
   });
 
   const handlePressIn = () => {
-    pressScaleX.value = withSpring(1 + (1 - activeScale) * 0.7, { damping: 10, stiffness: 240, mass: 0.5 });
-    pressScaleY.value = withSpring(activeScale, { damping: 10, stiffness: 240, mass: 0.5 });
+    // Anti-gravity squash with higher stiffness for snappy response
+    pressScaleX.value = withSpring(1 + (1 - activeScale) * 0.7, { damping: 12, stiffness: 280, mass: 0.4 });
+    pressScaleY.value = withSpring(activeScale, { damping: 12, stiffness: 280, mass: 0.4 });
 
     if (onPress) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -91,8 +111,9 @@ export const JellyCard: React.FC<JellyCardProps> = ({
   };
 
   const handlePressOut = () => {
-    pressScaleX.value = withSpring(1, { damping: 6, stiffness: 200, mass: 1 });
-    pressScaleY.value = withSpring(1, { damping: 6, stiffness: 200, mass: 1 });
+    // Anti-gravity release: lower damping for bouncy wobble
+    pressScaleX.value = withSpring(1, { damping: 5, stiffness: 180, mass: 0.9 });
+    pressScaleY.value = withSpring(1, { damping: 5, stiffness: 180, mass: 0.9 });
   };
 
   const cardContent = (

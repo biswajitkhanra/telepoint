@@ -21,6 +21,11 @@ import {
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import * as Clipboard from 'expo-clipboard';
+import Animated, {
+  FadeIn,
+  FadeOut,
+  SlideInDown,
+} from 'react-native-reanimated';
 import { Haptics } from '../utils/haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -343,13 +348,17 @@ export const CollectPaymentSheet: React.FC<CollectPaymentSheetProps> = ({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.modalOverlay}
-      >
-        <View style={styles.sheetContainer}>
-          {/* Top Sheet Drag Handle & Header */}
+    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
+      <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(150)} style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1, justifyContent: 'flex-end' }}
+        >
+          <Animated.View
+            entering={SlideInDown.springify().damping(16).stiffness(120).mass(0.8)}
+            style={styles.sheetContainer}
+          >
+            {/* Top Sheet Drag Handle & Header */}
           <View style={styles.sheetHeader}>
             <View style={styles.dragPill} />
             <View style={styles.headerTitleRow}>
@@ -743,9 +752,10 @@ export const CollectPaymentSheet: React.FC<CollectPaymentSheetProps> = ({
               </View>
             </View>
           )}
-        </View>
+        </Animated.View>
       </KeyboardAvoidingView>
-    </Modal>
+    </Animated.View>
+  </Modal>
   );
 };
 
