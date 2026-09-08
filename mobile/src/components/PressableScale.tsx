@@ -51,14 +51,10 @@ export const PressableScale: React.FC<PressableScaleProps> = ({
   });
 
   const handlePressIn = (e: GestureResponderEvent) => {
-    // Jelly squash & stretch: compresses vertically, bulges horizontally
-    const targetY = scaleTo;
-    const targetX = jelly ? 1 + (1 - scaleTo) * 0.75 : scaleTo;
-
-    // Anti-gravity spring physics: custom damping for fluid response
-    scaleX.value = withSpring(targetX, { damping: 12, stiffness: 280, mass: 0.4 });
-    scaleY.value = withSpring(targetY, { damping: 12, stiffness: 280, mass: 0.4 });
-    pressOpacity.value = withSpring(0.85, { damping: 20, stiffness: 300 });
+    const target = scaleTo;
+    scaleX.value = withSpring(target, { damping: 20, stiffness: 350, mass: 0.5 });
+    scaleY.value = withSpring(target, { damping: 20, stiffness: 350, mass: 0.5 });
+    pressOpacity.value = withSpring(0.92, { damping: 20, stiffness: 300 });
 
     if (hapticStyle === 'light') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -74,10 +70,10 @@ export const PressableScale: React.FC<PressableScaleProps> = ({
   };
 
   const handlePressOut = (e: GestureResponderEvent) => {
-    // Anti-gravity release: low damping (5) for pronounced wobble overshoot
-    scaleX.value = withSpring(1, { damping: 5, stiffness: 180, mass: 0.9 });
-    scaleY.value = withSpring(1, { damping: 5, stiffness: 180, mass: 0.9 });
-    pressOpacity.value = withSpring(1, { damping: 15, stiffness: 200 });
+    // Pure fluid release: critical damping 24 for instant zero-wobble recovery
+    scaleX.value = withSpring(1, { damping: 24, stiffness: 300, mass: 0.6 });
+    scaleY.value = withSpring(1, { damping: 24, stiffness: 300, mass: 0.6 });
+    pressOpacity.value = withSpring(1, { damping: 20, stiffness: 300 });
 
     if (onPressOut) onPressOut(e);
   };

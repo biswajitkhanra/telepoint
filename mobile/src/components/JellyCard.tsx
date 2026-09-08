@@ -46,74 +46,40 @@ export const JellyCard: React.FC<JellyCardProps> = ({
   activeScale = 0.96,
   mountDelay = 0,
 }) => {
-  const breathAnim = useSharedValue(1);
-  const sheenAnim = useSharedValue(0);
+  const pressScale = useSharedValue(1);
 
-  const pressScaleX = useSharedValue(1);
-  const pressScaleY = useSharedValue(1);
-
-  // Mount animation: float up from below
-  const mountTranslateY = useSharedValue(25);
+  // Mount animation: smooth silky fluid slide-up
+  const mountTranslateY = useSharedValue(16);
   const mountOpacity = useSharedValue(0);
 
   useEffect(() => {
-    // Staggered mount animation
     const timer = setTimeout(() => {
-      mountTranslateY.value = withSpring(0, { damping: 14, stiffness: 90, mass: 0.7 });
-      mountOpacity.value = withSpring(1, { damping: 20, stiffness: 100 });
+      mountTranslateY.value = withSpring(0, { damping: 24, stiffness: 180, mass: 0.8 });
+      mountOpacity.value = withTiming(1, { duration: 240 });
     }, mountDelay);
 
     return () => clearTimeout(timer);
   }, [mountDelay]);
 
-  useEffect(() => {
-    if (!breathing) return;
-
-    breathAnim.value = withRepeat(
-      withSequence(
-        withTiming(1.012, { duration: 1800 }),
-        withTiming(1.0, { duration: 1800 })
-      ),
-      -1,
-      true
-    );
-
-    sheenAnim.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 2200 }),
-        withDelay(4000, withTiming(0, { duration: 0 }))
-      ),
-      -1,
-      false
-    );
-  }, [breathing, breathAnim, sheenAnim]);
-
   const animatedStyle = useAnimatedStyle(() => {
     return {
       transform: [
         { translateY: mountTranslateY.value },
-        { scale: breathAnim.value },
-        { scaleX: pressScaleX.value },
-        { scaleY: pressScaleY.value },
+        { scale: pressScale.value },
       ],
       opacity: mountOpacity.value,
     };
   });
 
   const handlePressIn = () => {
-    // Anti-gravity squash with higher stiffness for snappy response
-    pressScaleX.value = withSpring(1 + (1 - activeScale) * 0.7, { damping: 12, stiffness: 280, mass: 0.4 });
-    pressScaleY.value = withSpring(activeScale, { damping: 12, stiffness: 280, mass: 0.4 });
-
+    pressScale.value = withSpring(activeScale || 0.98, { damping: 20, stiffness: 350 });
     if (onPress) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   };
 
   const handlePressOut = () => {
-    // Anti-gravity release: lower damping for bouncy wobble
-    pressScaleX.value = withSpring(1, { damping: 5, stiffness: 180, mass: 0.9 });
-    pressScaleY.value = withSpring(1, { damping: 5, stiffness: 180, mass: 0.9 });
+    pressScale.value = withSpring(1, { damping: 22, stiffness: 300 });
   };
 
   const cardContent = (
