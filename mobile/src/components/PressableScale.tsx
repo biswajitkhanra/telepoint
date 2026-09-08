@@ -1,15 +1,19 @@
 // components/PressableScale.tsx
 // Tactile pressable wrapper with authentic Jelly Squash & Stretch physics & haptic micro-delight
 
-import React, { useRef } from 'react';
+import React from 'react';
 import {
   Pressable,
-  Animated,
   PressableProps,
   StyleProp,
   ViewStyle,
   GestureResponderEvent,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
 interface PressableScaleProps extends PressableProps {
@@ -31,28 +35,25 @@ export const PressableScale: React.FC<PressableScaleProps> = ({
   onPress,
   ...rest
 }) => {
-  const scaleXAnim = useRef(new Animated.Value(1)).current;
-  const scaleYAnim = useRef(new Animated.Value(1)).current;
+  const scaleX = useSharedValue(1);
+  const scaleY = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        { scaleX: scaleX.value },
+        { scaleY: scaleY.value },
+      ],
+    };
+  });
 
   const handlePressIn = (e: GestureResponderEvent) => {
     // Jelly squash & stretch: compresses vertically, bulges horizontally
     const targetY = scaleTo;
     const targetX = jelly ? 1 + (1 - scaleTo) * 0.75 : scaleTo;
 
-    Animated.parallel([
-      Animated.spring(scaleXAnim, {
-        toValue: targetX,
-        tension: 240,
-        friction: 8,
-        useNativeDriver: true,
-      }),
-      Animated.spring(scaleYAnim, {
-        toValue: targetY,
-        tension: 240,
-        friction: 8,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    scaleX.value = withSpring(targetX, { damping: 10, stiffness: 240, mass: 0.5 });
+    scaleY.value = withSpring(targetY, { damping: 10, stiffness: 240, mass: 0.5 });
 
     if (hapticStyle === 'light') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -69,20 +70,8 @@ export const PressableScale: React.FC<PressableScaleProps> = ({
 
   const handlePressOut = (e: GestureResponderEvent) => {
     // Spring release with low friction for authentic jelly wobble
-    Animated.parallel([
-      Animated.spring(scaleXAnim, {
-        toValue: 1,
-        tension: 180,
-        friction: 4.5,
-        useNativeDriver: true,
-      }),
-      Animated.spring(scaleYAnim, {
-        toValue: 1,
-        tension: 180,
-        friction: 4.5,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    scaleX.value = withSpring(1, { damping: 6, stiffness: 200, mass: 1 });
+    scaleY.value = withSpring(1, { damping: 6, stiffness: 200, mass: 1 });
 
     if (onPressOut) onPressOut(e);
   };
@@ -94,19 +83,10 @@ export const PressableScale: React.FC<PressableScaleProps> = ({
       onPress={onPress}
       {...rest}
     >
-      <Animated.View
-        style={[
-          style,
-          {
-            transform: [
-              { scaleX: scaleXAnim },
-              { scaleY: scaleYAnim },
-            ],
-          },
-        ]}
-      >
+      <Animated.View style={[style, animatedStyle]}>
         {children}
       </Animated.View>
     </Pressable>
   );
 };
+

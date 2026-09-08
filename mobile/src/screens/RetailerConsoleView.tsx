@@ -15,8 +15,14 @@ import {
   Modal,
   Linking,
   RefreshControl,
-  Animated,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import {
@@ -109,30 +115,28 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'due' | 'upcoming' | 'ledger' | 'customers'>('due');
   const [searchQuery, setSearchQuery] = useState('');
+  const insets = useSafeAreaInsets();
 
   // Smooth tab animation physics
-  const tabFadeAnim = useRef(new Animated.Value(1)).current;
-  const tabSlideAnim = useRef(new Animated.Value(0)).current;
+  const tabFadeAnim = useSharedValue(1);
+  const tabSlideAnim = useSharedValue(0);
+
+  const tabAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: tabFadeAnim.value,
+      transform: [{ translateY: tabSlideAnim.value }],
+    };
+  });
 
   const handleSelectTab = (tab: 'due' | 'upcoming' | 'ledger' | 'customers') => {
     if (tab === activeTab) return;
     Haptics.selectionAsync();
-    tabFadeAnim.setValue(0);
-    tabSlideAnim.setValue(10);
+    tabFadeAnim.value = 0;
+    tabSlideAnim.value = 10;
     setActiveTab(tab);
-    Animated.parallel([
-      Animated.timing(tabFadeAnim, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.spring(tabSlideAnim, {
-        toValue: 0,
-        tension: 300,
-        friction: 20,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    
+    tabFadeAnim.value = withTiming(1, { duration: 200 });
+    tabSlideAnim.value = withSpring(0, { damping: 15, stiffness: 300, mass: 1 });
   };
 
   // Data states
@@ -331,7 +335,7 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -532,7 +536,7 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
         <Animated.View
           style={[
             styles.tabContentContainer,
-            { opacity: tabFadeAnim, transform: [{ translateY: tabSlideAnim }] },
+            tabAnimatedStyle,
           ]}
         >
         {/* TAB 1: OVERDUE ACCOUNTS (Living Jelly Cards with WhatsApp / Call / Collect) */}
