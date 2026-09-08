@@ -19,6 +19,7 @@ mobile/ios/
 *.apk
 *.aab
 google-services.json
+mobile/dist/
 service-account*.json
 
 # production
