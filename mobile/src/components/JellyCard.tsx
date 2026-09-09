@@ -2,25 +2,17 @@
 // Living, fluid Jelly Card container with continuous subtle breathing,
 // specular light sheen track, layered ambient glow, and squash & stretch touch response.
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
+  Animated,
   StyleProp,
   ViewStyle,
   Pressable,
 } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withRepeat,
-  withSequence,
-  withSpring,
-  withDelay,
-} from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Haptics } from '../utils/haptics';
+import * as Haptics from 'expo-haptics';
 import { Colors } from '../constants/colors';
 import { Radius, Shadow } from '../constants/design';
 
@@ -32,8 +24,6 @@ interface JellyCardProps {
   glow?: boolean;
   breathing?: boolean;
   activeScale?: number;
-  /** Delay before mount animation (ms). Stagger this for list cascade. */
-  mountDelay?: number;
 }
 
 export const JellyCard: React.FC<JellyCardProps> = ({
@@ -44,42 +34,95 @@ export const JellyCard: React.FC<JellyCardProps> = ({
   glow = true,
   breathing = true,
   activeScale = 0.96,
-  mountDelay = 0,
 }) => {
-  const pressScale = useSharedValue(1);
+  // Breathing scale oscillation
+  const breathAnim = useRef(new Animated.Value(1)).current;
+  const sheenAnim = useRef(new Animated.Value(0)).current;
 
-  // Mount animation: smooth silky fluid slide-up
-  const mountTranslateY = useSharedValue(16);
-  const mountOpacity = useSharedValue(0);
+  // Touch squash & stretch
+  const pressScaleX = useRef(new Animated.Value(1)).current;
+  const pressScaleY = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      mountTranslateY.value = withSpring(0, { damping: 24, stiffness: 180, mass: 0.8 });
-      mountOpacity.value = withTiming(1, { duration: 240 });
-    }, mountDelay);
+    if (!breathing) return;
 
-    return () => clearTimeout(timer);
-  }, [mountDelay]);
+    // Gentle 3-second breathing pulse that gives cards a living feel
+    const breathe = Animated.loop(
+      Animated.sequence([
+        Animated.timing(breathAnim, {
+          toValue: 1.012,
+          duration: 1800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(breathAnim, {
+          toValue: 1.0,
+          duration: 1800,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    breathe.start();
 
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [
-        { translateY: mountTranslateY.value },
-        { scale: pressScale.value },
-      ],
-      opacity: mountOpacity.value,
+    // Occasional gentle sheen sweep
+    const sheen = Animated.loop(
+      Animated.sequence([
+        Animated.timing(sheenAnim, {
+          toValue: 1,
+          duration: 2200,
+          useNativeDriver: true,
+        }),
+        Animated.delay(4000),
+        Animated.timing(sheenAnim, {
+          toValue: 0,
+          duration: 0,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    sheen.start();
+
+    return () => {
+      breathe.stop();
+      sheen.stop();
     };
-  });
+  }, [breathing]);
 
   const handlePressIn = () => {
-    pressScale.value = withSpring(activeScale || 0.98, { damping: 20, stiffness: 350 });
+    Animated.parallel([
+      Animated.spring(pressScaleX, {
+        toValue: 1 + (1 - activeScale) * 0.7,
+        tension: 240,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+      Animated.spring(pressScaleY, {
+        toValue: activeScale,
+        tension: 240,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
     if (onPress) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   };
 
   const handlePressOut = () => {
-    pressScale.value = withSpring(1, { damping: 22, stiffness: 300 });
+    Animated.parallel([
+      Animated.spring(pressScaleX, {
+        toValue: 1,
+        tension: 180,
+        friction: 4.5,
+        useNativeDriver: true,
+      }),
+      Animated.spring(pressScaleY, {
+        toValue: 1,
+        tension: 180,
+        friction: 4.5,
+        useNativeDriver: true,
+      }),
+    ]).start();
   };
 
   const cardContent = (
@@ -92,7 +135,13 @@ export const JellyCard: React.FC<JellyCardProps> = ({
           shadowRadius: 18,
           shadowOffset: { width: 0, height: 8 },
         },
-        animatedStyle,
+        {
+          transform: [
+            { scale: breathAnim },
+            { scaleX: pressScaleX },
+            { scaleY: pressScaleY },
+          ],
+        },
         style,
       ]}
     >
@@ -162,4 +211,3 @@ const styles = StyleSheet.create({
     opacity: 0.85,
   },
 });
-

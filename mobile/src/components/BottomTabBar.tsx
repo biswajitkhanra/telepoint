@@ -1,21 +1,18 @@
 // components/BottomTabBar.tsx
-// Anti-Gravity Custom Bottom Tab Bar with spring sliding indicator, icon scale bounce & haptics
+// Custom animated bottom tab bar with spring sliding indicator & tactile haptics
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
+  Animated,
+  Dimensions,
   Platform,
 } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-} from 'react-native-reanimated';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { Haptics } from '../utils/haptics';
+import * as Haptics from 'expo-haptics';
 import {
   LayoutDashboard,
   CalendarDays,
@@ -25,48 +22,25 @@ import {
 import { Colors } from '../constants/colors';
 import { Radius, Spacing, Shadow } from '../constants/design';
 
-import { useWindowDimensions } from 'react-native';
-
-// Spring config for the sliding indicator
-const INDICATOR_SPRING = { damping: 18, stiffness: 200, mass: 0.6 };
-// Spring config for icon bounce
-const ICON_SPRING_IN = { damping: 8, stiffness: 300, mass: 0.4 };
-const ICON_SPRING_OUT = { damping: 6, stiffness: 150, mass: 0.7 };
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export const BottomTabBar: React.FC<BottomTabBarProps> = ({
   state,
   descriptors,
   navigation,
 }) => {
-  const { width: windowWidth } = useWindowDimensions();
-  const containerWidth = Math.min(windowWidth, 520);
   const totalTabs = state.routes.length;
-  const tabWidth = Math.max(0, (containerWidth - Spacing.lg * 2) / totalTabs);
-
-  // Reanimated shared values for smooth springs
-  const indicatorX = useSharedValue(state.index * tabWidth);
-
-  // Per-tab icon scale for bounce effect
-  const iconScales = Array.from({ length: totalTabs }, () => useSharedValue(1));
+  const tabWidth = (SCREEN_WIDTH - Spacing.lg * 2) / totalTabs;
+  const translateX = useRef(new Animated.Value(state.index * tabWidth)).current;
 
   useEffect(() => {
-    // Spring the indicator to the new tab position
-    indicatorX.value = withSpring(state.index * tabWidth, INDICATOR_SPRING);
-
-    // Bounce the active icon
-    const activeScale = iconScales[state.index];
-    if (activeScale) {
-      activeScale.value = withSpring(1.25, ICON_SPRING_IN);
-      // Settle back
-      setTimeout(() => {
-        activeScale.value = withSpring(1, ICON_SPRING_OUT);
-      }, 150);
-    }
+    Animated.spring(translateX, {
+      toValue: state.index * tabWidth,
+      tension: 320,
+      friction: 26,
+      useNativeDriver: true,
+    }).start();
   }, [state.index, tabWidth]);
-
-  const indicatorStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: indicatorX.value }],
-  }));
 
   return (
     <View style={styles.tabBarWrapper}>
@@ -77,8 +51,8 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
             styles.activeIndicatorPill,
             {
               width: tabWidth - 12,
+              transform: [{ translateX }],
             },
-            indicatorStyle,
           ]}
         />
 
@@ -126,12 +100,6 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
 
           const iconColor = isFocused ? Colors.primary : Colors.textSecondary;
 
-          // Animated icon scale for bounce
-          // eslint-disable-next-line react-hooks/rules-of-hooks
-          const iconAnimStyle = useAnimatedStyle(() => ({
-            transform: [{ scale: iconScales[index].value }],
-          }));
-
           return (
             <TouchableOpacity
               key={route.key}
@@ -144,9 +112,7 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
               activeOpacity={0.8}
             >
               <View style={styles.tabContent}>
-                <Animated.View style={iconAnimStyle}>
-                  {getIcon(iconColor)}
-                </Animated.View>
+                {getIcon(iconColor)}
                 <Text
                   style={[
                     styles.tabLabel,

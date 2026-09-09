@@ -8,7 +8,7 @@ import {
   ScrollView,
   Share,
 } from 'react-native';
-import { Haptics } from '../utils/haptics';
+import * as Haptics from 'expo-haptics';
 import {
   CheckCircle2,
   Share2,

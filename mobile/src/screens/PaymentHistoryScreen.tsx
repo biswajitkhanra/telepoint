@@ -20,7 +20,7 @@ import {
   ShieldCheck,
   Zap,
 } from 'lucide-react-native';
-import { Haptics } from '../utils/haptics';
+import * as Haptics from 'expo-haptics';
 import { useAuth } from '../context/AuthContext';
 import { CountUp } from '../components/CountUp';
 import { ReceiptModal } from '../components/ReceiptModal';

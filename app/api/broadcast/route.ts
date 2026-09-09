@@ -44,16 +44,6 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await svc.from('broadcast_messages').insert(insertRow).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  // Trigger automatic push notifications to targeted customer or retailer customers
-  try {
-    const { dispatchBroadcastPush } = await import('@/lib/notifications/broadcastPushEngine');
-    // Run in background or await delivery
-    await dispatchBroadcastPush(data);
-  } catch (pushErr) {
-    console.error('[BroadcastRoute] Push dispatch exception:', pushErr);
-  }
-
   return NextResponse.json({ success: true, broadcast: data });
 }
 

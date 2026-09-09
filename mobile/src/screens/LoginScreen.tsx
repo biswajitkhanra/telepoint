@@ -15,15 +15,9 @@ import {
   Modal,
   SafeAreaView,
   StatusBar,
-  Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, {
-  FadeInDown,
-  FadeIn,
-  SlideInDown,
-} from 'react-native-reanimated';
 import {
   Shield,
   Smartphone,
@@ -33,10 +27,11 @@ import {
   Sparkles,
   Fingerprint,
   CheckCircle2,
+  Users,
   X,
   Lock,
 } from 'lucide-react-native';
-import { Haptics } from '../utils/haptics';
+import * as Haptics from 'expo-haptics';
 import { useAuth } from '../context/AuthContext';
 import { TelepointLogo } from '../components/TelepointLogo';
 import { MultiLoanCustomer } from '../types';
@@ -46,7 +41,7 @@ import { Spacing, Radius, Shadow } from '../constants/design';
 export const LoginScreen = () => {
   const insets = useSafeAreaInsets();
   const topInset = Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight || 28 : 0);
-  const { login, isLoading } = useAuth();
+  const { login, isLoading, resetRolePreference, setRolePreference } = useAuth();
   const [authMode, setAuthMode] = useState<'mobile' | 'aadhaar'>('mobile');
   const [mobile, setMobile] = useState('');
   const [aadhaar, setAadhaar] = useState('');
@@ -137,29 +132,37 @@ export const LoginScreen = () => {
           <View style={styles.orbTopLeft} pointerEvents="none" />
           <View style={styles.orbBottomRight} pointerEvents="none" />
 
+          {/* Top Switch to Staff Portal Pill */}
+          <View style={styles.topSwitchRoleContainer}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={async () => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                await setRolePreference('staff');
+              }}
+              style={styles.topRoleSwitchPill}
+            >
+              <Users size={12} color="#1A6FD6" />
+              <Text style={styles.topRoleSwitchPillText}>Staff or Store Owner? Login here ➔</Text>
+            </TouchableOpacity>
+          </View>
 
-          {/* Brand Header — Anti-gravity float-in */}
-          <Animated.View
-            entering={SlideInDown.delay(100).springify().damping(14).stiffness(80).mass(0.8)}
-            style={styles.header}
-          >
+          {/* Brand Header */}
+          <View style={styles.header}>
             <View style={styles.logoContainer}>
               <TelepointLogo size={68} />
             </View>
             <Text style={styles.brandTitle}>TelePoint</Text>
             <Text style={styles.brandSubtitle}>Mobile EMI Payments</Text>
-          </Animated.View>
+          </View>
 
-          {/* Headline — staggered fade-in */}
-          <Animated.View
-            entering={FadeInDown.delay(250).springify().damping(16).stiffness(90)}
-            style={styles.headlineContainer}
-          >
+          {/* Headline */}
+          <View style={styles.headlineContainer}>
             <Text style={styles.headlineText}>Welcome back</Text>
             <Text style={styles.headlineSub}>
               Enter your registered mobile or Aadhaar number to view your EMI details
             </Text>
-          </Animated.View>
+          </View>
 
           {/* Segment Toggle: Mobile | Aadhaar */}
           <View style={styles.toggleContainer}>
@@ -297,27 +300,35 @@ export const LoginScreen = () => {
             </TouchableOpacity>
 
             <View style={styles.sessionLockRow}>
-              <Shield size={14} color="#059669" />
+              <Fingerprint size={15} color="#1A6FD6" />
               <Text style={styles.sessionLockText}>
-                Secure customer portal • Your session stays signed in safely
+                Persistent device lockdown • Kept signed in safely
               </Text>
             </View>
           </View>
 
-          {/* Customer Helpline & Support */}
+          {/* Mode Switcher Option (For Staff / Admins) */}
           <TouchableOpacity
             activeOpacity={0.8}
-            style={styles.footerNote}
-            onPress={() => {
-              Haptics.selectionAsync();
-              Linking.openURL('tel:7003617029').catch(() => {});
+            style={styles.switchStaffBtn}
+            onPress={async () => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              await setRolePreference('staff');
             }}
           >
-            <Sparkles size={14} color="#1A6FD6" />
-            <Text style={styles.footerText}>
-              Need help logging in? Call Helpline: <Text style={{ fontWeight: '800', color: '#1A6FD6' }}>+91 70036 17029</Text>
+            <Users size={15} color="#1A6FD6" />
+            <Text style={styles.switchStaffText}>
+              Are you a Store Retailer or Super Admin? Open Staff Login →
             </Text>
           </TouchableOpacity>
+
+          {/* Footer note with fixed central helpline */}
+          <View style={styles.footerNote}>
+            <Sparkles size={13} color="#64748B" />
+            <Text style={styles.footerText}>
+              Need assistance? Central Helpline: +91 70036 17029
+            </Text>
+          </View>
         </ScrollView>
 
         {/* Multi-Loan Selection Modal */}
@@ -392,9 +403,6 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    maxWidth: 480,
-    width: '100%',
-    alignSelf: 'center',
   },
   scrollContent: {
     flexGrow: 1,
@@ -423,7 +431,26 @@ const styles = StyleSheet.create({
     backgroundColor: '#EEF2FF',
     opacity: 0.6,
   },
-
+  topSwitchRoleContainer: {
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  topRoleSwitchPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#EFF5FF',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(26, 111, 214, 0.25)',
+  },
+  topRoleSwitchPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1A6FD6',
+  },
   header: {
     alignItems: 'center',
     marginBottom: 20,

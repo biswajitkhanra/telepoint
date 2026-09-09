@@ -15,16 +15,10 @@ import {
   Modal,
   Linking,
   RefreshControl,
+  Animated,
 } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withSpring,
-} from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Haptics } from '../utils/haptics';
+import * as Haptics from 'expo-haptics';
 import {
   PhoneCall,
   MessageCircle,
@@ -47,7 +41,6 @@ import { CountUp } from '../components/CountUp';
 import { JellyCard } from '../components/JellyCard';
 import { PressableScale } from '../components/PressableScale';
 import { CustomerDetailModal } from '../components/CustomerDetailModal';
-import { CollectPaymentSheet } from '../components/CollectPaymentSheet';
 import { PORTAL_BASE_URL } from '../config';
 import { Colors } from '../constants/colors';
 import { Spacing, Radius, Shadow } from '../constants/design';
@@ -116,28 +109,30 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'due' | 'upcoming' | 'ledger' | 'customers'>('due');
   const [searchQuery, setSearchQuery] = useState('');
-  const insets = useSafeAreaInsets();
 
   // Smooth tab animation physics
-  const tabFadeAnim = useSharedValue(1);
-  const tabSlideAnim = useSharedValue(0);
-
-  const tabAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      opacity: tabFadeAnim.value,
-      transform: [{ translateY: tabSlideAnim.value }],
-    };
-  });
+  const tabFadeAnim = useRef(new Animated.Value(1)).current;
+  const tabSlideAnim = useRef(new Animated.Value(0)).current;
 
   const handleSelectTab = (tab: 'due' | 'upcoming' | 'ledger' | 'customers') => {
     if (tab === activeTab) return;
     Haptics.selectionAsync();
-    tabFadeAnim.value = 0;
-    tabSlideAnim.value = 10;
+    tabFadeAnim.setValue(0);
+    tabSlideAnim.setValue(10);
     setActiveTab(tab);
-    
-    tabFadeAnim.value = withTiming(1, { duration: 200 });
-    tabSlideAnim.value = withSpring(0, { damping: 15, stiffness: 300, mass: 1 });
+    Animated.parallel([
+      Animated.timing(tabFadeAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.spring(tabSlideAnim, {
+        toValue: 0,
+        tension: 300,
+        friction: 20,
+        useNativeDriver: true,
+      }),
+    ]).start();
   };
 
   // Data states
@@ -208,21 +203,17 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
   };
 
   // Direct Call Action
-  const handleCallCustomer = (mobile: string | null | undefined, name: string) => {
+  const handleCallCustomer = (mobile: string, name: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (!mobile) {
       Alert.alert('No Mobile Number', `No phone number registered for ${name}.`);
       return;
     }
-    const cleanNum = mobile.replace(/\D/g, '');
-    const finalNum = cleanNum.length >= 10 ? cleanNum.slice(-10) : cleanNum;
-    Linking.openURL(`tel:${finalNum}`).catch(() => {
-      Alert.alert('Call Failed', 'Unable to initiate call on this device.');
-    });
+    Linking.openURL(`tel:${mobile}`);
   };
 
   // Direct WhatsApp Reminder Action
-  const handleWhatsAppReminder = (mobile: string | null | undefined, name: string, dueAmount: number) => {
+  const handleWhatsAppReminder = (mobile: string, name: string, dueAmount: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (!mobile) {
       Alert.alert('No Mobile Number', `No phone number registered for ${name}.`);
@@ -230,27 +221,11 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
     }
     const cleanNum = mobile.replace(/\D/g, '').slice(-10);
     const msg = encodeURIComponent(
-      dueAmount > 0
-        ? `Dear ${name}, this is a gentle reminder from Telepoint regarding your pending EMI of ₹${dueAmount.toLocaleString(
-            'en-IN'
-          )}. Please clear your dues at our store or pay online to keep your mobile active. Helpline: 7003617029.`
-        : `Hello ${name}, greetings from Telepoint! Please let us know if you need any assistance regarding your device EMI account.`
+      `Dear ${name}, this is a gentle reminder from Telepoint regarding your pending EMI of ₹${dueAmount.toLocaleString(
+        'en-IN'
+      )}. Please clear your dues at our store or pay online to keep your mobile active. Helpline: 7003617029.`
     );
-    const waUrl = `whatsapp://send?phone=91${cleanNum}&text=${msg}`;
-    const webUrl = `https://wa.me/91${cleanNum}?text=${msg}`;
-    Linking.canOpenURL(waUrl)
-      .then(supported => {
-        if (supported) {
-          return Linking.openURL(waUrl);
-        } else {
-          return Linking.openURL(webUrl);
-        }
-      })
-      .catch(() => {
-        Linking.openURL(webUrl).catch(() => {
-          Alert.alert('WhatsApp Error', 'Could not open WhatsApp on this device.');
-        });
-      });
+    Linking.openURL(`https://wa.me/91${cleanNum}?text=${msg}`);
   };
 
   // Open Collect Modal pre-filled
@@ -356,7 +331,7 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
   }
 
   return (
-    <View style={[styles.container, styles.mainWrapper]}>
+    <View style={styles.container}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -390,6 +365,21 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
             </View>
           </View>
 
+          {/* Quick Record Button in Header */}
+          <PressableScale
+            onPress={() => {
+              if (customerList.length > 0) {
+                openCollectModal(customerList[0].id, customerList[0].customer_name, 1500);
+              } else {
+                openCollectModal('', '', 1000);
+              }
+            }}
+            style={styles.recordPaymentHeaderBtn}
+            scaleTo={0.95}
+          >
+            <PlusCircle size={18} color="#0F172A" />
+            <Text style={styles.recordPaymentHeaderText}>Collect EMI</Text>
+          </PressableScale>
         </LinearGradient>
 
         {/* Store Performance Metrics */}
@@ -408,45 +398,41 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
         </View>
 
         <View style={styles.kpiGrid}>
-          <View style={styles.kpiRow}>
-            <JellyCard accentColor="#1A6FD6" style={styles.kpiCard} mountDelay={100}>
-              <Text style={styles.kpiLabel}>DISBURSED (THIS MONTH)</Text>
-              <CountUp
-                end={mtdStats.disbursedAmount}
-                prefix="₹"
-                style={[styles.kpiValue, { color: '#1A6FD6' }]}
-                duration={700}
-              />
-              <Text style={styles.kpiSub}>New loans financed</Text>
-            </JellyCard>
+          <JellyCard accentColor="#1A6FD6" style={styles.kpiCard}>
+            <Text style={styles.kpiLabel}>DISBURSED (THIS MONTH)</Text>
+            <CountUp
+              end={mtdStats.disbursedAmount}
+              prefix="₹"
+              style={[styles.kpiValue, { color: '#1A6FD6' }]}
+              duration={700}
+            />
+            <Text style={styles.kpiSub}>New loans financed</Text>
+          </JellyCard>
 
-            <JellyCard accentColor="#10B981" style={styles.kpiCard} mountDelay={180}>
-              <Text style={styles.kpiLabel}>COLLECTED (THIS MONTH)</Text>
-              <CountUp
-                end={mtdStats.collectedAmount}
-                prefix="₹"
-                style={[styles.kpiValue, { color: '#059669' }]}
-                duration={700}
-              />
-              <Text style={styles.kpiSub}>Settled installments</Text>
-            </JellyCard>
-          </View>
+          <JellyCard accentColor="#10B981" style={styles.kpiCard}>
+            <Text style={styles.kpiLabel}>COLLECTED (THIS MONTH)</Text>
+            <CountUp
+              end={mtdStats.collectedAmount}
+              prefix="₹"
+              style={[styles.kpiValue, { color: '#059669' }]}
+              duration={700}
+            />
+            <Text style={styles.kpiSub}>Settled installments</Text>
+          </JellyCard>
 
-          <View style={styles.kpiRow}>
-            <JellyCard accentColor="#8B5CF6" style={styles.kpiCard} mountDelay={260}>
-              <Text style={styles.kpiLabel}>ACTIVE LOANS</Text>
-              <Text style={[styles.kpiValue, { color: '#7C3AED' }]}>{mtdStats.activePhones}</Text>
-              <Text style={styles.kpiSub}>Active customer devices</Text>
-            </JellyCard>
+          <JellyCard accentColor="#8B5CF6" style={styles.kpiCard}>
+            <Text style={styles.kpiLabel}>ACTIVE LOANS</Text>
+            <Text style={[styles.kpiValue, { color: '#7C3AED' }]}>{mtdStats.activePhones}</Text>
+            <Text style={styles.kpiSub}>Active customer devices</Text>
+          </JellyCard>
 
-            <JellyCard accentColor="#F59E0B" style={styles.kpiCard} mountDelay={340}>
-              <Text style={styles.kpiLabel}>PENDING APPROVAL</Text>
-              <Text style={[styles.kpiValue, { color: '#D97706' }]}>
-                {mtdStats.pendingApprovals}
-              </Text>
-              <Text style={styles.kpiSub}>Awaiting admin approval</Text>
-            </JellyCard>
-          </View>
+          <JellyCard accentColor="#F59E0B" style={styles.kpiCard}>
+            <Text style={styles.kpiLabel}>PENDING APPROVAL</Text>
+            <Text style={[styles.kpiValue, { color: '#D97706' }]}>
+              {mtdStats.pendingApprovals}
+            </Text>
+            <Text style={styles.kpiSub}>Awaiting admin approval</Text>
+          </JellyCard>
         </View>
 
         {/* Global Search Bar */}
@@ -546,7 +532,7 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
         <Animated.View
           style={[
             styles.tabContentContainer,
-            tabAnimatedStyle,
+            { opacity: tabFadeAnim, transform: [{ translateY: tabSlideAnim }] },
           ]}
         >
         {/* TAB 1: OVERDUE ACCOUNTS (Living Jelly Cards with WhatsApp / Call / Collect) */}
@@ -559,66 +545,65 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
                 <Text style={styles.emptySub}>All customers under your store are currently up to date on their EMIs.</Text>
               </View>
             ) : (
-              filteredDue.map((item, idx) => (
+              filteredDue.map(item => (
                 <JellyCard
                   key={item.customer_id}
                   accentColor="#E11D48"
                   style={styles.customerJellyCard}
-                  mountDelay={Math.min(idx, 6) * 50}
+                  onPress={() => handleOpenCustomerDetail(item.customer_id)}
                 >
-                  <TouchableOpacity
-                    onPress={() => handleOpenCustomerDetail(item.customer_id)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.cardTopRow}>
-                      <View style={{ flex: 1, paddingRight: 8 }}>
-                        <Text style={styles.customerName}>{item.customer_name}</Text>
-                        <Text style={styles.customerSub}>
-                          {item.mobile ? `📱 ${item.mobile} • ` : ''}IMEI: {item.imei || 'N/A'} • {item.overdue_count} EMI{item.overdue_count > 1 ? 's' : ''} Overdue
-                        </Text>
-                      </View>
-                      <View style={styles.dueBadge}>
-                        <Text style={styles.dueBadgeText}>₹{item.total_due.toLocaleString('en-IN')}</Text>
-                      </View>
+                  <View style={styles.cardTopRow}>
+                    <View>
+                      <Text style={styles.customerName}>{item.customer_name}</Text>
+                      <Text style={styles.customerSub}>
+                        IMEI: {item.imei || 'N/A'} • {item.overdue_count} EMI{item.overdue_count > 1 ? 's' : ''} Overdue
+                      </Text>
                     </View>
+                    <View style={styles.dueBadge}>
+                      <Text style={styles.dueBadgeText}>₹{item.total_due.toLocaleString('en-IN')}</Text>
+                    </View>
+                  </View>
 
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Earliest Due Date:</Text>
+                    <Text style={styles.detailValueOverdue}>{item.earliest_due_date}</Text>
+                  </View>
+
+                  {item.total_fine > 0 && (
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Earliest Due Date:</Text>
-                      <Text style={styles.detailValueOverdue}>{item.earliest_due_date}</Text>
+                      <Text style={styles.detailLabel}>Late Fine Accrued:</Text>
+                      <Text style={styles.detailValueFine}>+ ₹{item.total_fine.toLocaleString('en-IN')}</Text>
                     </View>
+                  )}
 
-                    {item.total_fine > 0 && (
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Late Fine Accrued:</Text>
-                        <Text style={styles.detailValueFine}>+ ₹{item.total_fine.toLocaleString('en-IN')}</Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-
-                  {/* 1-Tap Quick Action Row: Call, WhatsApp Reminder, Collect Payment */}
+                  {/* Action Button Row */}
                   <View style={styles.actionButtonRow}>
                     <PressableScale
                       onPress={() => handleCallCustomer(item.mobile, item.customer_name)}
                       style={styles.callButton}
                       scaleTo={0.92}
                     >
-                      <PhoneCall size={14} color="#1A6FD6" />
+                      <PhoneCall size={14} color="#FFFFFF" />
                       <Text style={styles.callButtonText}>Call</Text>
                     </PressableScale>
 
                     <PressableScale
-                      onPress={() => handleWhatsAppReminder(item.mobile, item.customer_name, item.total_due)}
+                      onPress={() =>
+                        handleWhatsAppReminder(item.mobile, item.customer_name, item.total_due)
+                      }
                       style={styles.whatsAppButton}
                       scaleTo={0.92}
                     >
-                      <MessageCircle size={14} color="#059669" />
+                      <MessageCircle size={14} color="#FFFFFF" />
                       <Text style={styles.whatsAppButtonText}>WhatsApp</Text>
                     </PressableScale>
 
                     <PressableScale
-                      onPress={() => openCollectModal(item.customer_id, item.customer_name, item.total_due)}
+                      onPress={() =>
+                        openCollectModal(item.customer_id, item.customer_name, item.total_due)
+                      }
                       style={styles.collectButton}
-                      scaleTo={0.94}
+                      scaleTo={0.92}
                     >
                       <CreditCard size={14} color="#FFFFFF" />
                       <Text style={styles.collectButtonText}>Collect</Text>
@@ -640,61 +625,59 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
                 <Text style={styles.emptySub}>No installments are maturing within the upcoming 5 days.</Text>
               </View>
             ) : (
-              filteredUpcoming.map((item, idx) => (
+              filteredUpcoming.map(item => (
                 <JellyCard
                   key={`${item.customer_id}-${item.emi_no}`}
                   accentColor="#1A6FD6"
                   style={styles.customerJellyCard}
-                  mountDelay={Math.min(idx, 6) * 50}
+                  onPress={() => handleOpenCustomerDetail(item.customer_id)}
                 >
-                  <TouchableOpacity
-                    onPress={() => handleOpenCustomerDetail(item.customer_id)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.cardTopRow}>
-                      <View style={{ flex: 1, paddingRight: 8 }}>
-                        <Text style={styles.customerName}>{item.customer_name}</Text>
-                        <Text style={styles.customerSub}>
-                          {item.mobile ? `📱 ${item.mobile} • ` : ''}IMEI: {item.imei || 'N/A'} • EMI #{item.emi_no}
-                        </Text>
-                      </View>
-                      <View style={styles.upcomingBadge}>
-                        <Text style={styles.upcomingBadgeText}>₹{item.emi_amount.toLocaleString('en-IN')}</Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Maturing On:</Text>
-                      <Text style={styles.detailValuePrimary}>
-                        {item.due_date} ({item.days_remaining === 0 ? 'Today' : `in ${item.days_remaining}d`})
+                  <View style={styles.cardTopRow}>
+                    <View>
+                      <Text style={styles.customerName}>{item.customer_name}</Text>
+                      <Text style={styles.customerSub}>
+                        IMEI: {item.imei || 'N/A'} • EMI #{item.emi_no}
                       </Text>
                     </View>
-                  </TouchableOpacity>
+                    <View style={styles.upcomingBadge}>
+                      <Text style={styles.upcomingBadgeText}>₹{item.emi_amount.toLocaleString('en-IN')}</Text>
+                    </View>
+                  </View>
 
-                  {/* 1-Tap Quick Action Row: Call, WhatsApp Reminder, Collect */}
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Maturing On:</Text>
+                    <Text style={styles.detailValuePrimary}>
+                      {item.due_date} ({item.days_remaining === 0 ? 'Today' : `in ${item.days_remaining}d`})
+                    </Text>
+                  </View>
+
                   <View style={styles.actionButtonRow}>
                     <PressableScale
                       onPress={() => handleCallCustomer(item.mobile, item.customer_name)}
                       style={styles.callButton}
                       scaleTo={0.92}
                     >
-                      <PhoneCall size={14} color="#1A6FD6" />
+                      <PhoneCall size={14} color="#FFFFFF" />
                       <Text style={styles.callButtonText}>Call</Text>
                     </PressableScale>
 
                     <PressableScale
-                      onPress={() => handleWhatsAppReminder(item.mobile, item.customer_name, item.emi_amount)}
+                      onPress={() =>
+                        handleWhatsAppReminder(item.mobile, item.customer_name, item.emi_amount)
+                      }
                       style={styles.whatsAppButton}
                       scaleTo={0.92}
                     >
-                      <MessageCircle size={14} color="#059669" />
+                      <MessageCircle size={14} color="#FFFFFF" />
                       <Text style={styles.whatsAppButtonText}>WhatsApp</Text>
                     </PressableScale>
 
                     <PressableScale
-                      onPress={() => openCollectModal(item.customer_id, item.customer_name, item.emi_amount)}
+                      onPress={() =>
+                        openCollectModal(item.customer_id, item.customer_name, item.emi_amount)
+                      }
                       style={styles.collectButton}
-                      scaleTo={0.94}
+                      scaleTo={0.92}
                     >
                       <CreditCard size={14} color="#FFFFFF" />
                       <Text style={styles.collectButtonText}>Collect</Text>
@@ -785,31 +768,24 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
                     <View style={styles.custDirLeft}>
                       <Text style={styles.custDirName}>{c.customer_name}</Text>
                       <Text style={styles.custDirSub}>
-                        {c.mobile ? `📱 ${c.mobile}` : 'No Mobile'} • IMEI: {c.imei || 'N/A'}
+                        {c.mobile || 'No Mobile'} • IMEI: {c.imei || 'N/A'}
                       </Text>
                     </View>
                     <View style={styles.custDirRight}>
-                      {c.mobile ? (
-                        <>
-                          <PressableScale
-                            onPress={() => handleCallCustomer(c.mobile, c.customer_name)}
-                            style={styles.custDirCallBtn}
-                            scaleTo={0.88}
-                          >
-                            <PhoneCall size={15} color="#1A6FD6" />
-                          </PressableScale>
-                          <PressableScale
-                            onPress={() => handleWhatsAppReminder(c.mobile, c.customer_name, 0)}
-                            style={styles.custDirWaBtn}
-                            scaleTo={0.88}
-                          >
-                            <MessageCircle size={15} color="#059669" />
-                          </PressableScale>
-                        </>
-                      ) : null}
-                      <View style={{ justifyContent: 'center', paddingLeft: 4 }}>
-                        <ChevronRight size={18} color="#CBD5E1" />
-                      </View>
+                      <PressableScale
+                        onPress={() => handleCallCustomer(c.mobile || '', c.customer_name)}
+                        style={styles.custDirCallBtn}
+                        scaleTo={0.9}
+                      >
+                        <PhoneCall size={14} color="#1A6FD6" />
+                      </PressableScale>
+                      <PressableScale
+                        onPress={() => openCollectModal(c.id, c.customer_name, 1500)}
+                        style={styles.custDirCollectBtn}
+                        scaleTo={0.9}
+                      >
+                        <CreditCard size={14} color="#059669" />
+                      </PressableScale>
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -831,19 +807,96 @@ export const RetailerConsoleView: React.FC<RetailerConsoleViewProps> = ({
         onRefreshParent={loadRetailerData}
       />
 
-      {/* 100% NATIVE FULL-FEATURED COLLECT PAYMENT SHEET */}
-      <CollectPaymentSheet
+      {/* RECORD PAYMENT BOTTOM SHEET MODAL */}
+      <Modal
         visible={collectModalVisible}
-        onClose={() => setCollectModalVisible(false)}
-        customerId={collectTargetCustomer.id}
-        customerName={collectTargetCustomer.name}
-        initialAmount={parseFloat(collectTargetCustomer.amount) || undefined}
-        isAdmin={false}
-        retailerId={staffUser?.retailerId}
-        onPaymentSuccess={() => {
-          loadRetailerData();
-        }}
-      />
+        transparent
+        animationType="slide"
+        onRequestClose={() => setCollectModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Record EMI Collection</Text>
+              <TouchableOpacity onPress={() => setCollectModalVisible(false)}>
+                <X size={20} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalCustomerName}>
+              Customer: <Text style={{ fontWeight: '700', color: '#0F172A' }}>{collectTargetCustomer.name || 'Selected Customer'}</Text>
+            </Text>
+
+            {/* Amount Input */}
+            <Text style={styles.inputLabel}>Collection Amount (₹)</Text>
+            <View style={styles.amountInputRow}>
+              <Text style={styles.rupeePrefix}>₹</Text>
+              <TextInput
+                style={styles.amountInput}
+                keyboardType="numeric"
+                value={collectTargetCustomer.amount}
+                onChangeText={t =>
+                  setCollectTargetCustomer(prev => ({ ...prev, amount: t }))
+                }
+                placeholder="Enter amount"
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            {/* Payment Mode Selector */}
+            <Text style={styles.inputLabel}>Payment Method</Text>
+            <View style={styles.modeRow}>
+              <TouchableOpacity
+                onPress={() => setCollectMode('CASH')}
+                style={[styles.modeBtn, collectMode === 'CASH' && styles.modeBtnActive]}
+              >
+                <Text style={[styles.modeBtnText, collectMode === 'CASH' && styles.modeBtnTextActive]}>
+                  💵 Cash
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setCollectMode('UPI')}
+                style={[styles.modeBtn, collectMode === 'UPI' && styles.modeBtnActive]}
+              >
+                <Text style={[styles.modeBtnText, collectMode === 'UPI' && styles.modeBtnTextActive]}>
+                  ⚡ UPI / QR
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* UTR Input if UPI */}
+            {collectMode === 'UPI' && (
+              <>
+                <Text style={styles.inputLabel}>UPI Reference / UTR Number (Optional)</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={collectUtr}
+                  onChangeText={setCollectUtr}
+                  placeholder="e.g. 423982938192"
+                  placeholderTextColor="#94A3B8"
+                />
+              </>
+            )}
+
+            {/* Submit Button */}
+            <PressableScale
+              onPress={handleSubmitPayment}
+              disabled={submittingPayment}
+              style={styles.submitPaymentBtn}
+              scaleTo={0.96}
+            >
+              {submittingPayment ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Send size={16} color="#FFFFFF" />
+                  <Text style={styles.submitPaymentBtnText}>Record Payment</Text>
+                </>
+              )}
+            </PressableScale>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -852,11 +905,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8FAFC',
-  },
-  mainWrapper: {
-    maxWidth: 520,
-    width: '100%',
-    alignSelf: 'center',
   },
   centerContainer: {
     flex: 1,
@@ -987,15 +1035,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   kpiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
     marginBottom: Spacing.md,
   },
-  kpiRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
   kpiCard: {
-    flex: 1,
+    width: '48%',
     padding: 14,
     borderRadius: Radius.md,
   },
@@ -1035,18 +1081,16 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
     backgroundColor: '#E2E8F0',
-    padding: 4,
+    padding: 3,
     borderRadius: Radius.md,
     marginBottom: Spacing.md,
-    gap: 4,
   },
   tabBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 9,
-    paddingHorizontal: 4,
+    paddingVertical: 8,
     borderRadius: Radius.sm,
     gap: 4,
   },
@@ -1055,7 +1099,7 @@ const styles = StyleSheet.create({
     ...Shadow.sm,
   },
   tabBtnText: {
-    fontSize: 10.5,
+    fontSize: 11,
     fontWeight: '600',
     color: '#64748B',
   },
@@ -1146,7 +1190,7 @@ const styles = StyleSheet.create({
   },
   actionButtonRow: {
     flexDirection: 'row',
-    gap: 6,
+    gap: 8,
     marginTop: 12,
     paddingTop: 10,
     borderTopWidth: 1,
@@ -1154,62 +1198,47 @@ const styles = StyleSheet.create({
   },
   callButton: {
     flex: 1,
-    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#EFF6FF',
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    paddingVertical: 9,
-    paddingHorizontal: 6,
-    borderRadius: Radius.md,
-    gap: 5,
+    backgroundColor: '#0284C7',
+    paddingVertical: 8,
+    borderRadius: Radius.sm,
+    gap: 6,
   },
   callButtonText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#1A6FD6',
+    color: '#FFFFFF',
   },
   whatsAppButton: {
     flex: 1,
-    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ECFDF5',
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-    paddingVertical: 9,
-    paddingHorizontal: 6,
-    borderRadius: Radius.md,
-    gap: 5,
+    backgroundColor: '#22C55E',
+    paddingVertical: 8,
+    borderRadius: Radius.sm,
+    gap: 6,
   },
   whatsAppButtonText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#059669',
+    color: '#FFFFFF',
   },
   collectButton: {
-    flex: 1.2,
-    minWidth: 0,
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1A6FD6',
-    paddingVertical: 9,
-    paddingHorizontal: 8,
-    borderRadius: Radius.md,
-    gap: 5,
-    shadowColor: '#1A6FD6',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: '#0F172A',
+    paddingVertical: 8,
+    borderRadius: Radius.sm,
+    gap: 6,
   },
   collectButtonText: {
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#FFFFFF',
   },
   emptyCard: {
@@ -1335,16 +1364,6 @@ const styles = StyleSheet.create({
     height: 34,
     borderRadius: 17,
     backgroundColor: '#ECFDF5',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  custDirWaBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#ECFDF5',
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
     justifyContent: 'center',
     alignItems: 'center',
   },

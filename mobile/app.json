@@ -29,10 +29,6 @@
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
         "POST_NOTIFICATIONS",
-        "NOTIFICATIONS",
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE",
-        "POST_NOTIFICATIONS",
         "NOTIFICATIONS"
       ]
     },
@@ -53,12 +49,6 @@
       },
       "portalUrl": "https://telepoint-topaz.vercel.app"
     },
-    "owner": "biswajitkha",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
-    "updates": {
-      "url": "https://u.expo.dev/aec8f345-520f-41b7-bead-08a1177a2466"
-    }
+    "owner": "biswajitkha"
   }
 }

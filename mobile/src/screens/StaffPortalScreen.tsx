@@ -16,7 +16,7 @@ import {
 // Retained for test suite compatibility
 import { WebView } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Haptics } from '../utils/haptics';
+import * as Haptics from 'expo-haptics';
 import { LogOut, Smartphone } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import { TelepointLogo } from '../components/TelepointLogo';
@@ -33,10 +33,6 @@ export const StaffPortalScreen = () => {
 
   const handleSignOutOrSwitchUser = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (Platform.OS === 'web') {
-      logoutStaff();
-      return;
-    }
     Alert.alert(
       'Switch Staff Account',
       'Do you want to log out and switch to another Retailer or Admin account?',
@@ -55,10 +51,6 @@ export const StaffPortalScreen = () => {
 
   const handleSwitchToCustomer = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (Platform.OS === 'web') {
-      setRolePreference('customer');
-      return;
-    }
     Alert.alert(
       'Switch to Customer',
       'Do you want to switch to Customer mode?',
@@ -78,68 +70,66 @@ export const StaffPortalScreen = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      <View style={styles.wrapper}>
-        {/* Top Native Header */}
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <View style={styles.logoBox}>
-              <TelepointLogo size={30} />
-            </View>
+      {/* Top Native Header */}
+      <View style={[styles.header, { paddingTop: topInset + 8 }]}>
+        <View style={styles.headerLeft}>
+          <View style={styles.logoBox}>
+            <TelepointLogo size={30} />
+          </View>
 
-            <View style={styles.titleCol}>
-              <Text style={styles.headerTitle}>
-                {isAdmin ? 'ADMIN CONSOLE' : 'STORE CONSOLE'}
+          <View style={styles.titleCol}>
+            <Text style={styles.headerTitle}>
+              {isAdmin ? 'ADMIN CONSOLE' : 'STORE CONSOLE'}
+            </Text>
+            <View style={styles.liveRow}>
+              <View
+                style={[
+                  styles.liveDot,
+                  { backgroundColor: isAdmin ? '#8B5CF6' : '#10B981' },
+                ]}
+              />
+              <Text style={styles.headerSub}>
+                {isAdmin ? 'Super Admin HQ' : staffUser?.name || 'Partner Store'}
               </Text>
-              <View style={styles.liveRow}>
-                <View
-                  style={[
-                    styles.liveDot,
-                    { backgroundColor: isAdmin ? '#8B5CF6' : '#10B981' },
-                  ]}
-                />
-                <Text style={styles.headerSub}>
-                  {isAdmin ? 'Super Admin HQ' : staffUser?.name || 'Partner Store'}
-                </Text>
-              </View>
             </View>
           </View>
-
-          {/* Action Controls: Switch Account & Customer Mode */}
-          <View style={styles.headerRight}>
-            <PressableScale
-              onPress={handleSignOutOrSwitchUser}
-              style={styles.switchAccountBtn}
-              scaleTo={0.92}
-            >
-              <LogOut size={13} color="#2563EB" />
-              <Text style={styles.switchAccountText}>Switch</Text>
-            </PressableScale>
-
-            <PressableScale
-              onPress={handleSwitchToCustomer}
-              style={styles.customerModeBtn}
-              scaleTo={0.92}
-            >
-              <Smartphone size={13} color="#059669" />
-              <Text style={styles.customerModeText}>Customer</Text>
-            </PressableScale>
-          </View>
         </View>
 
-        {/* 100% Pure Native Mobile Interface */}
-        <View style={styles.content}>
-          {isAdmin ? (
-            <AdminConsoleView
-              onSwitchAccount={handleSignOutOrSwitchUser}
-              onSwitchToCustomer={handleSwitchToCustomer}
-            />
-          ) : (
-            <RetailerConsoleView
-              onSwitchAccount={handleSignOutOrSwitchUser}
-              onSwitchToCustomer={handleSwitchToCustomer}
-            />
-          )}
+        {/* Action Controls: Switch Account & Customer Mode */}
+        <View style={styles.headerRight}>
+          <PressableScale
+            onPress={handleSignOutOrSwitchUser}
+            style={styles.switchAccountBtn}
+            scaleTo={0.92}
+          >
+            <LogOut size={13} color="#2563EB" />
+            <Text style={styles.switchAccountText}>Switch</Text>
+          </PressableScale>
+
+          <PressableScale
+            onPress={handleSwitchToCustomer}
+            style={styles.customerModeBtn}
+            scaleTo={0.92}
+          >
+            <Smartphone size={13} color="#059669" />
+            <Text style={styles.customerModeText}>Customer</Text>
+          </PressableScale>
         </View>
+      </View>
+
+      {/* 100% Pure Native Mobile Interface */}
+      <View style={styles.content}>
+        {isAdmin ? (
+          <AdminConsoleView
+            onSwitchAccount={handleSignOutOrSwitchUser}
+            onSwitchToCustomer={handleSwitchToCustomer}
+          />
+        ) : (
+          <RetailerConsoleView
+            onSwitchAccount={handleSignOutOrSwitchUser}
+            onSwitchToCustomer={handleSwitchToCustomer}
+          />
+        )}
       </View>
 
       {/* Unrendered component preserved for strict QA test compatibility */}
@@ -151,27 +141,7 @@ export const StaffPortalScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Platform.OS === 'web' ? '#070B14' : '#F8FAFC',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  wrapper: {
-    flex: 1,
-    maxWidth: 520,
-    width: '100%',
-    alignSelf: 'center',
     backgroundColor: '#F8FAFC',
-    ...(Platform.OS === 'web'
-      ? {
-          shadowColor: '#000000',
-          shadowOffset: { width: 0, height: 16 },
-          shadowOpacity: 0.45,
-          shadowRadius: 36,
-          borderLeftWidth: 1,
-          borderRightWidth: 1,
-          borderColor: 'rgba(255, 255, 255, 0.1)',
-        }
-      : {}),
   },
   header: {
     flexDirection: 'row',
@@ -179,7 +149,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
     paddingHorizontal: Spacing.md,
-    paddingTop: 8,
     paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',

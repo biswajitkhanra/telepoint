@@ -13,7 +13,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Haptics } from '../utils/haptics';
+import * as Haptics from 'expo-haptics';
 import { Zap } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import { EMIRow } from '../components/EMIRow';
@@ -25,7 +25,6 @@ import { PressableScale } from '../components/PressableScale';
 import { EMIScheduleItem } from '../types';
 import { Colors } from '../constants/colors';
 import { Spacing, Radius } from '../constants/design';
-import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { calculateTotalFineFromEmis } from '../utils/fineCalc';
 import { firstChargeRemaining } from '../utils/firstCharge';
 
@@ -105,7 +104,7 @@ export const EmiScheduleScreen = () => {
 
       {/* Summary Jelly Card */}
       <View style={styles.summaryContainer}>
-        <JellyCard accentColor="#1A6FD6" style={styles.summaryJellyCard} mountDelay={150}>
+        <JellyCard accentColor="#1A6FD6" style={styles.summaryJellyCard}>
           <View style={styles.summaryCard}>
             <View style={styles.summaryCol}>
               <Text style={styles.summaryLabel}>TOTAL PAID</Text>
@@ -219,15 +218,11 @@ export const EmiScheduleScreen = () => {
           />
         }
         renderItem={({ item, index }) => (
-          <Animated.View
-            entering={FadeInDown.delay(Math.min(index, 10) * 45).springify().damping(14).stiffness(110).mass(0.7)}
-          >
-            <EMIRow
-              item={item}
-              index={index}
-              onReceiptPress={() => setSelectedReceiptEmi(item)}
-            />
-          </Animated.View>
+          <EMIRow
+            item={item}
+            index={index}
+            onReceiptPress={() => setSelectedReceiptEmi(item)}
+          />
         )}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>

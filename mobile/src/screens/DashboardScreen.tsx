@@ -1,6 +1,6 @@
 // screens/DashboardScreen.tsx
-// Anti-Gravity Dashboard: Numbers as heroes, 3D tilt Hero Gradient Card, staggered spring animations
-// 100% Data Precision matching Web Engine + Anti-Gravity Fluid Jelly Physics
+// IDFC First Bank clarity + Jupiter Neo delight: Numbers as heroes, 3D tilt Hero Gradient Card, quick stats & multi-loan switching
+// 100% Data Precision matching Web Engine + Livable Fluid Jelly Physics
 
 import React, { useState, useMemo } from 'react';
 import {
@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Haptics } from '../utils/haptics';
+import * as Haptics from 'expo-haptics';
 import {
   Megaphone,
   ChevronRight,
@@ -32,6 +32,7 @@ import {
   AlertCircle,
   Zap,
   QrCode,
+  User,
   ArrowRight,
   Clock,
 } from 'lucide-react-native';
@@ -62,6 +63,8 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
     refreshData,
     allLoans,
     switchActiveLoan,
+    switchCustomerLogin,
+    switchRole,
   } = useAuth();
 
   const [refreshing, setRefreshing] = useState(false);
@@ -70,6 +73,7 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
   const [switchModalVisible, setSwitchModalVisible] = useState(false);
   const [switchingLoanId, setSwitchingLoanId] = useState<string | null>(null);
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
+  const [accountMenuVisible, setAccountMenuVisible] = useState(false);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -146,10 +150,7 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
 
   // 6. Paid vs Unpaid EMIs
   const isEmiPaid = (e: EMIScheduleItem) =>
-    e.status === 'collected' || e.status === 'APPROVED';
-
-  const isEmiPartiallyPaid = (e: EMIScheduleItem) =>
-    e.status === 'PARTIALLY_PAID';
+    e.status === 'collected' || e.status === 'APPROVED' || !!e.paid_at;
 
   const paidEmis = sortedEmis.filter(isEmiPaid);
   const unpaidEmis = sortedEmis.filter(e => !isEmiPaid(e));
@@ -254,6 +255,19 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
           </View>
 
           <View style={styles.headerRightCol}>
+            {/* Account & Role Switcher Pill */}
+            <PressableScale
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setAccountMenuVisible(true);
+              }}
+              style={styles.accountActionPill}
+              scaleTo={0.92}
+            >
+              <User size={12} color="#1A6FD6" />
+              <Text style={styles.accountActionPillText}>Account ▾</Text>
+            </PressableScale>
+
             <View style={styles.retailerPill}>
               <Text style={styles.retailerLabel}>PURCHASED FROM</Text>
               <Text style={styles.retailerName} numberOfLines={1}>
@@ -314,7 +328,6 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
               accentColor="#EF4444"
               onPress={handlePayUpi}
               style={styles.dueJellyCard}
-              mountDelay={200}
             >
               <View style={styles.dueCardHeader}>
                 <View style={styles.dueCardBadgeRow}>
@@ -385,7 +398,7 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
             contentContainerStyle={styles.quickStatsScroll}
           >
             {/* Stat 1: Total Paid */}
-            <JellyCard accentColor="#10B981" style={styles.statJellyCard} mountDelay={300}>
+            <JellyCard accentColor="#10B981" style={styles.statJellyCard}>
               <View style={styles.statHeaderRow}>
                 <View style={[styles.statDot, { backgroundColor: '#10B981' }]} />
                 <Text style={styles.statLabelText}>TOTAL PAID</Text>
@@ -400,7 +413,7 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
             </JellyCard>
 
             {/* Stat 2: Remaining Balance */}
-            <JellyCard accentColor="#1A6FD6" style={styles.statJellyCard} mountDelay={380}>
+            <JellyCard accentColor="#1A6FD6" style={styles.statJellyCard}>
               <View style={styles.statHeaderRow}>
                 <View style={[styles.statDot, { backgroundColor: '#1A6FD6' }]} />
                 <Text style={styles.statLabelText}>REMAINING</Text>
@@ -415,7 +428,7 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
             </JellyCard>
 
             {/* Stat 3: Tenure Progress */}
-            <JellyCard accentColor="#4F46E5" style={styles.statJellyCard} mountDelay={460}>
+            <JellyCard accentColor="#4F46E5" style={styles.statJellyCard}>
               <View style={styles.statHeaderRow}>
                 <View style={[styles.statDot, { backgroundColor: '#4F46E5' }]} />
                 <Text style={styles.statLabelText}>LOAN TENURE</Text>
@@ -506,8 +519,6 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
                     >
                       {paid ? (
                         <Check size={16} color="#059669" />
-                      ) : isEmiPartiallyPaid(emi) ? (
-                        <Zap size={16} color="#D97706" />
                       ) : isOverdue ? (
                         <AlertCircle size={16} color="#DC2626" />
                       ) : (
@@ -516,10 +527,7 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
                     </View>
 
                     <View>
-                      <Text style={styles.installmentTitle}>
-                        Installment #{emi.emi_no}
-                        {isEmiPartiallyPaid(emi) && ' (Partial)'}
-                      </Text>
+                      <Text style={styles.installmentTitle}>Installment #{emi.emi_no}</Text>
                       <Text style={styles.installmentDate}>
                         {paid && emi.paid_at
                           ? `Paid on ${new Date(emi.paid_at).toLocaleDateString('en-IN', {
@@ -536,9 +544,7 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
 
                   <View style={styles.installmentRight}>
                     <Text style={styles.installmentAmount}>
-                      ₹{isEmiPartiallyPaid(emi)
-                        ? Math.max(0, Number(emi.amount || 0) - Number(emi.partial_paid_amount || 0)).toLocaleString('en-IN')
-                        : (emi.amount || customer.emi_amount).toLocaleString('en-IN')}
+                      ₹{(emi.amount || customer.emi_amount).toLocaleString('en-IN')}
                     </Text>
 
                     {paid ? (
@@ -613,6 +619,53 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
         </View>
       </Modal>
 
+      {/* Account Options Quick Menu */}
+      <Modal visible={accountMenuVisible} transparent animationType="fade" onRequestClose={() => setAccountMenuVisible(false)}>
+        <TouchableOpacity
+          activeOpacity={1}
+          style={styles.menuOverlay}
+          onPress={() => setAccountMenuVisible(false)}
+        >
+          <View style={[styles.menuSheet, { top: topInset + 60 }]}>
+            <Text style={styles.menuHeaderTitle}>Account Options</Text>
+
+            {allLoans.length > 1 && (
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setAccountMenuVisible(false);
+                  setSwitchModalVisible(true);
+                }}
+              >
+                <Smartphone size={16} color="#1A6FD6" />
+                <Text style={styles.menuItemText}>Switch Financed Device ({allLoans.length})</Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setAccountMenuVisible(false);
+                switchCustomerLogin();
+              }}
+            >
+              <User size={16} color="#1A6FD6" />
+              <Text style={styles.menuItemText}>Log in as Another Customer</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setAccountMenuVisible(false);
+                switchRole('staff');
+              }}
+            >
+              <Zap size={16} color="#4F46E5" />
+              <Text style={styles.menuItemText}>Switch to Staff Mode (Retailer/Admin)</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Interactive Payment Intent & Dynamic QR Modal */}
       <PaymentModal
@@ -652,9 +705,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 40,
-    maxWidth: 520,
-    width: '100%',
-    alignSelf: 'center',
   },
   topHeader: {
     flexDirection: 'row',
@@ -720,7 +770,23 @@ const styles = StyleSheet.create({
   },
   headerRightCol: {
     alignItems: 'flex-end',
-    justifyContent: 'center',
+    gap: 6,
+  },
+  accountActionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  accountActionPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1A6FD6',
   },
   retailerPill: {
     alignItems: 'flex-end',
@@ -1217,5 +1283,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    paddingHorizontal: 20,
+  },
+  menuSheet: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: Radius.lg,
+    padding: 12,
+    width: 250,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  menuHeaderTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+    marginBottom: 8,
+    paddingHorizontal: 6,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    borderRadius: 8,
+  },
+  menuItemText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
 });

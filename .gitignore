@@ -1,5 +1,5 @@
 # dependencies
-node_modules/
+/node_modules
 /.pnp
 .pnp.js
 
@@ -9,18 +9,6 @@ node_modules/
 # next.js
 /.next/
 /out/
-
-# expo & mobile
-.expo/
-android/
-ios/
-mobile/android/
-mobile/ios/
-*.apk
-*.aab
-google-services.json
-mobile/dist/
-service-account*.json
 
 # production
 /build
@@ -36,7 +24,6 @@ yarn-error.log*
 
 # local env files
 .env*.local
-.env
 
 # vercel
 .vercel
@@ -44,3 +31,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# mobile
+/mobile/node_modules/
+/mobile/.expo/
+/mobile/.env
+/mobile/android/
+/mobile/dist/
+

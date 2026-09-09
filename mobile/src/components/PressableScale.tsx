@@ -1,21 +1,16 @@
 // components/PressableScale.tsx
 // Tactile pressable wrapper with authentic Jelly Squash & Stretch physics & haptic micro-delight
 
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   Pressable,
+  Animated,
   PressableProps,
   StyleProp,
   ViewStyle,
   GestureResponderEvent,
-  StyleSheet,
 } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-} from 'react-native-reanimated';
-import { Haptics } from '../utils/haptics';
+import * as Haptics from 'expo-haptics';
 
 interface PressableScaleProps extends PressableProps {
   children: React.ReactNode;
@@ -36,25 +31,28 @@ export const PressableScale: React.FC<PressableScaleProps> = ({
   onPress,
   ...rest
 }) => {
-  const scaleX = useSharedValue(1);
-  const scaleY = useSharedValue(1);
-  const pressOpacity = useSharedValue(1);
-
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [
-        { scaleX: scaleX.value },
-        { scaleY: scaleY.value },
-      ],
-      opacity: pressOpacity.value,
-    };
-  });
+  const scaleXAnim = useRef(new Animated.Value(1)).current;
+  const scaleYAnim = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = (e: GestureResponderEvent) => {
-    const target = scaleTo;
-    scaleX.value = withSpring(target, { damping: 20, stiffness: 350, mass: 0.5 });
-    scaleY.value = withSpring(target, { damping: 20, stiffness: 350, mass: 0.5 });
-    pressOpacity.value = withSpring(0.92, { damping: 20, stiffness: 300 });
+    // Jelly squash & stretch: compresses vertically, bulges horizontally
+    const targetY = scaleTo;
+    const targetX = jelly ? 1 + (1 - scaleTo) * 0.75 : scaleTo;
+
+    Animated.parallel([
+      Animated.spring(scaleXAnim, {
+        toValue: targetX,
+        tension: 240,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleYAnim, {
+        toValue: targetY,
+        tension: 240,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
     if (hapticStyle === 'light') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -70,33 +68,45 @@ export const PressableScale: React.FC<PressableScaleProps> = ({
   };
 
   const handlePressOut = (e: GestureResponderEvent) => {
-    // Pure fluid release: critical damping 24 for instant zero-wobble recovery
-    scaleX.value = withSpring(1, { damping: 24, stiffness: 300, mass: 0.6 });
-    scaleY.value = withSpring(1, { damping: 24, stiffness: 300, mass: 0.6 });
-    pressOpacity.value = withSpring(1, { damping: 20, stiffness: 300 });
+    // Spring release with low friction for authentic jelly wobble
+    Animated.parallel([
+      Animated.spring(scaleXAnim, {
+        toValue: 1,
+        tension: 180,
+        friction: 4.5,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleYAnim, {
+        toValue: 1,
+        tension: 180,
+        friction: 4.5,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
     if (onPressOut) onPressOut(e);
   };
-
-  const flatStyle = (StyleSheet.flatten(style) || {}) as ViewStyle;
-  const containerFlexStyle: ViewStyle = {};
-  if (flatStyle.flex !== undefined) containerFlexStyle.flex = flatStyle.flex;
-  if (flatStyle.flexGrow !== undefined) containerFlexStyle.flexGrow = flatStyle.flexGrow;
-  if (flatStyle.flexShrink !== undefined) containerFlexStyle.flexShrink = flatStyle.flexShrink;
-  if (flatStyle.width !== undefined) containerFlexStyle.width = flatStyle.width;
 
   return (
     <Pressable
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       onPress={onPress}
-      style={containerFlexStyle}
       {...rest}
     >
-      <Animated.View style={[style, animatedStyle]}>
+      <Animated.View
+        style={[
+          style,
+          {
+            transform: [
+              { scaleX: scaleXAnim },
+              { scaleY: scaleYAnim },
+            ],
+          },
+        ]}
+      >
         {children}
       </Animated.View>
     </Pressable>
   );
 };
-

@@ -7,7 +7,7 @@ import {
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Haptics } from '../utils/haptics';
+import * as Haptics from 'expo-haptics';
 import { THEME, SPRING_CONFIG } from '../config';
 
 interface Card3DProps {

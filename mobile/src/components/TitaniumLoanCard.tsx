@@ -7,7 +7,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
-import { Haptics, NotificationFeedbackType } from '../utils/haptics';
+import * as Haptics from 'expo-haptics';
 import {
   Smartphone,
   Copy,

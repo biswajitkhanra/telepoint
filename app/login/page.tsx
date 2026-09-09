@@ -1,8 +1,8 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import { Suspense, useState, useRef } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import toast from 'react-hot-toast';
@@ -29,16 +29,13 @@ const EyeIcon = ({ open }: { open: boolean }) => (
   </svg>
 );
 
-function LoginForm() {
+export default function LoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const initialTab = searchParams.get('tab') === 'retailer' ? 'retailer' : 'admin';
-  const initialUser = searchParams.get('u') || '';
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
   if (typeof window !== 'undefined' && !supabaseRef.current) supabaseRef.current = createClient();
   const supabase = supabaseRef.current!;
-  const [tab, setTab] = useState<Tab>(initialTab);
-  const [username, setUsername] = useState(initialUser);
+  const [tab, setTab] = useState<Tab>('admin');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -242,13 +239,5 @@ function LoginForm() {
         </motion.div>
       </motion.div>
     </div>
-  );
-}
-
-export default function LoginPage() {
-  return (
-    <Suspense fallback={<div className="min-h-screen page-bg flex items-center justify-center p-4" />}>
-      <LoginForm />
-    </Suspense>
   );
 }

@@ -21,7 +21,7 @@ import {
   Receipt,
   FileText,
 } from 'lucide-react-native';
-import { Haptics } from '../utils/haptics';
+import * as Haptics from 'expo-haptics';
 import { EMIScheduleItem } from '../types';
 import { Colors } from '../constants/colors';
 import { Radius, Spacing, Shadow } from '../constants/design';
@@ -39,10 +39,8 @@ interface EMIRowProps {
 export const EMIRow: React.FC<EMIRowProps> = ({ item, index, onReceiptPress }) => {
   const [expanded, setExpanded] = useState(false);
   const isPaid = item.status === 'collected' || item.status === 'APPROVED' || !!item.paid_at;
-  const isPendingApproval = !isPaid && item.status === 'PENDING_APPROVAL';
-  const isPartial = !isPaid && (item.status === 'PARTIALLY_PAID' || Number(item.partial_paid_amount || 0) > 0);
-  const isOverdue = !isPaid && !isPartial && !isPendingApproval && (item.status === 'overdue' || (item.status === 'UNPAID' && new Date(item.due_date) < new Date()) || (Number(item.fine_amount || 0) > 0 && !item.fine_paid_at));
-  const isPending = !isPaid && !isPartial && !isOverdue && !isPendingApproval;
+  const isPending = !isPaid && (item.status === 'pending' || item.status === 'UNPAID' || item.status === 'PENDING_APPROVAL');
+  const isOverdue = !isPaid && (item.status === 'overdue' || (Number(item.fine_amount || 0) > 0 && !item.fine_paid_at));
 
   const toggleExpand = () => {
     Haptics.selectionAsync();
@@ -96,10 +94,6 @@ export const EMIRow: React.FC<EMIRowProps> = ({ item, index, onReceiptPress }) =
             <View style={styles.paidIconCircle}>
               <CheckCircle2 size={18} color="#10B981" />
             </View>
-          ) : isPartial ? (
-            <View style={[styles.pendingIconCircle, { backgroundColor: '#FEF3C7' }]}>
-              <Clock size={18} color="#B45309" />
-            </View>
           ) : isOverdue ? (
             <View style={styles.overdueIconCircle}>
               <AlertTriangle size={18} color="#EF4444" />
@@ -119,14 +113,6 @@ export const EMIRow: React.FC<EMIRowProps> = ({ item, index, onReceiptPress }) =
               <View style={styles.paidBadge}>
                 <Text style={styles.paidBadgeText}>✓ PAID</Text>
               </View>
-            ) : isPendingApproval ? (
-              <View style={styles.pendingApprovalBadge}>
-                <Text style={styles.pendingApprovalBadgeText}>PENDING APPROVAL</Text>
-              </View>
-            ) : isPartial ? (
-              <View style={styles.partialBadge}>
-                <Text style={styles.partialBadgeText}>PARTIALLY PAID</Text>
-              </View>
             ) : isOverdue ? (
               <View style={styles.overdueBadge}>
                 <Text style={styles.overdueBadgeText}>OVERDUE</Text>
@@ -144,9 +130,7 @@ export const EMIRow: React.FC<EMIRowProps> = ({ item, index, onReceiptPress }) =
         {/* Amount & Expand indicator */}
         <View style={styles.amountCol}>
           <Text style={[styles.amountText, isPaid && styles.paidAmountText]}>
-            ₹{isPartial 
-              ? Math.max(0, Number(item.amount || 0) - Number(item.partial_paid_amount || 0)).toLocaleString('en-IN')
-              : (item.amount || 0).toLocaleString('en-IN')}
+            ₹{item.amount.toLocaleString('en-IN')}
           </Text>
           <View style={styles.expandRow}>
             <Text style={styles.detailsLabel}>Details</Text>
@@ -194,15 +178,6 @@ export const EMIRow: React.FC<EMIRowProps> = ({ item, index, onReceiptPress }) =
             <View style={styles.drawerRow}>
               <Text style={styles.drawerLabel}>UTR / Ref No.</Text>
               <Text style={styles.drawerValueMono}>{item.utr}</Text>
-            </View>
-          )}
-
-          {isPartial && Number(item.partial_paid_amount || 0) > 0 && (
-            <View style={styles.drawerRow}>
-              <Text style={styles.drawerLabel}>Partial Amount Paid</Text>
-              <Text style={[styles.drawerValue, { color: '#059669' }]}>
-                ₹{Number(item.partial_paid_amount).toLocaleString('en-IN')}
-              </Text>
             </View>
           )}
 
@@ -324,30 +299,6 @@ const styles = StyleSheet.create({
   },
   pendingBadgeText: {
     color: '#1A6FD6',
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 0.4,
-  },
-  pendingApprovalBadge: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: Radius.sm,
-  },
-  pendingApprovalBadgeText: {
-    color: '#2563EB',
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 0.4,
-  },
-  partialBadge: {
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: Radius.sm,
-  },
-  partialBadgeText: {
-    color: '#B45309',
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.4,

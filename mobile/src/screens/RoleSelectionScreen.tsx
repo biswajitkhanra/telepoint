@@ -8,7 +8,7 @@ import {
   Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Haptics } from '../utils/haptics';
+import * as Haptics from 'expo-haptics';
 import {
   Smartphone,
   ShieldCheck,
@@ -146,9 +146,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingTop: 54,
     paddingBottom: 40,
-    maxWidth: 480,
-    width: '100%',
-    alignSelf: 'center',
   },
   header: {
     alignItems: 'center',
