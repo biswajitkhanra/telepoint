@@ -76,6 +76,8 @@ DECLARE
   v_submitted_min  INT;
   v_now            TIMESTAMPTZ := NOW();
   v_request_id     UUID;
+  v_distinct_ids   INT;
+  v_matched_ids    INT;
 BEGIN
   -- Lock the customer row so two concurrent submits for the SAME customer
   -- serialize here rather than both reading a pre-submit world.
@@ -91,6 +93,22 @@ BEGIN
   END IF;
 
   IF NOT v_no_emi THEN
+    -- Ownership check on every targeted id, not just the customer as a whole:
+    -- reject outright unless EVERY id in p_emi_ids resolves to an
+    -- emi_schedule row belonging to p_customer_id. Without this, an id for a
+    -- DIFFERENT customer slipped into the array would silently fail the
+    -- per-row status loop below (it simply wouldn't match) while still
+    -- reaching the unscoped UPDATE/INSERT statements further down — a
+    -- cross-tenant write. Comparing against the DISTINCT count tolerates an
+    -- accidentally-duplicated id in the input without a false rejection.
+    SELECT COUNT(DISTINCT x) INTO v_distinct_ids FROM unnest(p_emi_ids) AS x;
+    SELECT COUNT(*) INTO v_matched_ids
+    FROM emi_schedule WHERE id = ANY(p_emi_ids) AND customer_id = p_customer_id;
+    IF v_matched_ids != v_distinct_ids THEN
+      RETURN jsonb_build_object('success', false, 'code', 'FORBIDDEN',
+        'error', 'One or more selected EMIs do not belong to this customer');
+    END IF;
+
     -- Lock + validate every targeted EMI row before anything is written.
     FOR v_emi IN
       SELECT id, status, emi_no FROM emi_schedule
@@ -153,15 +171,20 @@ BEGIN
     SELECT v_request_id, eid, eno, COALESCE(p_total_emi_amount, 0) / GREATEST(array_length(p_emi_ids, 1), 1)
     FROM unnest(p_emi_ids, p_emi_nos) AS t(eid, eno);
 
+    -- Every write below is ALSO scoped to customer_id, even though the
+    -- ownership check above already guarantees every id in p_emi_ids belongs
+    -- to this customer — belt and suspenders against this guard ever being
+    -- weakened or removed by a future edit.
     -- Stamp the ORIGINAL collection date (fine eligibility is decided by
     -- this, never by the later admin approval time) before flipping status.
     UPDATE emi_schedule
     SET collection_requested_at = COALESCE(collection_requested_at, v_now)
-    WHERE id = ANY(p_emi_ids);
+    WHERE id = ANY(p_emi_ids) AND customer_id = p_customer_id;
 
     PERFORM recalc_customer_fines(p_customer_id);
 
-    UPDATE emi_schedule SET status = 'PENDING_APPROVAL' WHERE id = ANY(p_emi_ids);
+    UPDATE emi_schedule SET status = 'PENDING_APPROVAL'
+    WHERE id = ANY(p_emi_ids) AND customer_id = p_customer_id;
   END IF;
 
   RETURN jsonb_build_object('success', true, 'request_id', v_request_id);

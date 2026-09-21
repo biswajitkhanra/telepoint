@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { timingSafeEqual } from 'crypto';
+import { createHash, timingSafeEqual } from 'crypto';
 import { createServiceClient } from '@/lib/supabase/server';
 import { fetchAllPaged } from '@/lib/dbFetch';
 
@@ -52,14 +52,12 @@ function authorize(req: NextRequest): boolean {
   // Constant-time comparison — this token gates a full PII dump (every
   // customer, retailer and live customer-app login token in the DB), so a
   // plain `===` here would leak it one byte at a time via response timing.
-  // timingSafeEqual throws on length mismatch, so pad both sides to a fixed
-  // size first instead of branching on `provided.length === expected.length`.
-  const a = Buffer.alloc(256);
-  const b = Buffer.alloc(256);
-  a.write(provided.slice(0, 256));
-  b.write(expected.slice(0, 256));
-  const bytesMatch = timingSafeEqual(a, b);
-  return bytesMatch && provided.length === expected.length;
+  // Hash both sides to a fixed-length digest first: timingSafeEqual requires
+  // equal-length buffers, and digesting (rather than truncating/padding the
+  // raw token to a fixed size) means no part of an arbitrarily long token is
+  // ever left uncompared.
+  const digest = (s: string) => createHash('sha256').update(s).digest();
+  return timingSafeEqual(digest(provided), digest(expected));
 }
 
 export async function GET(req: NextRequest) {
