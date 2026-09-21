@@ -377,7 +377,11 @@ export default function ApprovalsPage() {
                   animate={{ opacity: isActioning ? 0.6 : 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, x: -60, scale: 0.95, transition: { duration: 0.3 } }}
                   transition={{ ...SPRING, delay: Math.min(i * 0.05, 0.4) }}
-                  className={`card p-5 ${isActioning ? 'pointer-events-none' : ''}`}
+                  className={`card-accent p-5 ${
+                    req.status === 'APPROVED' ? 'card-accent--approved'
+                    : req.status === 'REJECTED' ? 'card-accent--rejected'
+                    : 'card-accent--pending'
+                  } ${isActioning ? 'pointer-events-none' : ''}`}
                 >
                   {/* Card header */}
                   <div className="flex flex-wrap items-start justify-between gap-4 mb-4">

@@ -76,13 +76,23 @@ export default function Footer() {
   // Hide on print sheets only — receipts/NOCs must stay clean.
   if (pathname?.startsWith('/receipt') || pathname?.startsWith('/noc')) return null;
 
+  // Admin/retailer pages render a mobile-only BottomNav that is `fixed
+  // bottom-0` — it overlays the viewport's bottom edge regardless of scroll
+  // position. On a short page the footer would otherwise land directly
+  // underneath that fixed bar (invisible, unclickable). Reserve its height
+  // as extra bottom clearance here, on mobile only, on those routes.
+  const hasMobileBottomNav = pathname?.startsWith('/admin') || pathname?.startsWith('/retailer');
+
+  const bottomClearance = hasMobileBottomNav
+    // Mobile: clear the fixed BottomNav (80px) + the safe-area inset; desktop
+    // has no BottomNav, so it only needs the normal safe-area padding.
+    ? 'pb-[max(96px,calc(80px+env(safe-area-inset-bottom)))] sm:pb-[max(24px,env(safe-area-inset-bottom))]'
+    : 'pb-[max(24px,env(safe-area-inset-bottom))]';
+
   return (
     <footer
-      className="no-print relative mt-10 overflow-hidden bg-transparent px-4 py-6 text-center"
-      style={{
-        paddingBottom: 'max(24px, env(safe-area-inset-bottom))',
-        perspective: '900px',
-      }}
+      className={`no-print relative mt-10 overflow-hidden bg-transparent px-4 py-6 text-center ${bottomClearance}`}
+      style={{ perspective: '900px' }}
     >
       <div
         className="relative mx-auto flex min-h-[60px] max-w-2xl items-center justify-center"
@@ -91,9 +101,11 @@ export default function Footer() {
         <AnimatePresence mode="wait">
           {/* ── Resting: full "Made By Biswodip Goj" credit ──────── */}
           {phase === 'idle' && (
-            <motion.button
+            <motion.a
               key="credit"
-              type="button"
+              href="https://biswadip.in"
+              target="_blank"
+              rel="noopener noreferrer"
               onClick={trigger}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
@@ -103,8 +115,8 @@ export default function Footer() {
               whileTap={{ scale: 0.93 }}
               className="rounded-full px-7 py-3"
               style={{ WebkitTapHighlightColor: 'transparent' }}
-              aria-label="Made By Biswodip Goj — tap to celebrate"
-              title="Tap me ✨"
+              aria-label="Made By Biswodip Goj — visit biswadip.in"
+              title="Visit biswadip.in ✨"
             >
               <span className="flex items-center justify-center gap-x-[0.45ch] text-sm font-extrabold sm:text-base">
                 <span className="text-ink-muted">Made&nbsp;By</span>
@@ -118,7 +130,7 @@ export default function Footer() {
                   </span>
                 ))}
               </span>
-            </motion.button>
+            </motion.a>
           )}
 
           {/* ── Act 1: contained 3D particle bomb ────────────────── */}

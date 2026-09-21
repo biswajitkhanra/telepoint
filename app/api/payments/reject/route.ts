@@ -19,11 +19,43 @@ export async function POST(req: NextRequest) {
     const { data: request, error } = await svc.from('payment_requests').select('*').eq('id', request_id).single();
     if (error || !request) return NextResponse.json({ error: 'Request not found' }, { status: 404 });
 
+    if (request.status === 'REJECTED') {
+      return NextResponse.json({ error: 'This request was already rejected' }, { status: 409 });
+    }
+
+    // Claim the row with a compare-and-swap UPDATE before touching anything
+    // else: only flip status if it is STILL what we just read. Without this,
+    // a concurrent approve on the same request (e.g. two admin tabs) could
+    // race this read — this reject would then blindly reset the just-approved
+    // EMIs back to unpaid and stomp the request back to REJECTED, silently
+    // reverting a completed approval. A lost race here returns a clean 409
+    // instead of corrupting state.
+    const { data: claimed, error: claimErr } = await svc
+      .from('payment_requests')
+      .update({
+        status: 'REJECTED',
+        rejected_by: user.id,
+        rejected_at: new Date().toISOString(),
+        rejection_reason: reason,
+        approved_by: null,
+        approved_at: null,
+      })
+      .eq('id', request_id)
+      .eq('status', request.status)
+      .select()
+      .single();
+
+    if (claimErr || !claimed) {
+      return NextResponse.json(
+        { error: 'This request was just updated by someone else — refresh and try again' },
+        { status: 409 },
+      );
+    }
+
     if (request.status === 'APPROVED') {
       await reverseApprovedRequestEffects(svc, request);
       await recomputeCustomerCompletion(svc, request.customer_id);
     }
-
 
     const { data: items } = await svc.from('payment_request_items').select('emi_schedule_id').eq('payment_request_id', request_id);
     const emiIds = (items || []).map((item: { emi_schedule_id: string }) => item.emi_schedule_id).filter(Boolean);
@@ -42,16 +74,6 @@ export async function POST(req: NextRequest) {
 
     // Re-accrue fines now that the rejected EMIs are unpaid again.
     await svc.rpc('recalc_customer_fines', { p_customer_id: request.customer_id }).then(() => null, () => null);
-
-    const { error: reqErr } = await svc.from('payment_requests').update({
-      status: 'REJECTED',
-      rejected_by: user.id,
-      rejected_at: new Date().toISOString(),
-      rejection_reason: reason,
-      approved_by: null,
-      approved_at: null,
-    }).eq('id', request_id);
-    if (reqErr) return NextResponse.json({ error: reqErr.message }, { status: 500 });
 
     return NextResponse.json({ success: true });
   } catch (error) {

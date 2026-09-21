@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
+import { esc } from '@/lib/html';
 
 function fmt(n: number) {
   return new Intl.NumberFormat('en-IN', {
@@ -116,10 +117,13 @@ export async function GET(
   const firstEmiCharge = Number(request.first_emi_charge_amount ?? 0);
   const totalAmount = Number(request.total_amount ?? 0);
 
-  // Customer photo — handle IBB and direct URLs
-  const photoUrl = ibbDirect(customer?.customer_photo_url ?? '');
+  // Customer photo — handle IBB and direct URLs. Only ever emit http(s) URLs
+  // into the src attribute (a stored non-http value could otherwise break out
+  // via javascript:/data: schemes on this public, unauthenticated page).
+  const rawPhotoUrl = ibbDirect(customer?.customer_photo_url ?? '');
+  const photoUrl = /^https?:\/\//i.test(rawPhotoUrl) ? rawPhotoUrl : '';
   const photoHtml = photoUrl
-    ? `<img src="${photoUrl}" alt="Customer Photo" style="width:80px;height:80px;border-radius:12px;object-fit:cover;border:2px solid #e2e8f0;display:block;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+    ? `<img src="${esc(photoUrl)}" alt="Customer Photo" style="width:80px;height:80px;border-radius:12px;object-fit:cover;border:2px solid #e2e8f0;display:block;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
        <div style="display:none;width:80px;height:80px;border-radius:12px;background:#f1f5f9;border:2px solid #e2e8f0;align-items:center;justify-content:center;color:#94a3b8;font-size:0.7rem;text-align:center;">No<br>Photo</div>`
     : `<div style="width:80px;height:80px;border-radius:12px;background:#f1f5f9;border:2px solid #e2e8f0;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:0.7rem;text-align:center;">No<br>Photo</div>`;
 
@@ -128,7 +132,7 @@ export async function GET(
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Receipt #${params.id.slice(0, 8).toUpperCase()}</title>
+  <title>Receipt #${esc(params.id.slice(0, 8).toUpperCase())}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; padding: 1.5rem 1rem; color: #1e293b; }
@@ -169,44 +173,44 @@ export async function GET(
       <p>EMI Payment Receipt</p>
     </div>
     <div class="status-bar">
-      <span class="status-label">${statusLabel}</span>
-      <span class="receipt-id">#${params.id.slice(0, 8).toUpperCase()}</span>
+      <span class="status-label">${esc(statusLabel)}</span>
+      <span class="receipt-id">#${esc(params.id.slice(0, 8).toUpperCase())}</span>
     </div>
     <div class="body">
       <div class="customer-row">
         ${photoHtml}
         <div>
-          <p style="font-weight:700;font-size:0.95rem;">${customer?.customer_name ?? '—'}</p>
-          <p style="font-size:0.78rem;color:#64748b;margin-top:0.2rem;">${retailer?.name ?? '—'}</p>
-          ${retailer?.mobile ? `<p style="font-size:0.72rem;color:#94a3b8;font-family:monospace;">${retailer.mobile}</p>` : ''}
+          <p style="font-weight:700;font-size:0.95rem;">${esc(customer?.customer_name ?? '—')}</p>
+          <p style="font-size:0.78rem;color:#64748b;margin-top:0.2rem;">${esc(retailer?.name ?? '—')}</p>
+          ${retailer?.mobile ? `<p style="font-size:0.72rem;color:#94a3b8;font-family:monospace;">${esc(retailer.mobile)}</p>` : ''}
         </div>
       </div>
 
       <div class="section-title">Payment Breakdown</div>
-      ${items.map(i => `<div class="kv"><span class="kv-label">EMI #${i.emi_no} collected</span><span class="kv-value mono">${fmt(i.amount)}</span></div>`).join('')}
-      ${items.length === 0 && emiAmount > 0 ? `<div class="kv"><span class="kv-label">EMI collected</span><span class="kv-value mono">${fmt(emiAmount)}</span></div>` : ''}
-      ${fineAmount > 0 ? `<div class="kv"><span class="kv-label" style="color:#991b1b;">Fine paid ⚠️</span><span class="kv-value mono" style="color:#991b1b;">${fmt(fineAmount)}</span></div>` : ''}
-      ${firstEmiCharge > 0 ? `<div class="kv"><span class="kv-label" style="color:#92400e;">1st EMI Charge ⭐</span><span class="kv-value mono" style="color:#92400e;">${fmt(firstEmiCharge)}</span></div>` : ''}
+      ${items.map(i => `<div class="kv"><span class="kv-label">EMI #${esc(i.emi_no)} collected</span><span class="kv-value mono">${esc(fmt(i.amount))}</span></div>`).join('')}
+      ${items.length === 0 && emiAmount > 0 ? `<div class="kv"><span class="kv-label">EMI collected</span><span class="kv-value mono">${esc(fmt(emiAmount))}</span></div>` : ''}
+      ${fineAmount > 0 ? `<div class="kv"><span class="kv-label" style="color:#991b1b;">Fine paid ⚠️</span><span class="kv-value mono" style="color:#991b1b;">${esc(fmt(fineAmount))}</span></div>` : ''}
+      ${firstEmiCharge > 0 ? `<div class="kv"><span class="kv-label" style="color:#92400e;">1st EMI Charge ⭐</span><span class="kv-value mono" style="color:#92400e;">${esc(fmt(firstEmiCharge))}</span></div>` : ''}
       <div class="divider"></div>
-      <div class="total-row"><span class="total-label">Total Paid</span><span class="total-value">${fmt(totalAmount)}</span></div>
+      <div class="total-row"><span class="total-label">Total Paid</span><span class="total-value">${esc(fmt(totalAmount))}</span></div>
 
       <div class="section-title">Transaction</div>
-      <div class="kv"><span class="kv-label">Payment Mode</span><span class="kv-value bold" style="color:${request.mode === 'UPI' ? '#1d4ed8' : '#16a34a'};">${request.mode}</span></div>
-      ${request.utr ? `<div class="kv"><span class="kv-label">UTR / Reference</span><span class="kv-value mono" style="font-size:0.72rem;">${request.utr}</span></div>` : ''}
-      <div class="kv"><span class="kv-label">Date & Time</span><span class="kv-value mono" style="font-size:0.72rem;">${fmtDate(request.created_at)}</span></div>
-      <div class="kv"><span class="kv-label">Status</span><span class="kv-value bold" style="color:${statusColor};">${statusLabel}</span></div>
-      ${request.approved_at ? `<div class="kv"><span class="kv-label">Approved</span><span class="kv-value mono" style="font-size:0.72rem;">${fmtDate(request.approved_at)}</span></div>` : ''}
+      <div class="kv"><span class="kv-label">Payment Mode</span><span class="kv-value bold" style="color:${request.mode === 'UPI' ? '#1d4ed8' : '#16a34a'};">${esc(request.mode)}</span></div>
+      ${request.utr ? `<div class="kv"><span class="kv-label">UTR / Reference</span><span class="kv-value mono" style="font-size:0.72rem;">${esc(request.utr)}</span></div>` : ''}
+      <div class="kv"><span class="kv-label">Date & Time</span><span class="kv-value mono" style="font-size:0.72rem;">${esc(fmtDate(request.created_at))}</span></div>
+      <div class="kv"><span class="kv-label">Status</span><span class="kv-value bold" style="color:${statusColor};">${esc(statusLabel)}</span></div>
+      ${request.approved_at ? `<div class="kv"><span class="kv-label">Approved</span><span class="kv-value mono" style="font-size:0.72rem;">${esc(fmtDate(request.approved_at))}</span></div>` : ''}
 
       ${nextEmiDueDate
-        ? `<div class="next-emi"><p>📅 Next EMI Due</p><span>${fmtDateShort(nextEmiDueDate)}</span></div>`
+        ? `<div class="next-emi"><p>📅 Next EMI Due</p><span>${esc(fmtDateShort(nextEmiDueDate))}</span></div>`
         : `<div class="next-emi" style="background:#eff6ff;border-color:#93c5fd;"><p style="color:#1d4ed8;">✅ No Further EMI Due</p><span style="color:#1e40af;">All EMIs completed</span></div>`
       }
 
-      ${request.rejection_reason ? `<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:0.6rem;padding:0.6rem 0.75rem;margin-top:0.75rem;"><p style="font-size:0.65rem;color:#991b1b;font-weight:700;text-transform:uppercase;margin-bottom:0.2rem;">Rejection Reason</p><p style="font-size:0.8rem;color:#991b1b;">${request.rejection_reason}</p></div>` : ''}
+      ${request.rejection_reason ? `<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:0.6rem;padding:0.6rem 0.75rem;margin-top:0.75rem;"><p style="font-size:0.65rem;color:#991b1b;font-weight:700;text-transform:uppercase;margin-bottom:0.2rem;">Rejection Reason</p><p style="font-size:0.8rem;color:#991b1b;">${esc(request.rejection_reason)}</p></div>` : ''}
 
       <div class="footer">
         <p>TelePoint EMI Portal · Thank you</p>
-        <p style="margin-top:0.15rem;font-family:monospace;font-size:0.6rem;color:#cbd5e1;">${new Date(request.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+        <p style="margin-top:0.15rem;font-family:monospace;font-size:0.6rem;color:#cbd5e1;">${esc(new Date(request.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }))}</p>
       </div>
     </div>
   </div>

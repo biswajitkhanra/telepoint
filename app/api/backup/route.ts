@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { timingSafeEqual } from 'crypto';
 import { createServiceClient } from '@/lib/supabase/server';
 import { fetchAllPaged } from '@/lib/dbFetch';
 
@@ -46,8 +47,19 @@ function authorize(req: NextRequest): boolean {
     : '';
   const queryToken = req.nextUrl.searchParams.get('token') || '';
   const provided = bearer || queryToken;
-  // Constant-ish comparison (length check first); tokens are high-entropy.
-  return provided.length > 0 && provided === expected;
+  if (!provided) return false;
+
+  // Constant-time comparison — this token gates a full PII dump (every
+  // customer, retailer and live customer-app login token in the DB), so a
+  // plain `===` here would leak it one byte at a time via response timing.
+  // timingSafeEqual throws on length mismatch, so pad both sides to a fixed
+  // size first instead of branching on `provided.length === expected.length`.
+  const a = Buffer.alloc(256);
+  const b = Buffer.alloc(256);
+  a.write(provided.slice(0, 256));
+  b.write(expected.slice(0, 256));
+  const bytesMatch = timingSafeEqual(a, b);
+  return bytesMatch && provided.length === expected.length;
 }
 
 export async function GET(req: NextRequest) {

@@ -70,6 +70,18 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
   .card-hover:hover { transform: translateY(-3px); @apply shadow-card-hover; }
   .card-hover:active { transform: translateY(-1px) scale(.995); }
 
+  /* Premium status-accent card — a thin colour bar riding the top edge that
+     reads status at a glance (PENDING amber / APPROVED blue / REJECTED rose),
+     replacing a plain flat-white box with a bit of colour topology. */
+  .card-accent { @apply card relative overflow-hidden; }
+  .card-accent::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+    background: var(--tp-accent-bar, linear-gradient(90deg, #94a3b8, #cbd5e1));
+  }
+  .card-accent--pending  { --tp-accent-bar: linear-gradient(90deg, #f59e0b, #fbbf24); }
+  .card-accent--approved { --tp-accent-bar: linear-gradient(90deg, #2563eb, #60a5fa); }
+  .card-accent--rejected { --tp-accent-bar: linear-gradient(90deg, #e11d48, #f43f5e); }
+
   /* Buttons — all have minimum touch target + tactile spring feedback. */
   .btn {
     @apply inline-flex items-center justify-center gap-2 font-semibold rounded-xl
@@ -83,6 +95,25 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
   }
   .btn:hover:not(:disabled) { transform: translateY(-2px); }
   .btn:active:not(:disabled) { transform: translateY(0) scale(.94); transition-duration: .08s; }
+
+  /* Premium sheen sweep on hover for the filled action buttons — a soft
+     diagonal light pass, the kind of micro-detail that reads as "premium SaaS"
+     rather than a flat, dull button. */
+  .btn-primary, .btn-success, .btn-danger {
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-primary::after, .btn-success::after, .btn-danger::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.35) 50%, transparent 70%);
+    transform: translateX(-130%);
+    transition: transform .55s cubic-bezier(.16,1,.3,1);
+    pointer-events: none;
+  }
+  .btn-primary:hover::after, .btn-success:hover::after, .btn-danger:hover::after { transform: translateX(130%); }
+  @media (prefers-reduced-motion: reduce) {
+    .btn-primary::after, .btn-success::after, .btn-danger::after { transition: none; }
+  }
 
   /* Primary — vibrant blue gradient with crisp white text */
   .btn-primary {
@@ -503,7 +534,16 @@ input[type='checkbox']:active {
 .gold-line { @apply divider; }
 .badge-running  { @apply badge bg-success-light text-success border border-success-border; }
 .badge-complete { @apply badge bg-info-light text-info border border-info-border; }
-.badge-pending  { @apply badge bg-warning-light text-warning border border-warning-border; }
+/* Soft amber pulse — reads as "awaiting your action" rather than a static label. */
+.badge-pending  {
+  @apply badge bg-warning-light text-warning border border-warning-border;
+  animation: pendingPulse 2.4s ease-in-out infinite;
+}
+@keyframes pendingPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(217,119,6,0.28); }
+  50%      { box-shadow: 0 0 0 5px rgba(217,119,6,0); }
+}
+@media (prefers-reduced-motion: reduce) { .badge-pending { animation: none; } }
 .badge-approved { @apply badge bg-info-light text-info border border-info-border; }
 .badge-rejected { @apply badge bg-danger-light text-danger border border-danger-border; }
 .badge-unpaid   { @apply badge bg-surface-3 text-ink-muted border border-surface-4; }

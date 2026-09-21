@@ -1,10 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient, createClient } from '@/lib/supabase/server';
 
-export async function POST(req: NextRequest) {
+// Retailer accounts (username/password, PIN, active flag) are managed here.
+// EVERY mutating method must be super_admin-only: without this gate any
+// authenticated retailer could create new retailer logins, reset another
+// retailer's password (full account takeover), or delete a retailer account.
+async function requireSuperAdmin() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+  if (!user) return { error: NextResponse.json({ error: 'Not authenticated' }, { status: 401 }) };
+  const { data: profile } = await supabase.from('profiles').select('role').eq('user_id', user.id).single();
+  if (profile?.role !== 'super_admin') return { error: NextResponse.json({ error: 'Forbidden — super admin only' }, { status: 403 }) };
+  return { user };
+}
+
+export async function POST(req: NextRequest) {
+  const auth = await requireSuperAdmin();
+  if ('error' in auth) return auth.error;
 
   const body = await req.json();
   const { name, username, password, retail_pin, mobile } = body;
@@ -57,9 +69,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+  const auth = await requireSuperAdmin();
+  if ('error' in auth) return auth.error;
 
   const body = await req.json();
   const { id, name, password, retail_pin, is_active, mobile } = body;
@@ -99,6 +110,9 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const auth = await requireSuperAdmin();
+  if ('error' in auth) return auth.error;
+
   const serviceClient = createServiceClient();
   const { searchParams } = new URL(req.url);
   const id = searchParams.get('id');

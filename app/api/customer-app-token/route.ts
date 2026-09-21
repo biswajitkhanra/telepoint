@@ -8,15 +8,28 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { data: profile } = await supabase.from('profiles').select('role').eq('user_id', user.id).single();
-  if (profile?.role !== 'super_admin' && profile?.role !== 'retailer')
+  const isAdmin = profile?.role === 'super_admin';
+  const isRetailer = profile?.role === 'retailer';
+  if (!isAdmin && !isRetailer)
     return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
 
   const { customer_id } = await req.json();
   if (!customer_id) return NextResponse.json({ error: 'customer_id required' }, { status: 400 });
 
   const svc = createServiceClient();
-  const { data: customer } = await svc.from('customers').select('id, customer_name, mobile').eq('id', customer_id).single();
+  const { data: customer } = await svc.from('customers').select('id, retailer_id, customer_name, mobile').eq('id', customer_id).single();
   if (!customer) return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
+
+  // OWNERSHIP CHECK: a retailer may only mint an auto-login token for their
+  // own customer. Without this, any retailer could pass another retailer's
+  // customer_id and receive a live bearer token plus that customer's mobile
+  // number — a full cross-tenant account-takeover + PII leak.
+  if (isRetailer) {
+    const { data: retailer } = await svc.from('retailers').select('id').eq('auth_user_id', user.id).single();
+    if (!retailer || customer.retailer_id !== retailer.id) {
+      return NextResponse.json({ error: 'Customer does not belong to your account' }, { status: 403 });
+    }
+  }
 
   // Generate unique token
   const token = crypto.randomUUID().replace(/-/g, '') + Date.now().toString(36);
