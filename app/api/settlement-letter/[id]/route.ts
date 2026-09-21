@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
+import { esc } from '@/lib/html';
 
 function fmt(n: number) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(n);
@@ -28,7 +29,7 @@ export async function GET(
 
   const html = `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Settlement Letter - ${customer.customer_name}</title>
+<title>Settlement Letter - ${esc(customer.customer_name)}</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   body{font-family:Georgia,serif;background:#f8fafc;padding:2rem 1rem;color:#1e293b}
@@ -57,38 +58,38 @@ export async function GET(
       <p style="font-size:.8rem;font-weight:400;margin-top:.25rem">This account was closed via settlement</p>
     </div>
 
-    <p style="font-size:.85rem;color:#64748b;margin-bottom:1rem">Date: ${fmtDate(customer.settlement_date || customer.completion_date || new Date().toISOString())}</p>
+    <p style="font-size:.85rem;color:#64748b;margin-bottom:1rem">Date: ${esc(fmtDate(customer.settlement_date || customer.completion_date || new Date().toISOString()))}</p>
 
-    <div class="kv"><span>Customer Name</span><span>${customer.customer_name}</span></div>
-    ${customer.father_name ? `<div class="kv"><span>Father / C/O</span><span>${customer.father_name}</span></div>` : ''}
-    <div class="kv"><span>Mobile</span><span>${customer.mobile}</span></div>
-    <div class="kv"><span>IMEI</span><span style="font-family:monospace;font-size:.8rem">${customer.imei}</span></div>
-    ${customer.model_no ? `<div class="kv"><span>Device</span><span>${customer.model_no}</span></div>` : ''}
-    <div class="kv"><span>Retailer</span><span>${retailer?.name || '—'}</span></div>
-
-    <div class="divider"></div>
-
-    <div class="kv"><span>Purchase Value</span><span>${fmt(customer.purchase_value)}</span></div>
-    <div class="kv"><span>Down Payment</span><span>${fmt(customer.down_payment)}</span></div>
-    <div class="kv"><span>Loan Amount</span><span>${fmt(customer.disburse_amount || customer.purchase_value - customer.down_payment)}</span></div>
-    <div class="kv"><span>EMI Amount</span><span>${fmt(customer.emi_amount)} × ${customer.emi_tenure} months</span></div>
+    <div class="kv"><span>Customer Name</span><span>${esc(customer.customer_name)}</span></div>
+    ${customer.father_name ? `<div class="kv"><span>Father / C/O</span><span>${esc(customer.father_name)}</span></div>` : ''}
+    <div class="kv"><span>Mobile</span><span>${esc(customer.mobile)}</span></div>
+    <div class="kv"><span>IMEI</span><span style="font-family:monospace;font-size:.8rem">${esc(customer.imei)}</span></div>
+    ${customer.model_no ? `<div class="kv"><span>Device</span><span>${esc(customer.model_no)}</span></div>` : ''}
+    <div class="kv"><span>Retailer</span><span>${esc(retailer?.name || '—')}</span></div>
 
     <div class="divider"></div>
 
-    <div class="kv" style="font-size:1.1rem"><span style="font-weight:800">Settlement Amount</span><span style="color:#ca8a04;font-weight:800;font-size:1.3rem">${fmt(customer.settlement_amount)}</span></div>
+    <div class="kv"><span>Purchase Value</span><span>${esc(fmt(customer.purchase_value))}</span></div>
+    <div class="kv"><span>Down Payment</span><span>${esc(fmt(customer.down_payment))}</span></div>
+    <div class="kv"><span>Loan Amount</span><span>${esc(fmt(customer.disburse_amount || customer.purchase_value - customer.down_payment))}</span></div>
+    <div class="kv"><span>EMI Amount</span><span>${esc(fmt(customer.emi_amount))} × ${esc(customer.emi_tenure)} months</span></div>
+
+    <div class="divider"></div>
+
+    <div class="kv" style="font-size:1.1rem"><span style="font-weight:800">Settlement Amount</span><span style="color:#ca8a04;font-weight:800;font-size:1.3rem">${esc(fmt(customer.settlement_amount))}</span></div>
 
     <div class="divider"></div>
 
     <p style="font-size:.85rem;line-height:1.7;color:#475569;margin-top:1rem">
       This is to certify that the EMI account for the above-mentioned customer has been settled for a total amount of
-      <strong>${fmt(customer.settlement_amount)}</strong> as on ${fmtDate(customer.settlement_date || customer.completion_date || new Date().toISOString())}.
+      <strong>${esc(fmt(customer.settlement_amount))}</strong> as on ${esc(fmtDate(customer.settlement_date || customer.completion_date || new Date().toISOString()))}.
       All remaining EMI obligations are considered closed. TelePoint acknowledges receipt of the settlement amount
       and confirms no further dues remain on this account.
     </p>
 
     <div class="footer">
       <p style="font-size:.75rem;color:#94a3b8">TelePoint EMI Portal</p>
-      <p style="font-size:.65rem;color:#cbd5e1;margin-top:.25rem">Settlement Ref: ${params.id.slice(0, 8).toUpperCase()}</p>
+      <p style="font-size:.65rem;color:#cbd5e1;margin-top:.25rem">Settlement Ref: ${esc(params.id.slice(0, 8).toUpperCase())}</p>
     </div>
   </div>
 </div></body></html>`;

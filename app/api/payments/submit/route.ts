@@ -49,111 +49,48 @@ export async function POST(req: NextRequest) {
   if (!custOwner || custOwner.retailer_id !== retailer.id)
     return NextResponse.json({ error: 'Customer does not belong to your account' }, { status: 403 });
 
-  // ── SEQUENCE ENFORCEMENT: retailers must pay EMIs in order ────────────────
-  // Super admin (collected_by_role === 'admin') bypasses this check.
-  if (!noEmi && emi_nos?.length && collected_by_role !== 'admin') {
-    const { data: allUnpaid } = await svc
-      .from('emi_schedule')
-      .select('emi_no')
-      .eq('customer_id', customer_id)
-      .in('status', ['UNPAID', 'PARTIALLY_PAID'])
-      .order('emi_no', { ascending: true })
-      .limit(1);
+  // ── SUBMIT: one atomic, row-locked DB transaction ─────────────────────────
+  // Sequence enforcement, the "already pending / already approved" EMI check,
+  // and the insert itself (guarded by a DB-level partial unique index — at
+  // most one PENDING request per customer) all happen inside a single
+  // Postgres function. This closes the race a check-then-insert from Next.js
+  // could never fully close: a double-click, two open tabs, or a retried
+  // request can no longer both succeed as separate duplicate requests.
+  const { data: result, error: rpcErr } = await svc.rpc('submit_payment_request', {
+    p_customer_id:             customer_id,
+    p_retailer_id:             retailer.id,
+    p_submitted_by:            user.id,
+    p_mode:                    mode,
+    p_utr:                     utr || null,
+    p_notes:                   [notes, utr ? 'UTR: ' + utr : ''].filter(Boolean).join(' | ') || null,
+    p_emi_ids:                 noEmi ? [] : (emi_ids || []),
+    p_emi_nos:                 noEmi ? [] : (emi_nos || []),
+    p_total_emi_amount:        total_emi_amount || 0,
+    p_scheduled_emi_amount:    scheduled_emi_amount || 0,
+    p_fine_amount:             fine_amount || 0,
+    p_first_emi_charge_amount: first_emi_charge_amount || 0,
+    p_total_amount:            total_amount || 0,
+    p_fine_for_emi_no:         fine_for_emi_no || null,
+    p_fine_due_date:           fine_due_date || null,
+    p_fine_breakdown:          Array.isArray(fine_breakdown) ? fine_breakdown : null,
+    p_collected_by_role:       collected_by_role || 'retailer',
+    p_bypass_sequence:         collected_by_role === 'admin',
+  });
 
-    const lowestUnpaidEmiNo: number | undefined = allUnpaid?.[0]?.emi_no;
-
-    if (lowestUnpaidEmiNo !== undefined) {
-      const submittedMin = Math.min(...(emi_nos as number[]));
-      if (submittedMin > lowestUnpaidEmiNo) {
-        return NextResponse.json(
-          {
-            error: `EMI sequence violation. EMI #${lowestUnpaidEmiNo} must be paid first before collecting EMI #${submittedMin}.`,
-          },
-          { status: 400 }
-        );
-      }
-    }
+  if (rpcErr) {
+    console.error('submit_payment_request RPC error:', rpcErr);
+    return NextResponse.json({ error: rpcErr.message }, { status: 500 });
   }
 
-  // ── DUPLICATE / ALREADY-PAID CHECK ────────────────────────────────────────
-  if (!noEmi && emi_ids?.length) {
-    const { data: ch } = await svc
-      .from('emi_schedule')
-      .select('id, status, emi_no')
-      .in('id', emi_ids)
-      .eq('customer_id', customer_id);
-
-    for (const e of ch || []) {
-      if (e.status === 'APPROVED')
-        return NextResponse.json({ error: `EMI #${e.emi_no} is already fully paid` }, { status: 409 });
-      if (e.status === 'PENDING_APPROVAL')
-        return NextResponse.json({ error: `EMI #${e.emi_no} already has a pending request` }, { status: 409 });
-    }
+  const res = result as { success?: boolean; error?: string; code?: string; request_id?: string };
+  if (!res?.success) {
+    const status = res?.code === 'DUPLICATE_PENDING' || res?.code === 'ALREADY_APPROVED' || res?.code === 'ALREADY_PENDING'
+      ? 409
+      : res?.code === 'FORBIDDEN' ? 403
+      : res?.code === 'NOT_FOUND' ? 404
+      : 400;
+    return NextResponse.json({ error: res?.error || 'Failed to create request' }, { status });
   }
 
-  // ── CREATE PAYMENT REQUEST ─────────────────────────────────────────────────
-  const { data: request, error: re } = await svc
-    .from('payment_requests')
-    .insert({
-      customer_id,
-      retailer_id:             retailer.id,
-      submitted_by:            user.id,
-      status:                  'PENDING',
-      mode,
-      utr:                     utr || null,
-      total_emi_amount:        total_emi_amount || 0,
-      scheduled_emi_amount:    scheduled_emi_amount || 0,
-      fine_amount:             fine_amount || 0,
-      first_emi_charge_amount: first_emi_charge_amount || 0,
-      total_amount:            total_amount || 0,
-      notes:                   [notes, utr ? 'UTR: ' + utr : ''].filter(Boolean).join(' | ') || null,
-      selected_emi_nos:        emi_nos || [],
-      fine_for_emi_no:         fine_for_emi_no || null,
-      fine_due_date:           fine_due_date || null,
-      fine_breakdown:          Array.isArray(fine_breakdown) ? fine_breakdown : null,
-      collected_by_role:       collected_by_role || 'retailer',
-      collected_by_user_id:    user.id,
-    })
-    .select()
-    .single();
-
-  if (re || !request)
-    return NextResponse.json({ error: re?.message || 'Failed to create request' }, { status: 500 });
-
-  // ── CREATE LINE ITEMS + MARK EMIs PENDING ─────────────────────────────────
-  if (!noEmi && emi_ids?.length) {
-    const eachAmount = Number(total_emi_amount || 0) / Math.max(emi_ids.length, 1);
-    const items = emi_ids.map((eid: string, i: number) => ({
-      payment_request_id: request.id,
-      emi_schedule_id:    eid,
-      emi_no:             emi_nos[i],
-      amount:             eachAmount,
-    }));
-
-    const { error: ie } = await svc.from('payment_request_items').insert(items);
-    if (ie) {
-      // Roll back the request on item insert failure
-      await svc.from('payment_requests').delete().eq('id', request.id);
-      return NextResponse.json({ error: 'Failed to record payment items' }, { status: 500 });
-    }
-
-    // Stamp the ORIGINAL collection date on each EMI (only if not already set).
-    // Fine eligibility is decided by THIS date vs the due date — never by the
-    // admin approval date. Set BEFORE the rows go PENDING_APPROVAL so the
-    // recalc below can still see (and lock in) any late fine.
-    const collectedAt = new Date().toISOString();
-    await svc.from('emi_schedule')
-      .update({ collection_requested_at: collectedAt })
-      .in('id', emi_ids)
-      .is('collection_requested_at', null);
-
-    // Persist any late fine now so it survives approval. recalc honours the
-    // collection-date gate: on-time collections accrue nothing, late ones lock
-    // in their fine. PENDING_APPROVAL rows are frozen, so we recalc first.
-    await svc.rpc('recalc_customer_fines', { p_customer_id: customer_id }).then(() => null, () => null);
-
-    await svc.from('emi_schedule').update({ status: 'PENDING_APPROVAL' }).in('id', emi_ids);
-  }
-
-  return NextResponse.json({ success: true, request_id: request.id });
+  return NextResponse.json({ success: true, request_id: res.request_id });
 }

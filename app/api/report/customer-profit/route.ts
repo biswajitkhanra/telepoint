@@ -5,6 +5,10 @@ export async function GET(req: NextRequest) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { data: profile } = await supabase.from('profiles').select('role').eq('user_id', user.id).single();
+  if (profile?.role !== 'super_admin') {
+    return NextResponse.json({ error: 'Forbidden — superadmin only' }, { status: 403 });
+  }
   const svc = createServiceClient();
   const { data: customers } = await svc.from('customers').select('id, customer_name, imei, mobile, purchase_value, down_payment, disburse_amount, emi_amount, emi_tenure, first_emi_charge_amount, first_emi_charge_paid_amount, first_emi_charge_paid_at, status, retailer:retailers(name)').order('customer_name');
   const rows: string[][] = [['Retailer','Customer','IMEI','Mobile','Purchase Value','Down Payment','Disburse','EMI Amount','Tenure','Total EMI Value','1st Charge','Total Paid EMI','Total Paid Fine','Total Paid Charge','Total Collected','Profit (Collected - Disburse)','Status']];

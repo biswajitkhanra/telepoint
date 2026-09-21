@@ -11,6 +11,7 @@ import { toISTDateString, diffDaysIST } from '@/lib/ist';
 import BroadcastAnimator from '@/components/BroadcastAnimator';
 import SmartAlertPopup from '@/components/SmartAlertPopup';
 import LoanStatementModal from '@/components/LoanStatementModal';
+import CustomerLoadingScreen from '@/components/CustomerLoadingScreen';
 import { AnimatePresence } from 'framer-motion';
 import { formatCurrency, formatDateOnly, readJsonSafe } from '@/lib/formatters';
 import { customerCodeOf } from '@/lib/customerCode';
@@ -67,6 +68,10 @@ export default function CustomerPortal() {
   const [isLaunchingUpi, setIsLaunchingUpi] = useState(false);
   const [pendingWhatsappShare, setPendingWhatsappShare] = useState(false);
   const [showStatement, setShowStatement] = useState(false);
+  // True only while an app-link/saved auto-login token is being verified —
+  // the "opening" moment that gets the top-notch loading screen. A brand-new
+  // manual login never sets this, so it goes straight to the form.
+  const [checkingSession, setCheckingSession] = useState(false);
 
   // Restore session from localStorage OR auto-login via token
   useEffect(() => {
@@ -77,6 +82,7 @@ export default function CustomerPortal() {
     const tokenToUse = urlToken || savedToken;
 
     if (tokenToUse) {
+      setCheckingSession(true);
       // Auto-login via token
       fetch('/api/customer-app-token?token=' + tokenToUse)
         .then(readJsonSafe)
@@ -109,7 +115,8 @@ export default function CustomerPortal() {
             const saved = localStorage.getItem(SESSION_KEY);
             if (saved) setSession(JSON.parse(saved) as CustomerSession);
           } catch { localStorage.removeItem(SESSION_KEY); }
-        });
+        })
+        .finally(() => setCheckingSession(false));
       return;
     }
 
@@ -479,6 +486,9 @@ export default function CustomerPortal() {
 
     return (
       <div className="min-h-screen page-bg flex items-center justify-center p-4">
+        <AnimatePresence>
+          {checkingSession && <CustomerLoadingScreen key="customer-loading" />}
+        </AnimatePresence>
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-sapphire-500/5 blur-3xl" />
           <div className="absolute -bottom-40 -left-40 w-96 h-96 rounded-full bg-gold-500/5 blur-3xl" />
