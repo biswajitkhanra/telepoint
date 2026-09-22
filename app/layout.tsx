@@ -1,3 +1,5 @@
+<meta name="strix-verification" content="strix-verify-105fe3b7161a1b68ee131074962e5bca">
+
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from 'react-hot-toast';
