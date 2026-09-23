@@ -12,9 +12,11 @@ import { formatCurrency, toDateTimeLocalInput, fromDateTimeLocalInput } from '@/
 import { SPRING } from '@/lib/motion';
 
 // Per-installment card entrance — small rise + settle as the list reveals.
+// Staggered on mount (capped) — not whileInView, which left cards invisible
+// whenever the viewport intersection was missed (fast flings, print, tall lists).
 const emiCardItem = {
   hidden: { opacity: 0, y: 20, scale: 0.98 },
-  show: { opacity: 1, y: 0, scale: 1, transition: SPRING },
+  show: (i: number = 0) => ({ opacity: 1, y: 0, scale: 1, transition: { ...SPRING, delay: Math.min(i, 8) * 0.04 } }),
 };
 
 interface Props {
@@ -287,7 +289,7 @@ export default function EMIScheduleTable({
           Each EMI sits inside its own bordered, shadowed card so installments
           are never visually run together. */}
       <div className="bg-surface-2 p-3 sm:p-4 flex flex-col gap-4">
-        {sortedEmis.map((emi) => {
+        {sortedEmis.map((emi, idx) => {
           const today           = new Date();
           const dueDate         = new Date(emi.due_date);
           const isOverdue       = ['UNPAID', 'PARTIALLY_PAID'].includes(emi.status) && dueDate < today;
@@ -303,7 +305,9 @@ export default function EMIScheduleTable({
           const finePaid        = Number(emi.fine_paid_amount || 0);
           const fineOutstanding = Math.max(0, totalFine - finePaid);
           const emiAmount       = Number(emi.amount || 0);
-          const emiPaid         = Math.max(0, Number(emi.partial_paid_amount || 0));
+          const emiPaid         = emi.status === 'APPROVED'
+            ? emiAmount
+            : Math.max(0, Number(emi.partial_paid_amount || 0));
           const emiRemaining    = Math.max(0, emiAmount - emiPaid);
           const overdueDays     = isOverdue ? diffDaysIST(today, dueDate) : 0;
           const fineStartDate   = addDays(dueDate, 1);
@@ -334,10 +338,9 @@ export default function EMIScheduleTable({
             <motion.div
               key={emi.id}
               variants={emiCardItem}
+              custom={idx}
               initial="hidden"
-              whileInView="show"
-              viewport={{ once: true, margin: '-30px' }}
-              whileHover={{ y: -3 }}
+              animate="show"
               className="rounded-2xl overflow-hidden bg-white"
               style={{
                 border: `2.5px solid ${statusColor.border}`,

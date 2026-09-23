@@ -1,17 +1,23 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import FinanceScene from '@/components/motion/FinanceScene';
 
 /**
- * Customer-open overlay. A single sheet rises into place (scale .96 → 1,
- * strong ease-out) carrying the customer's monogram inside a rotating
- * progress ring, their name, and a preview of the account layout. On exit
- * it lifts and blurs away as the real detail view takes over.
- *
- * Kept deliberately calm: one moving ring, one shimmer, one hairline track.
+ * "Opening customer" overlay for admin and retailer search. A sheet rises in
+ * carrying the mobile-finance phone scene (EMI ring filling, installments
+ * ticking off, coins dropping in), the customer's name and the step being
+ * loaded. It lifts and blurs away as the detail view takes over.
  */
+const STEPS = ['Opening account', 'Loading EMI schedule', 'Checking dues & fines'];
+
 export default function StackUnfold({ name }: { name?: string }) {
-  const initial = (name || '').trim().charAt(0).toUpperCase() || '•';
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setStep(s => Math.min(s + 1, STEPS.length - 1)), 420);
+    return () => clearInterval(t);
+  }, []);
 
   return (
     <motion.div
@@ -20,48 +26,32 @@ export default function StackUnfold({ name }: { name?: string }) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, transition: { duration: 0.22, delay: 0.04 } }}
       transition={{ duration: 0.18 }}
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/40 px-6 backdrop-blur-[3px]"
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/45 px-6 backdrop-blur-[3px]"
       aria-busy="true"
       aria-live="polite"
       role="status"
     >
       <motion.div
-        initial={{ opacity: 0, scale: 0.96, y: 10 }}
+        initial={{ opacity: 0, scale: 0.94, y: 14 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 1.02, y: -6, filter: 'blur(4px)' }}
-        transition={{ duration: 0.28, ease: [0.23, 1, 0.32, 1] }}
-        className="su-sheet relative w-full max-w-[340px] overflow-hidden rounded-[22px] bg-surface p-5"
+        exit={{ opacity: 0, scale: 1.03, y: -8, filter: 'blur(4px)' }}
+        transition={{ type: 'spring', duration: 0.45, bounce: 0.22 }}
+        className="su-sheet relative flex w-full max-w-[320px] flex-col items-center overflow-hidden rounded-[26px] bg-surface px-5 pb-5 pt-4 text-center"
       >
-        <div className="flex items-center gap-3.5">
-          <div className="relative h-14 w-14 flex-shrink-0">
-            <span className="su-ring absolute inset-0 rounded-full" aria-hidden="true" />
-            <span className="absolute inset-[4px] flex items-center justify-center rounded-full bg-gradient-to-b from-brand-500 to-brand-700 text-lg font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25)]">
-              {initial}
-            </span>
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">Opening account</p>
-            <p className="mt-0.5 truncate text-[17px] font-semibold tracking-tight text-ink">
-              {name || 'Customer'}
-            </p>
-          </div>
+        <FinanceScene scale={0.7} />
+
+        <p className="mt-2 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">Opening customer</p>
+        <p className="mt-0.5 max-w-full truncate text-lg font-semibold tracking-tight text-ink">{name || 'Customer'}</p>
+        <div className="mt-1 h-5 overflow-hidden">
+          <p key={step} className="cpl-step text-[13px] text-ink-muted">{STEPS[step]}…</p>
         </div>
 
-        <div className="mt-5 grid grid-cols-3 keep-cols gap-2" aria-hidden="true">
-          {[0, 1, 2].map(i => (
-            <div key={i} className="su-tile rounded-xl p-2.5" style={{ animationDelay: `${120 + i * 60}ms` }}>
-              <span className="ss-block block h-1.5 w-8 rounded-full" />
-              <span className="ss-block mt-2 block h-3 w-12 rounded-full" />
-            </div>
-          ))}
+        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-surface-3" aria-hidden="true">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-sky-500 to-brand-500 transition-[width] duration-300 ease-out"
+            style={{ width: `${[38, 70, 92][step]}%` }}
+          />
         </div>
-        <div className="mt-3 space-y-2" aria-hidden="true">
-          {[0.92, 0.74, 0.84].map((w, i) => (
-            <span key={i} className="su-tile ss-block block h-2.5 rounded-full" style={{ width: `${w * 100}%`, animationDelay: `${300 + i * 60}ms` }} />
-          ))}
-        </div>
-
-        <div className="ss-track mt-5 !relative !inset-auto rounded-full" aria-hidden="true"><span className="ss-track-bar" /></div>
       </motion.div>
     </motion.div>
   );

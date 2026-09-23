@@ -323,7 +323,7 @@ export default function CustomerDetailPanel({ customer, paidCount, totalEmis, is
           return (
             <motion.div key={l} variants={cellItem} className={`${tintBg[tint] || 'bg-white'} px-4 py-3`}>
               <p className={`text-[10px] ${tintLabel[tint] || 'text-ink-muted'} uppercase tracking-wide mb-0.5 font-semibold`}>{l}</p>
-              <p className={`text-sm font-semibold ${small ? 'text-xs' : ''} ${mono ? 'num' : ''} ${accent ? 'text-emerald-700 font-bold text-base' : (tintValue[tint] || 'text-ink')} break-all leading-snug`}>
+              <p className={`text-sm font-semibold ${small ? 'text-xs' : ''} ${mono ? 'num' : ''} ${accent ? 'text-emerald-700 font-bold text-base' : (tintValue[tint] || 'text-ink')} ${mono ? 'break-all' : 'break-words'} leading-snug`}>
                 {v || '—'}
               </p>
               {sub && <p className={`text-[9px] mt-0.5 ${tintLabel[tint] || 'text-ink-muted'} opacity-80`}>{sub}</p>}

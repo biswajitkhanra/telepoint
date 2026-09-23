@@ -23,6 +23,8 @@ const LoanStatementModal = nextDynamic(() => import('@/components/LoanStatementM
 
 const SESSION_KEY = 'emi_customer_session';
 const TOKEN_KEY = 'emi_app_token';
+// Signed proof of the Aadhaar/mobile login, sent with every customer_id lookup.
+const SESS_KEY = 'emi_customer_sess';
 const AUTO_REFRESH_MS = 2 * 60 * 1000;
 // Keep the opening animation on screen at least this long so it reads as an
 // intentional moment instead of a flicker on fast connections.
@@ -95,7 +97,9 @@ interface MultiLoanEntry {
 }
 
 type Broadcast = { id: string; message: string; image_url?: string | null; expires_at: string; sender_name?: string; sender_role?: string };
-type PortalPayload = { error?: string; customer?: unknown; emis?: unknown[]; breakdown?: unknown; multi?: boolean; customers?: unknown[]; broadcasts?: unknown[] };
+type PortalPayload = { error?: string; customer?: unknown; emis?: unknown[]; breakdown?: unknown; multi?: boolean; customers?: unknown[]; broadcasts?: unknown[]; session_token?: string };
+
+const byIdBody = (customerId: string) => JSON.stringify({ customer_id: customerId, session_token: store.get(SESS_KEY) || undefined });
 
 export default function CustomerPortal() {
   const [aadhaar, setAadhaar] = useState('');
@@ -117,6 +121,7 @@ export default function CustomerPortal() {
   const [refreshing, setRefreshing] = useState(false);
 
   const applyPayload = useCallback((data: PortalPayload | null): boolean => {
+    if (data?.session_token) store.set(SESS_KEY, data.session_token);
     if (!data?.customer) return false;
     const ns: CustomerSession = { customer: data.customer, emis: data.emis || [], breakdown: data.breakdown || null };
     setSession(ns);
@@ -161,7 +166,7 @@ export default function CustomerPortal() {
       fetch('/api/customer-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customer_id: cached.customer.id }),
+        body: byIdBody(cached.customer.id),
       })
         .then(res => (res.ok ? readJsonSafe<PortalPayload>(res) : null))
         .then(applyPayload)
@@ -187,6 +192,7 @@ export default function CustomerPortal() {
       const data = await readJsonSafe<PortalPayload>(res) || {};
       if (!res.ok) { toast.error(data.error || 'Login failed'); return; }
       if (data.multi && data.customers) {
+        if (data.session_token) store.set(SESS_KEY, data.session_token);
         setMultiLoans(data.customers as MultiLoanEntry[]);
         return;
       }
@@ -204,7 +210,7 @@ export default function CustomerPortal() {
       const res = await fetch('/api/customer-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customer_id: customerId }),
+        body: byIdBody(customerId),
       });
       const data = await readJsonSafe<PortalPayload>(res) || {};
       if (!res.ok) { toast.error(data.error || 'Could not open account'); return; }
@@ -236,7 +242,7 @@ export default function CustomerPortal() {
         const res = await fetch('/api/customer-login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ customer_id: sessionCustomerId }),
+          body: byIdBody(sessionCustomerId),
         });
         if (res.ok) data = await readJsonSafe<PortalPayload>(res);
       }
@@ -279,6 +285,7 @@ export default function CustomerPortal() {
     setShowStatement(false);
     store.del(SESSION_KEY);
     store.del(TOKEN_KEY);
+    store.del(SESS_KEY);
     setAadhaar('');
     setMobile('');
   }

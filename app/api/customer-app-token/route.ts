@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { redactCustomer } from '@/lib/pii';
+import { issueCustomerSession } from '@/lib/customerSession';
+import { clientIp, rateLimit } from '@/lib/rateLimit';
 
 // POST: Generate persistent token for customer app auto-login
 export async function POST(req: NextRequest) {
@@ -48,7 +51,10 @@ export async function POST(req: NextRequest) {
 // GET: Validate token and return full customer data (auto-login)
 export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get('token');
-  if (!token) return NextResponse.json({ error: 'token required' }, { status: 400 });
+  if (!token || token.length > 200) return NextResponse.json({ error: 'token required' }, { status: 400 });
+  // Throttle token guessing; a real app link resolves on the first request.
+  const wait = rateLimit(`apptok:${clientIp(req)}`, 200, 10 * 60_000);
+  if (wait) return NextResponse.json({ error: 'Too many attempts' }, { status: 429, headers: { 'Retry-After': String(wait) } });
 
   const svc = createServiceClient();
   const { data: tokenRow } = await svc.from('customer_app_tokens')
@@ -103,6 +109,7 @@ export async function GET(req: NextRequest) {
     .order('created_at', { ascending: false });
 
   return NextResponse.json({
-    customer, emis: emis || [], breakdown: breakdown || null, broadcasts: broadcasts || [],
+    customer: redactCustomer(customer), emis: emis || [], breakdown: breakdown || null, broadcasts: broadcasts || [],
+    session_token: issueCustomerSession([customer.id]),
   });
 }

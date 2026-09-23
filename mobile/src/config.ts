@@ -25,6 +25,8 @@ export const STORAGE_KEYS = {
   ACTIVE_LOAN: '@telepoint_active_loan_id',
   STAFF_ROLE: '@telepoint_staff_role', // 'admin' | 'retailer'
   STAFF_USER: '@telepoint_staff_user',
+  // Signed proof of the Aadhaar/mobile login; sent with customer_id lookups.
+  CUSTOMER_SESSION_TOKEN: '@telepoint_customer_session_token',
 };
 
 export const THEME = {

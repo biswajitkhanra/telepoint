@@ -377,17 +377,17 @@ export default function AdminDashboard() {
         {/* ===== SEARCH TAB ===== */}
         {tab === 'search' && (
           <div className="space-y-6 animate-fade-in">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="font-display text-3xl font-bold text-ink">Customer Search</h1>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <h1 className="font-display text-2xl sm:text-3xl font-bold text-ink">Customer Search</h1>
                 <p className="text-ink-muted text-sm mt-1">Search all customers — RUNNING and COMPLETE</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="grid grid-cols-2 keep-cols gap-2 sm:flex sm:items-center">
                 <button onClick={() => { setEditingCustomer(null); setEcalPrefill(null); setShowCustomerForm(true); }} className="btn-primary">
                   + New Customer
                 </button>
                 <button onClick={() => setShowEcal(true)} className="btn-secondary" title="EMI Calculator (Super Admin)">
-                  🧮 EMI Calculator (ECAL)
+                  🧮 <span className="sm:hidden">EMI Calc</span><span className="hidden sm:inline">EMI Calculator (ECAL)</span>
                 </button>
               </div>
             </div>
@@ -399,7 +399,7 @@ export default function AdminDashboard() {
               {searchLoading && !customerLoading && <ShelfSearch />}
             </AnimatePresence>
 
-            {searchResults === null && (
+            {searchResults === null && !searchLoading && (
               <div className="flex flex-col items-center justify-center py-20 text-center">
                 <div className="w-20 h-20 rounded-3xl bg-surface-2 border border-surface-4 flex items-center justify-center mb-5">
                   <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(88,99,119,0.55)" strokeWidth="1.5">
@@ -435,10 +435,10 @@ export default function AdminDashboard() {
                       c.status === 'NPA'      ? 'hover:bg-rose-50' :
                                                  'hover:bg-sky-50';
                     const stripe =
-                      c.status === 'RUNNING'  ? 'border-emerald-400' :
-                      c.status === 'SETTLED'  ? 'border-amber-400' :
-                      c.status === 'NPA'      ? 'border-rose-400' :
-                                                 'border-sky-400';
+                      c.status === 'RUNNING'  ? 'bg-emerald-400' :
+                      c.status === 'SETTLED'  ? 'bg-amber-400' :
+                      c.status === 'NPA'      ? 'bg-rose-400' :
+                                                 'bg-sky-400';
                     const statusBadge =
                       c.status === 'RUNNING'
                         ? <span className="badge bg-emerald-100 text-emerald-800 border border-emerald-300">● Running</span>
@@ -451,11 +451,13 @@ export default function AdminDashboard() {
                       <motion.button
                         key={c.id}
                         variants={rowItem}
-                        whileHover={{ x: 4 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={() => selectCustomerFn(c)}
-                        className={`w-full text-left px-4 py-3.5 border-l-4 ${stripe} ${rowTint} transition-colors flex flex-col gap-2`}
+                        className={`relative w-full text-left pl-5 pr-4 py-3.5 ${rowTint} transition-colors flex flex-col gap-2`}
                       >
+                        {/* Own element, not border-left: the list's divide-y colour overrode
+                            the left border on every row but the first. */}
+                        <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${stripe}`} />
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <p className="text-ink font-semibold truncate">{c.customer_name}</p>
@@ -506,7 +508,7 @@ export default function AdminDashboard() {
                       variant="button"
                       onToggled={v => setSelectedCustomer(c => (c ? { ...c, is_locked: v } : c))}
                     />
-                    <button onClick={() => { setEditingCustomer(selectedCustomer); setShowCustomerForm(true); }} className="btn-ghost">
+                    <button onClick={() => { setEditingCustomer(selectedCustomer); setShowCustomerForm(true); }} className="btn-secondary px-4">
                       ✏️ Edit
                     </button>
                     {selectedCustomer.status === 'RUNNING' && (
@@ -540,7 +542,7 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Mobile sticky-bottom Record Payment — always visible, never cut off */}
-                <div className="sm:hidden fixed bottom-16 left-0 right-0 z-40 px-4 pb-2 pt-3 bg-white/95 backdrop-blur-sm border-t border-surface-4 shadow-lg">
+                <div className="sm:hidden fixed bottom-16 left-0 right-0 z-40 px-4 pb-2 pt-3 bg-surface/95 backdrop-blur-sm border-t border-surface-4 shadow-lg">
                   <button
                     onClick={() => setShowPaymentModal(true)}
                     className="btn-primary w-full text-base py-4 font-bold"

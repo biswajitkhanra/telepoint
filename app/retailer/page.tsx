@@ -402,10 +402,10 @@ export default function RetailerDashboard() {
         <div className="card overflow-hidden mb-4 border-l-4 border-brand-500">
           <button
             onClick={() => setShowBcast(v => !v)}
-            className="w-full px-5 py-3 flex items-center justify-between text-left hover:bg-surface-2 transition-colors"
+            className="w-full px-5 py-3 flex items-center justify-between gap-3 text-left hover:bg-surface-2 transition-colors"
           >
-            <span className="text-sm font-semibold text-ink">📣 Broadcast to all my customers</span>
-            <span className="text-xs text-ink-muted">{showBcast ? 'Close' : 'Send announcement'}</span>
+            <span className="min-w-0 truncate text-sm font-semibold text-ink">📣 Broadcast to all my customers</span>
+            <span className="shrink-0 text-xs text-ink-muted">{showBcast ? 'Close' : <><span className="sm:hidden">Send</span><span className="hidden sm:inline">Send announcement</span></>}</span>
           </button>
           {showBcast && (
             <div className="px-5 pb-4 pt-1 space-y-3 border-t border-surface-4 animate-fade-in">
@@ -516,7 +516,34 @@ export default function RetailerDashboard() {
                 {due.length === 0 ? (
                   <div className="px-5 py-6 text-ink-muted text-sm text-center">No overdue customers 🎉</div>
                 ) : (
-                  <div className="overflow-x-auto">
+                  <>
+                  {/* Phones: one tappable card per customer (the 7-column table was clipped) */}
+                  <ul className="divide-y divide-surface-3 sm:hidden">
+                    {due.map(d => (
+                      <li key={d.customer_id}>
+                        <button
+                          onClick={() => openCustomerById(d.customer_id, 'due')}
+                          className="w-full whitespace-normal px-4 py-3 text-left transition-colors hover:bg-rose-50 active:bg-rose-50"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-ink">{d.customer_name}</p>
+                              <p className="text-xs text-ink-muted">
+                                <span className="font-num">{d.mobile || '—'}</span> · since {format(new Date(d.earliest_due_date), 'd MMM yyyy')}
+                              </p>
+                            </div>
+                            <span className="badge shrink-0 bg-rose-100 text-rose-800 border border-rose-300 font-num">{d.overdue_count} EMI</span>
+                          </div>
+                          <div className="mt-2 grid grid-cols-3 keep-cols gap-2 text-[11px]">
+                            <span className="text-ink-muted">Due<br /><span className="font-num text-sm font-semibold text-crimson-500">{fmt(d.total_due)}</span></span>
+                            <span className="text-ink-muted">Fine<br /><span className="font-num text-sm text-rose-700">{fmt(d.total_fine)}</span></span>
+                            <span className="text-ink-muted">Outstanding<br /><span className="font-num text-sm font-bold text-ink">{fmt(d.total_outstanding)}</span></span>
+                          </div>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="hidden overflow-x-auto sm:block">
                     <table className="data-table text-xs sm:text-sm">
                       <thead>
                         <tr>
@@ -549,6 +576,7 @@ export default function RetailerDashboard() {
                       </motion.tbody>
                     </table>
                   </div>
+                  </>
                 )}
               </div>
             )}
@@ -565,7 +593,7 @@ export default function RetailerDashboard() {
         </div>
 
         {/* Empty state */}
-        {searchResults === null && (
+        {searchResults === null && !searchLoading && (
           <div className="animate-fade-in">
             <div className="flex flex-col items-center justify-center py-16 text-center mb-8">
               <div className="w-20 h-20 rounded-3xl bg-surface-2 border border-white/[0.05] flex items-center justify-center mb-5">
@@ -581,7 +609,32 @@ export default function RetailerDashboard() {
             {myRequests.length > 0 && (
               <div>
                 <p className="section-header">Recent Payment Requests</p>
-                <div className="card overflow-hidden">
+                {/* Phones: card list — the 6-column table cut off the date and Receipt link */}
+                <ul className="card divide-y divide-surface-3 overflow-hidden sm:hidden">
+                  {myRequests.map(r => {
+                    const cust = r.customer as { customer_name?: string; imei?: string };
+                    return (
+                      <li key={r.id} className="px-4 py-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-ink">{cust?.customer_name}</p>
+                            <p className="font-num text-xs text-ink-muted">{cust?.imei}</p>
+                          </div>
+                          <span className="font-num shrink-0 text-sm font-semibold text-ink">{fmt(r.total_amount)}</span>
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
+                          {r.status === 'PENDING' && <span className="badge-pending">Pending</span>}
+                          {r.status === 'APPROVED' && <span className="badge-approved">Approved</span>}
+                          {r.status === 'REJECTED' && <span className="badge-rejected">Rejected</span>}
+                          <span className={`font-semibold ${r.mode === 'UPI' ? 'text-info' : 'text-success'}`}>{r.mode}</span>
+                          <span className="text-ink-muted">{format(new Date(r.created_at), 'd MMM, h:mm a')}</span>
+                          <Link href={`/receipt/${r.id}`} target="_blank" className="ml-auto font-semibold text-info">Receipt →</Link>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <div className="card hidden overflow-x-auto sm:block">
                   <table className="data-table text-xs sm:text-sm">
                     <thead>
                       <tr><th>Customer</th><th>Amount</th><th>Mode</th><th>Status</th><th>Date</th><th></th></tr>
@@ -644,10 +697,10 @@ export default function RetailerDashboard() {
                   c.status === 'NPA'      ? 'hover:bg-rose-50' :
                                             'hover:bg-sky-50';
                 const stripe =
-                  c.status === 'RUNNING'  ? 'border-emerald-400' :
-                  c.status === 'SETTLED'  ? 'border-amber-400' :
-                  c.status === 'NPA'      ? 'border-rose-400' :
-                                            'border-sky-400';
+                  c.status === 'RUNNING'  ? 'bg-emerald-400' :
+                  c.status === 'SETTLED'  ? 'bg-amber-400' :
+                  c.status === 'NPA'      ? 'bg-rose-400' :
+                                            'bg-sky-400';
                 const statusBadge =
                   c.status === 'RUNNING'
                     ? <span className="badge bg-emerald-100 text-emerald-800 border border-emerald-300">● Running</span>
@@ -662,8 +715,11 @@ export default function RetailerDashboard() {
                     variants={{ hidden: { opacity: 0, y: 16, scale: 0.98 }, show: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 380, damping: 30, mass: 0.7 } } }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => selectCustomer(c)}
-                    className={`w-full text-left px-4 py-3.5 border-l-4 ${stripe} ${rowTint} transition-colors flex flex-col gap-2`}
+                    className={`relative w-full text-left pl-5 pr-4 py-3.5 ${rowTint} transition-colors flex flex-col gap-2`}
                   >
+                    {/* Own element, not border-left: the list's divide-y colour overrode
+                        the left border on every row but the first. */}
+                    <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${stripe}`} />
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="text-ink font-semibold truncate">{c.customer_name}</p>
@@ -838,7 +894,7 @@ export default function RetailerDashboard() {
                     </button>
                   </div>
                   {/* Mobile: sticky bottom bar — always visible, never scrolls away */}
-                  <div className="sm:hidden fixed bottom-16 left-0 right-0 z-40 px-4 pb-2 pt-3 bg-white/95 backdrop-blur-sm border-t border-surface-4 shadow-lg">
+                  <div className="sm:hidden fixed bottom-16 left-0 right-0 z-40 px-4 pb-2 pt-3 bg-surface/95 backdrop-blur-sm border-t border-surface-4 shadow-lg">
                     <button
                       onClick={() => setShowPaymentModal(true)}
                       disabled={!canCollect}

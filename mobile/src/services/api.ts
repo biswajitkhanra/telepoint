@@ -1,4 +1,5 @@
-import { PORTAL_BASE_URL } from '../config';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { PORTAL_BASE_URL, STORAGE_KEYS } from '../config';
 import { Customer, EMIScheduleItem, DueBreakdown, BroadcastItem, MultiLoanCustomer, NotificationHistoryItem } from '../types';
 
 export interface LoginResponse {
@@ -8,7 +9,32 @@ export interface LoginResponse {
   emis?: EMIScheduleItem[];
   breakdown?: DueBreakdown | null;
   broadcasts?: BroadcastItem[];
+  session_token?: string;
   error?: string;
+}
+
+/**
+ * The portal only serves a customer_id lookup to a caller holding the signed
+ * session issued at Aadhaar/mobile login. Attach it automatically and keep the
+ * freshest copy the server hands back.
+ */
+async function withSession<T extends { customer_id?: string }>(params: T): Promise<T & { session_token?: string }> {
+  if (!params.customer_id) return params;
+  const session_token = await AsyncStorage.getItem(STORAGE_KEYS.CUSTOMER_SESSION_TOKEN).catch(() => null);
+  return session_token ? { ...params, session_token } : params;
+}
+
+export async function clearCustomerSessionToken(): Promise<void> {
+  await AsyncStorage.removeItem(STORAGE_KEYS.CUSTOMER_SESSION_TOKEN).catch(() => {});
+}
+
+/** Load a single account by id (detail views); sends the session token. */
+export async function fetchCustomerById(customerId: string): Promise<LoginResponse | null> {
+  try {
+    return await loginCustomer({ customer_id: customerId });
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -28,10 +54,13 @@ export async function loginCustomer(params: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      body: JSON.stringify(params),
+      body: JSON.stringify(await withSession(params)),
     });
 
     const data = await res.json().catch(() => ({}));
+    if (data?.session_token) {
+      await AsyncStorage.setItem(STORAGE_KEYS.CUSTOMER_SESSION_TOKEN, data.session_token).catch(() => {});
+    }
     if (!res.ok) {
       if (res.status === 404) {
         throw new Error(`Portal server returned 404 at ${url}. Please verify your portal URL or deployment.`);

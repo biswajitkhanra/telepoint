@@ -700,3 +700,38 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 @media (prefers-reduced-motion: reduce) {
   .ss-track-bar, .ss-lens, .ss-dots i, .ss-row, .ss-sweep, .su-ring, .su-tile { animation: none !important; }
 }
+
+/* ── Staff search loader: mini phone scanning the ledger (ShelfSearch) ───── */
+.fs-stage { position: relative; width: 96px; height: 104px; flex-shrink: 0; }
+.fs-phone { position: absolute; left: 14px; top: 4px; width: 60px; height: 96px; border-radius: 15px; padding: 4px; background: linear-gradient(160deg, #1e293b, #020617); box-shadow: 0 12px 24px -10px rgba(15,23,42,.5), inset 0 0 0 1px rgba(255,255,255,.08); animation: fsBob 2.4s ease-in-out infinite; }
+@keyframes fsBob { 0%,100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-4px) rotate(2deg); } }
+.fs-notch { position: absolute; top: 6px; left: 50%; width: 18px; height: 4px; margin-left: -9px; border-radius: 9999px; background: #020617; z-index: 2; }
+.fs-screen { position: relative; height: 100%; border-radius: 11px; overflow: hidden; background: linear-gradient(170deg, #1e3a8a, #312e81); }
+.fs-list { position: absolute; left: 5px; right: 5px; top: 10px; animation: fsScroll 2.6s linear infinite; }
+@keyframes fsScroll { from { transform: translateY(0); } to { transform: translateY(-50%); } }
+.fs-row { display: flex; align-items: center; gap: 3px; height: 11px; }
+.fs-dot { width: 5px; height: 5px; flex-shrink: 0; border-radius: 9999px; background: #34d399; }
+.fs-dot--amber { background: #fbbf24; } .fs-dot--blue { background: #7dd3fc; }
+.fs-line { display: block; height: 3px; border-radius: 9999px; background: rgba(255,255,255,.35); }
+.fs-beam { position: absolute; left: 0; right: 0; top: 0; height: 16px; background: linear-gradient(180deg, transparent, rgba(125,211,252,.45), transparent); animation: fsBeam 1.3s ease-in-out infinite alternate; }
+@keyframes fsBeam { from { transform: translateY(6px); } to { transform: translateY(70px); } }
+.fs-lens { position: absolute; left: 36px; top: 30px; z-index: 3; filter: drop-shadow(0 4px 6px rgba(15,23,42,.3)); animation: fsLens 2.2s cubic-bezier(.65,0,.35,1) infinite; }
+@keyframes fsLens {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  25% { transform: translate(-26px, -18px) rotate(-12deg); }
+  50% { transform: translate(-8px, 22px) rotate(6deg); }
+  75% { transform: translate(10px, -6px) rotate(10deg); }
+}
+.fs-coin { position: absolute; top: 58px; z-index: 2; width: 17px; height: 17px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: #78350f; background: radial-gradient(circle at 35% 30%, #fef3c7, #fbbf24 55%, #d97706); box-shadow: 0 3px 6px rgba(217,119,6,.4); opacity: 0; animation: fsCoin 1.26s cubic-bezier(.3,.7,.4,1) infinite; }
+@keyframes fsCoin {
+  0% { transform: translate(0, 0) scale(.6); opacity: 0; }
+  15% { opacity: 1; }
+  55% { transform: translate(8px, -40px) scale(1) rotateY(180deg); opacity: 1; }
+  100% { transform: translate(14px, 6px) scale(.8) rotateY(360deg); opacity: 0; }
+}
+.fs-chip { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 7px; font-size: 11px; font-weight: 600; color: rgb(var(--tp-ink-muted)); background: rgb(var(--tp-surface-2)); box-shadow: inset 0 0 0 1px rgb(var(--tp-hairline) / .08); animation: fsChip 1.05s ease-in-out infinite; }
+@keyframes fsChip { 0%, 100% { color: rgb(var(--tp-ink-muted)); background: rgb(var(--tp-surface-2)); } 45% { color: #2a52c4; background: rgba(58,103,221,.12); } }
+@media (prefers-reduced-motion: reduce) {
+  .fs-phone, .fs-list, .fs-beam, .fs-lens, .fs-coin, .fs-chip { animation: none !important; }
+  .fs-coin { display: none; }
+}

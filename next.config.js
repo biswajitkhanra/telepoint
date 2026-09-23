@@ -4,6 +4,11 @@ const nextConfig = {
   typescript: { ignoreBuildErrors: true },
   poweredByHeader: false,
   images: {
+    // The app never uses the /_next/image optimizer (photos render
+    // unoptimized). Turning it off makes Next answer 404 there, which removes
+    // the image-optimizer CVEs only patched in Next 15.5 (AVIF RCE, DoS,
+    // cache poisoning) from the attack surface on 14.2.x.
+    unoptimized: true,
     remotePatterns: [
       { protocol: 'https', hostname: '*.supabase.co' },
       { protocol: 'https', hostname: '*.ibb.co' },
