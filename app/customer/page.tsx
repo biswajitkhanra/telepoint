@@ -584,6 +584,10 @@ export default function CustomerPortal() {
   const RING_C = 2 * Math.PI * 34;
   const code = customerCodeOf(customer);
   const retailer = Array.isArray(customer?.retailer) ? customer.retailer[0] : customer?.retailer;
+  // The shop number can come from the locally cached session, so treat it as
+  // untrusted: keep digits/+ only and only link it when it is a real number.
+  const shopDigits = String(retailer?.mobile ?? '').replace(/[^\d+]/g, '');
+  const shopTel = /^\+?\d{6,15}$/.test(shopDigits) ? shopDigits : '';
   const firstName = String(customer?.customer_name || '').trim().split(/\s+/)[0] || 'there';
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
@@ -759,8 +763,8 @@ export default function CustomerPortal() {
               <span className="block text-[11px] text-ink-muted truncate">View & download PDF</span>
             </span>
           </button>
-          {retailer?.mobile ? (
-            <a href={`tel:${retailer.mobile}`} className="card cp-press flex items-center gap-3 p-3.5 hover:border-emerald-400">
+          {shopTel ? (
+            <a href={`tel:${shopTel}`} className="card cp-press flex items-center gap-3 p-3.5 hover:border-emerald-400">
               <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/30">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.8 19.8 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.8 19.8 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.13.96.36 1.9.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0122 16.92z" /></svg>
               </span>
