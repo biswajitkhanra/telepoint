@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 type Stage = 'enter' | 'center' | 'shutter' | 'shake' | 'banner' | 'done';
 
@@ -9,10 +9,18 @@ export default function BroadcastAnimator({ broadcasts }: { broadcasts: { id: st
   const [stage, setStage] = useState<Stage>('enter');
   const [banners, setBanners] = useState<typeof broadcasts>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  // Ids already animated in this session. The parent re-sends the same list on
+  // every background refresh; without this each refresh replayed the whole
+  // intro and pushed a second copy of every banner onto the stack.
+  const seen = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    const active = broadcasts.filter(b => new Date(b.expires_at) > new Date());
-    if (active.length > 0) { setCurrent(active[0]); setQueue(active.slice(1)); setStage('enter'); }
+    const fresh = broadcasts.filter(b => new Date(b.expires_at) > new Date() && !seen.current.has(b.id));
+    if (fresh.length === 0) return;
+    fresh.forEach(b => seen.current.add(b.id));
+    if (current) { setQueue(p => [...p, ...fresh]); return; }
+    setCurrent(fresh[0]); setQueue(fresh.slice(1)); setStage('enter');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [broadcasts]);
 
   useEffect(() => {
@@ -22,7 +30,7 @@ export default function BroadcastAnimator({ broadcasts }: { broadcasts: { id: st
     else if (stage === 'center') t = setTimeout(() => setStage('shutter'), 2000);
     else if (stage === 'shutter') t = setTimeout(() => setStage('shake'), 400);
     else if (stage === 'shake') t = setTimeout(() => {
-      setBanners(p => [...p, current]);
+      setBanners(p => (p.some(b => b.id === current.id) ? p : [...p, current]));
       if (queue.length > 0) { setCurrent(queue[0]); setQueue(p => p.slice(1)); setStage('enter'); }
       else { setCurrent(null); setStage('done'); }
     }, 500);

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { safeEqual } from '@/lib/safeEqual';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,7 +24,7 @@ function isCronAuthorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
   if (!secret) return false;
   const auth = req.headers.get('authorization') || '';
-  return auth === `Bearer ${secret}`;
+  return safeEqual(auth, `Bearer ${secret}`);
 }
 
 export async function POST(req: NextRequest) {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServiceClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { esc } from '@/lib/html';
 
 function fmt(n: number) {
@@ -14,6 +14,17 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  // AUTH + OWNERSHIP: previously any logged-in account could open any
+  // customer's settlement letter (name, mobile, IMEI, amounts) just by
+  // swapping the id — a cross-retailer PII leak. Admins see all; a retailer
+  // only their own customers.
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return new NextResponse('Unauthorized', { status: 401 });
+  const { data: profile } = await supabase.from('profiles').select('role').eq('user_id', user.id).single();
+  const isAdmin = profile?.role === 'super_admin';
+  if (!isAdmin && profile?.role !== 'retailer') return new NextResponse('Forbidden', { status: 403 });
+
   const svc = createServiceClient();
   const { data: customer } = await svc
     .from('customers')
@@ -23,6 +34,13 @@ export async function GET(
 
   if (!customer || customer.status !== 'SETTLED') {
     return new NextResponse('Settlement letter not available', { status: 404 });
+  }
+
+  if (!isAdmin) {
+    const { data: me } = await svc.from('retailers').select('id').eq('auth_user_id', user.id).single();
+    if (!me || me.id !== customer.retailer_id) {
+      return new NextResponse('Settlement letter not available', { status: 404 });
+    }
   }
 
   const retailer = customer.retailer as { name?: string; mobile?: string } | null;

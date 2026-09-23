@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { safeEqual } from '@/lib/safeEqual';
+
+// Constant-time PIN check so response timing can't leak the PIN digit by digit.
+function pinMatches(expected: string, provided: string): boolean {
+  return expected.length > 0 && safeEqual(expected, provided.trim());
+}
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -8,7 +14,7 @@ export async function POST(req: NextRequest) {
     total_emi_amount, scheduled_emi_amount, fine_amount,
     fine_breakdown,
     first_emi_charge_amount, total_amount,
-    fine_for_emi_no, fine_due_date, collected_by_role, collect_type,
+    fine_for_emi_no, fine_due_date, collect_type,
   } = body;
 
   // "noEmi" requests collect only fine and/or first-charge without touching
@@ -37,7 +43,7 @@ export async function POST(req: NextRequest) {
 
   if (!retailer?.is_active)
     return NextResponse.json({ error: 'Retailer inactive' }, { status: 403 });
-  if (retailer.retail_pin !== retail_pin)
+  if (!pinMatches(String(retailer.retail_pin ?? ''), String(retail_pin)))
     return NextResponse.json({ error: 'Incorrect PIN' }, { status: 401 });
 
   // ── OWNERSHIP CHECK: customer must belong to this retailer ────────────────
@@ -73,8 +79,11 @@ export async function POST(req: NextRequest) {
     p_fine_for_emi_no:         fine_for_emi_no || null,
     p_fine_due_date:           fine_due_date || null,
     p_fine_breakdown:          Array.isArray(fine_breakdown) ? fine_breakdown : null,
-    p_collected_by_role:       collected_by_role || 'retailer',
-    p_bypass_sequence:         collected_by_role === 'admin',
+    // This route is retailer-only (admins go through /approve-direct), so the
+    // role is fixed server-side. Trusting the body here let any retailer send
+    // collected_by_role:'admin' and skip the EMI sequence enforcement.
+    p_collected_by_role:       'retailer',
+    p_bypass_sequence:         false,
   });
 
   if (rpcErr) {
