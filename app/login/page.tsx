@@ -51,7 +51,7 @@ export default function LoginPage() {
     try {
       const { error } = await supabase.auth.signInWithPassword({ email: toEmail(username, tab), password });
       if (error) { toast.error('Incorrect username or password'); return; }
-      toast.success('Welcome!');
+      toast.success('Signed in');
       router.replace(tab === 'admin' ? '/admin' : '/retailer');
       router.refresh();
     } finally { setLoading(false); }
@@ -70,28 +70,24 @@ export default function LoginPage() {
         <motion.div className="text-center mb-8" variants={fadeUp}>
           <motion.div
             className="inline-flex items-center justify-center mb-5"
-            initial={{ scale: 0, rotate: -90 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ ...SPRING, delay: 0.1 }}
-            whileHover={{ scale: 1.08, rotate: 6 }}
+            initial={{ scale: 0.92, opacity: 0, y: 6 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, ease: [0.23, 1, 0.32, 1], delay: 0.05 }}
           >
-            <div className="relative">
-              <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-blue-400 to-indigo-500 blur-xl opacity-40 scale-110" />
-              <span className="animate-float inline-block relative">
-                <Logo size={72} className="rounded-3xl shadow-xl shadow-blue-500/25" />
-              </span>
+            <div className="relative rounded-[22px] p-1 bg-surface shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_12px_32px_-12px_rgba(30,49,102,0.35)]">
+              <Logo size={68} className="rounded-[18px]" />
             </div>
           </motion.div>
-          <h1 className="text-3xl font-bold text-ink tracking-tight">EMI Management Portal</h1>
-          <p className="text-ink-muted text-sm mt-1.5">Secure access for authorized users</p>
+          <h1 className="text-[28px] leading-tight font-semibold text-ink tracking-[-0.03em]">EMI Management Portal</h1>
+          <p className="text-ink-muted text-sm mt-1.5">Sign in to manage customers and collections</p>
           <div className="flex items-center justify-center gap-1.5 mt-3">
-            <span className="h-1.5 w-6 rounded-full bg-blue-500" />
-            <span className="h-1.5 w-1.5 rounded-full bg-indigo-400" />
-            <span className="h-1.5 w-1.5 rounded-full bg-violet-400" />
+            <span className="h-1 w-6 rounded-full bg-brand-500" />
+            <span className="h-1 w-1.5 rounded-full bg-brand-300" />
+            <span className="h-1 w-1.5 rounded-full bg-brand-200" />
           </div>
         </motion.div>
 
-        <motion.div className="card p-8 shadow-xl shadow-blue-500/8" variants={fadeUp}>
+        <motion.div className="card p-8 shadow-modal" variants={fadeUp}>
           {/* Tab selector */}
           <div className="flex rounded-xl bg-surface-3 p-1 mb-6">
             {(['admin', 'retailer'] as Tab[]).map(t => (
@@ -102,13 +98,13 @@ export default function LoginPage() {
                 onClick={() => { setTab(t); setUsername(''); setPassword(''); setShowPassword(false); }}
                 aria-pressed={tab === t}
                 className={`relative flex-1 py-2 rounded-lg text-sm capitalize whitespace-nowrap transition-colors ${
-                  tab === t ? 'font-bold text-brand-700' : 'font-semibold text-ink-muted hover:text-ink'
+                  tab === t ? 'font-semibold text-ink' : 'font-medium text-ink-muted hover:text-ink'
                 }`}
               >
                 {tab === t && (
                   <motion.span
                     layoutId="login-tab-pill"
-                    className="absolute inset-0 rounded-lg bg-white shadow-sm ring-1 ring-brand-200"
+                    className="absolute inset-0 rounded-lg bg-surface shadow-[0_1px_2px_rgba(15,23,42,0.08),0_0_0_1px_rgba(15,23,42,0.06)]"
                     transition={SPRING}
                   />
                 )}
@@ -130,7 +126,7 @@ export default function LoginPage() {
                   )}
                   {tab === t && (
                     <motion.svg
-                      initial={{ scale: 0, opacity: 0 }}
+                      initial={{ scale: 0.6, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       transition={SPRING}
                       width="12" height="12" viewBox="0 0 24 24" fill="none"
@@ -153,7 +149,7 @@ export default function LoginPage() {
             className="-mt-3 mb-5 text-center text-xs text-ink-muted"
           >
             Signing in as{' '}
-            <span className="font-bold capitalize text-brand-600">
+            <span className="font-semibold capitalize text-brand-600">
               {tab === 'admin' ? 'Admin' : 'Retailer'}
             </span>
           </motion.p>
@@ -222,7 +218,7 @@ export default function LoginPage() {
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4" /><polyline points="10 17 15 12 10 7" /><line x1="15" y1="12" x2="3" y2="12" />
                   </svg>
-                  Sign In
+                  Sign in
                 </span>
               )}
             </button>

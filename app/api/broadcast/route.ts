@@ -13,6 +13,10 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { target_retailer_id, target_customer_id, message, expires_at, image_url } = body;
   if (!message?.trim() || !expires_at) return NextResponse.json({ error: 'Message and expiry required' }, { status: 400 });
+  if (image_url?.trim() && !/^https?:\/\/[^\s"'<>]+$/i.test(image_url.trim()))
+    return NextResponse.json({ error: 'Image URL must be a valid http(s):// link' }, { status: 400 });
+  if (String(message).length > 2000) return NextResponse.json({ error: 'Message is too long (max 2000 characters)' }, { status: 400 });
+  if (Number.isNaN(Date.parse(expires_at))) return NextResponse.json({ error: 'Invalid expiry date' }, { status: 400 });
   if (isAdmin && !target_retailer_id && !target_customer_id) return NextResponse.json({ error: 'Select a retailer' }, { status: 400 });
 
   const svc = createServiceClient();

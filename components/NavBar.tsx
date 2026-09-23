@@ -78,7 +78,7 @@ export default function NavBar({ role, pendingCount = 0 }: NavBarProps) {
       initial={{ y: -24, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={SPRING}
-      className="sticky top-0 z-40 bg-white/90 dark:bg-surface/90 backdrop-blur-md border-b border-surface-4 shadow-sm no-print"
+      className="sticky top-0 z-40 bg-surface/80 backdrop-blur-xl backdrop-saturate-150 border-b border-slate-900/[0.06] dark:border-white/[0.07] no-print"
     >
       <div className="max-w-6xl mx-auto px-3 sm:px-4 h-14 flex items-center justify-between gap-2">
         {/* Logo + wordmark */}
@@ -88,15 +88,15 @@ export default function NavBar({ role, pendingCount = 0 }: NavBarProps) {
           animate={{ opacity: 1, x: 0 }}
           transition={{ ...SPRING, delay: 0.08 }}
         >
-          <motion.div whileHover={{ rotate: -8, scale: 1.08 }} whileTap={{ scale: 0.92 }} transition={SPRING}>
-            <Logo size={32} className="rounded-lg shadow-sm" />
+          <motion.div whileTap={{ scale: 0.95 }} transition={SPRING}>
+            <Logo size={32} className="rounded-[9px] shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_2px_6px_-2px_rgba(30,49,102,0.35)]" />
           </motion.div>
-          <span className="font-display font-bold text-ink text-base inline tracking-tight">Telepoint</span>
+          <span className="font-display font-semibold text-ink text-[15px] inline tracking-[-0.02em]">Telepoint</span>
           {/* Role chip */}
-          <span className={`hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+          <span className={`hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-[0.08em] ring-1 ring-inset ${
             role === 'admin'
-              ? 'bg-violet-100 text-violet-700 border border-violet-200'
-              : 'bg-teal-100 text-teal-700 border border-teal-200'
+              ? 'bg-brand-50 text-brand-700 ring-brand-600/15'
+              : 'bg-emerald-50 text-emerald-700 ring-emerald-600/15'
           }`}>
             {role === 'admin' ? 'Admin' : 'Retailer'}
           </span>
