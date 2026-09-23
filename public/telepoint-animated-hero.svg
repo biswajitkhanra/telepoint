@@ -1,0 +1,43 @@
+<svg width="1200" height="420" viewBox="0 0 1200 420" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <defs>
+    <linearGradient id="overlay" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#071A3A" stop-opacity="0.9"/>
+      <stop offset="0.55" stop-color="#1456C7" stop-opacity="0.58"/>
+      <stop offset="1" stop-color="#19C6A8" stop-opacity="0.78"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="1" y2="0">
+      <stop stop-color="white" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="white" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="white" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="rounded"><rect width="1200" height="420" rx="28"/></clipPath>
+  </defs>
+  <g clip-path="url(#rounded)">
+    <rect width="1200" height="420" fill="#071A3A"/>
+    <image x="0" y="0" width="1200" height="420" preserveAspectRatio="xMidYMid slice" opacity="0" xlink:href="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&amp;fit=crop&amp;w=1600&amp;q=85">
+      <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.12;0.38;0.5" dur="12s" repeatCount="indefinite"/>
+    </image>
+    <image x="0" y="0" width="1200" height="420" preserveAspectRatio="xMidYMid slice" opacity="0" xlink:href="https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&amp;fit=crop&amp;w=1600&amp;q=85">
+      <animate attributeName="opacity" values="0;1;1;0" keyTimes="0.33;0.45;0.71;0.83" dur="12s" repeatCount="indefinite"/>
+    </image>
+    <image x="0" y="0" width="1200" height="420" preserveAspectRatio="xMidYMid slice" opacity="0" xlink:href="https://images.unsplash.com/photo-1556740749-887f6717d7e4?auto=format&amp;fit=crop&amp;w=1600&amp;q=85">
+      <animate attributeName="opacity" values="0;1;1;0" keyTimes="0.66;0.78;0.96;1" dur="12s" repeatCount="indefinite"/>
+    </image>
+    <rect width="1200" height="420" fill="url(#overlay)"/>
+    <circle cx="1030" cy="82" r="170" fill="#6BE7FF" fill-opacity="0.12">
+      <animate attributeName="r" values="150;185;150" dur="5s" repeatCount="indefinite"/>
+    </circle>
+    <rect x="-300" y="0" width="230" height="420" fill="url(#shine)" transform="skewX(-18)">
+      <animate attributeName="x" values="-300;1450" dur="7s" repeatCount="indefinite"/>
+    </rect>
+    <image x="72" y="66" width="76" height="76" preserveAspectRatio="xMidYMid meet" xlink:href="https://raw.githubusercontent.com/biswajitkhanra/telepoint/main/public/logo.svg">
+      <animateTransform attributeName="transform" type="rotate" from="-5 110 104" to="5 110 104" dur="3s" repeatCount="indefinite" additive="sum"/>
+    </image>
+    <text x="72" y="205" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="58" font-weight="700">TelePoint</text>
+    <text x="76" y="250" fill="#D9F7FF" font-family="Arial, Helvetica, sans-serif" font-size="23">EMI collection, simplified.</text>
+    <text x="76" y="304" fill="white" fill-opacity="0.9" font-family="Arial, Helvetica, sans-serif" font-size="17">Real-time finance workflows for teams, retailers, and customers.</text>
+    <rect x="76" y="340" width="220" height="4" rx="2" fill="#6BE7FF">
+      <animate attributeName="width" values="80;220;80" dur="4s" repeatCount="indefinite"/>
+    </rect>
+  </g>
+</svg>
