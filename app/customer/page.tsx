@@ -588,6 +588,10 @@ export default function CustomerPortal() {
   // untrusted: keep digits/+ only and only link it when it is a real number.
   const shopDigits = String(retailer?.mobile ?? '').replace(/[^\d+]/g, '');
   const shopTel = /^\+?\d{6,15}$/.test(shopDigits) ? shopDigits : '';
+  // Same for the photo URL: only a plain http(s) image link may reach <img src>
+  // (blocks javascript:/data: values planted in the cached session).
+  const photoRaw = ibbDirect(customer?.customer_photo_url);
+  const photoSrc = /^https?:\/\/[a-z0-9.-]+\/[^\s"'<>`]*$/i.test(photoRaw) ? photoRaw : '';
   const firstName = String(customer?.customer_name || '').trim().split(/\s+/)[0] || 'there';
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
@@ -651,10 +655,10 @@ export default function CustomerPortal() {
               <span className="absolute inset-0 flex items-center justify-center font-display text-2xl font-bold">
                 {customer?.customer_name?.[0]?.toUpperCase() ?? '?'}
               </span>
-              {customer?.customer_photo_url && (
+              {photoSrc && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={ibbDirect(customer.customer_photo_url)}
+                  src={photoSrc}
                   alt=""
                   loading="lazy"
                   decoding="async"
