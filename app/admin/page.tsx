@@ -402,7 +402,7 @@ export default function AdminDashboard() {
             {searchResults === null && (
               <div className="flex flex-col items-center justify-center py-20 text-center">
                 <div className="w-20 h-20 rounded-3xl bg-surface-2 border border-surface-4 flex items-center justify-center mb-5">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(232,184,0,0.4)" strokeWidth="1.5">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(88,99,119,0.55)" strokeWidth="1.5">
                     <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
                   </svg>
                 </div>
@@ -420,7 +420,7 @@ export default function AdminDashboard() {
             {searchResults !== null && searchResults.length > 1 && !selectedCustomer && (
               <div className="card overflow-hidden animate-fade-in">
                 <div className="px-5 py-3 border-b border-surface-4">
-                  <span className="text-xs text-ink-muted uppercase tracking-widest">📂 {searchResults.length} files pulled from the shelves — tap a customer to open</span>
+                  <span className="text-xs font-medium text-ink-muted">{searchResults.length} {searchResults.length === 1 ? 'customer' : 'customers'} found · tap to open</span>
                 </div>
                 <motion.div
                   className="divide-y divide-surface-3"

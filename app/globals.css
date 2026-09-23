@@ -8,40 +8,58 @@
 /* Semantic theme tokens — light is the default; <html class="dark"> flips
    every ink/surface token app-wide (Tailwind reads these via rgb(var(…))). */
 :root {
-  --tp-ink: 15 23 42;          /* slate-900 */
-  --tp-ink-light: 30 41 59;    /* slate-800 */
-  --tp-ink-muted: 100 116 139; /* slate-500 */
+  /* One cool neutral family (slate-tinted), one accent (cobalt). */
+  --tp-ink: 15 20 32;          /* near-black, blue-tinted */
+  --tp-ink-light: 36 44 60;
+  --tp-ink-muted: 88 99 119;   /* ≥4.5:1 on white and on surface-2 */
   --tp-surface: 255 255 255;
-  --tp-surface-2: 248 250 252; /* slate-50 */
-  --tp-surface-3: 241 245 249; /* slate-100 */
-  --tp-surface-4: 226 232 240; /* slate-200 */
+  --tp-surface-2: 246 247 250;
+  --tp-surface-3: 238 241 245;
+  --tp-surface-4: 223 228 236;
+  --tp-hairline: 15 23 42;     /* used at low alpha for 1px borders */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
 }
 .dark {
-  --tp-ink: 241 245 249;       /* slate-100 */
-  --tp-ink-light: 226 232 240; /* slate-200 */
-  --tp-ink-muted: 148 163 184; /* slate-400 */
-  --tp-surface: 15 23 42;      /* slate-900 */
-  --tp-surface-2: 30 41 59;    /* slate-800 */
-  --tp-surface-3: 51 65 85;    /* slate-700 */
-  --tp-surface-4: 71 85 105;   /* slate-600 */
+  --tp-ink: 237 240 245;
+  --tp-ink-light: 214 219 228;
+  --tp-ink-muted: 150 160 177;
+  --tp-surface: 17 21 29;      /* off-black, never #000 */
+  --tp-surface-2: 11 14 20;
+  --tp-surface-3: 28 34 45;
+  --tp-surface-4: 45 53 68;
+  --tp-hairline: 255 255 255;
   color-scheme: dark;
 }
 
 html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; overflow-x: hidden; }
 body {
   background: rgb(var(--tp-surface-2)); color: rgb(var(--tp-ink-light));
-  font-family: 'Inter', 'Noto Sans Bengali', 'Noto Sans Devanagari', system-ui, sans-serif; line-height: 1.5;
+  /* Geist is self-hosted via next/font (see app/layout.tsx). Before this the
+     stack asked for Inter, which was never loaded, so every device fell back
+     to its own system font — the main reason text looked soft and uneven. */
+  font-family: var(--font-geist-sans), 'Noto Sans Bengali', 'Noto Sans Devanagari', system-ui, sans-serif;
+  line-height: 1.5;
+  font-size: 15px;
   overflow-x: hidden;
   -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'ss01' 1, 'cv11' 1;
 }
+h1, h2, h3, h4 { color: rgb(var(--tp-ink)); letter-spacing: -0.022em; text-wrap: balance; }
+p { text-wrap: pretty; }
+img { image-rendering: auto; }
 
-::-webkit-scrollbar { width: 5px; height: 5px; }
-::-webkit-scrollbar-track { background: #f1f5f9; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
-::selection { background: rgba(59,130,246,0.18); }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgb(var(--tp-hairline) / 0.14); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: rgb(var(--tp-hairline) / 0.28); background-clip: padding-box; }
+::selection { background: rgba(58,103,221,0.18); }
+:focus-visible { outline: 2px solid #3a67dd; outline-offset: 2px; border-radius: 6px; }
 
-.font-display { font-family: inherit; letter-spacing: -0.02em; }
+.font-display { font-family: inherit; letter-spacing: -0.025em; }
 
 
 button, a, th, td, label, select, input, .badge, .btn, .tab, .nav-link, .nav-link-active {
@@ -62,13 +80,20 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 @layer components {
 
   /* Cards */
-  .card { @apply rounded-2xl shadow-card border border-surface-4 bg-gradient-to-br from-surface to-surface-2; }
+  /* Flat surface + hairline + layered tinted shadow. No gradient fill: a
+     gradient on every card is what made the UI look busy and low-fidelity. */
+  .card {
+    @apply rounded-2xl shadow-card bg-surface;
+    border: 1px solid rgb(var(--tp-hairline) / 0.07);
+  }
   .card-hover {
     @apply card cursor-pointer;
-    transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s ease;
+    transition: transform .2s var(--ease-out), box-shadow .2s ease, border-color .2s ease;
   }
-  .card-hover:hover { transform: translateY(-3px); @apply shadow-card-hover; }
-  .card-hover:active { transform: translateY(-1px) scale(.995); }
+  @media (hover: hover) {
+    .card-hover:hover { transform: translateY(-2px); @apply shadow-card-hover; border-color: rgba(42,82,196,0.18); }
+  }
+  .card-hover:active { transform: scale(.99); }
 
   /* Premium status-accent card — a thin colour bar riding the top edge that
      reads status at a glance (PENDING amber / APPROVED blue / REJECTED rose),
@@ -78,130 +103,121 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
     content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
     background: var(--tp-accent-bar, linear-gradient(90deg, #94a3b8, #cbd5e1));
   }
-  .card-accent--pending  { --tp-accent-bar: linear-gradient(90deg, #f59e0b, #fbbf24); }
-  .card-accent--approved { --tp-accent-bar: linear-gradient(90deg, #2563eb, #60a5fa); }
-  .card-accent--rejected { --tp-accent-bar: linear-gradient(90deg, #e11d48, #f43f5e); }
+  .card-accent::before { height: 3px; }
+  .card-accent--pending  { --tp-accent-bar: #d98a0b; }
+  .card-accent--approved { --tp-accent-bar: #3a67dd; }
+  .card-accent--rejected { --tp-accent-bar: #d23a55; }
 
-  /* Buttons — all have minimum touch target + tactile spring feedback. */
+  /* Buttons — 44px touch target, precise press feedback (scale .97,
+     ~150ms, strong ease-out). No will-change: it forced button text onto a
+     bitmap layer and rendered it blurry. */
   .btn {
     @apply inline-flex items-center justify-center gap-2 font-semibold rounded-xl
            text-sm
            disabled:opacity-50 disabled:cursor-not-allowed;
     min-height: 44px;
-    transition: transform .18s cubic-bezier(.34,1.56,.64,1),
-                box-shadow .2s ease, background-color .15s ease,
-                color .15s ease, border-color .15s ease, opacity .15s ease;
-    will-change: transform;
+    letter-spacing: -0.005em;
+    transition: transform .16s var(--ease-out), box-shadow .2s ease,
+                background-color .15s ease, color .15s ease,
+                border-color .15s ease, opacity .15s ease, filter .15s ease;
   }
-  .btn:hover:not(:disabled) { transform: translateY(-2px); }
-  .btn:active:not(:disabled) { transform: translateY(0) scale(.94); transition-duration: .08s; }
+  @media (hover: hover) {
+    .btn:hover:not(:disabled) { transform: translateY(-1px); }
+  }
+  .btn:active:not(:disabled) { transform: scale(.97); transition-duration: .1s; }
 
-  /* Premium sheen sweep on hover for the filled action buttons — a soft
-     diagonal light pass, the kind of micro-detail that reads as "premium SaaS"
-     rather than a flat, dull button. */
-  .btn-primary, .btn-success, .btn-danger {
-    position: relative;
-    overflow: hidden;
-  }
-  .btn-primary::after, .btn-success::after, .btn-danger::after {
-    content: ''; position: absolute; inset: 0;
-    background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.35) 50%, transparent 70%);
-    transform: translateX(-130%);
-    transition: transform .55s cubic-bezier(.16,1,.3,1);
-    pointer-events: none;
-  }
-  .btn-primary:hover::after, .btn-success:hover::after, .btn-danger:hover::after { transform: translateX(130%); }
-  @media (prefers-reduced-motion: reduce) {
-    .btn-primary::after, .btn-success::after, .btn-danger::after { transition: none; }
-  }
-
-  /* Primary — vibrant blue gradient with crisp white text */
+  /* Primary — cobalt with a lit top edge and a cobalt-tinted shadow. */
   .btn-primary {
-    @apply btn px-5 py-2.5 text-white font-bold shadow-md shadow-blue-500/30
-           bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600
-           hover:from-blue-600 hover:via-blue-600 hover:to-indigo-700
-           hover:shadow-lg hover:shadow-blue-500/45;
+    @apply btn px-5 py-2.5 text-white;
+    background: linear-gradient(180deg, #4673e4 0%, #2a52c4 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 0 0 1px rgba(30,49,102,0.35), 0 4px 12px -4px rgba(42,82,196,0.55);
   }
+  .btn-primary:hover:not(:disabled) { filter: brightness(1.06); box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 0 0 1px rgba(30,49,102,0.4), 0 8px 20px -6px rgba(42,82,196,0.6); }
   .btn-secondary {
-    @apply btn px-5 py-2.5 text-ink border border-surface-4 shadow-sm
-           bg-gradient-to-br from-surface to-surface-3 hover:from-surface-2 hover:to-surface-4
-           hover:border-brand-300 hover:shadow-md;
+    @apply btn px-5 py-2.5 text-ink bg-surface;
+    box-shadow: 0 0 0 1px rgb(var(--tp-hairline) / 0.10), 0 1px 2px rgba(15,23,42,0.06);
   }
+  .btn-secondary:hover:not(:disabled) { box-shadow: 0 0 0 1px rgba(42,82,196,0.35), 0 4px 12px -6px rgba(15,23,42,0.18); }
   .btn-danger {
-    @apply btn px-5 py-2.5 text-white font-semibold shadow-md shadow-rose-500/30
-           bg-gradient-to-br from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700
-           hover:shadow-lg hover:shadow-rose-500/45;
+    @apply btn px-5 py-2.5 text-white;
+    background: linear-gradient(180deg, #e0506a 0%, #c42d4a 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 0 0 1px rgba(120,20,40,0.35), 0 4px 12px -4px rgba(196,45,74,0.5);
   }
+  .btn-danger:hover:not(:disabled) { filter: brightness(1.06); }
   .btn-success {
-    @apply btn px-5 py-2.5 text-white font-semibold shadow-md shadow-emerald-500/30
-           bg-gradient-to-br from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700
-           hover:shadow-lg hover:shadow-emerald-500/45;
+    @apply btn px-5 py-2.5 text-white;
+    background: linear-gradient(180deg, #1fae7a 0%, #0f8a60 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 0 0 1px rgba(8,80,55,0.35), 0 4px 12px -4px rgba(15,138,96,0.5);
   }
+  .btn-success:hover:not(:disabled) { filter: brightness(1.06); }
   .btn-ghost { @apply btn px-4 py-2 text-ink-muted hover:text-ink hover:bg-surface-3; }
   .btn-icon { @apply btn p-2 rounded-xl text-ink-muted hover:text-ink hover:bg-surface-3; min-width: 44px; }
 
   /* Inputs — proper mobile sizing */
   .input {
-    @apply w-full rounded-xl border border-surface-4 bg-surface px-4 py-2.5 text-sm text-ink
-           placeholder-ink-muted/50 transition-all duration-200
-           focus:outline-none focus:border-brand-400 focus:ring-4 focus:ring-brand-400/25;
+    @apply w-full rounded-xl bg-surface px-4 py-2.5 text-sm text-ink
+           placeholder-ink-muted/60 focus:outline-none;
+    border: 1px solid rgb(var(--tp-hairline) / 0.13);
+    box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+    transition: border-color .15s ease, box-shadow .15s ease;
     min-height: 44px;
     font-size: 16px; /* Prevents iOS zoom on focus */
   }
-  .input:focus { box-shadow: 0 0 0 4px rgba(59,130,246,0.15), 0 2px 8px rgba(37,99,235,0.10); }
-  .label { @apply block text-xs font-semibold text-ink-muted uppercase tracking-wide mb-1.5; }
+  .input:hover { border-color: rgb(var(--tp-hairline) / 0.22); }
+  .input:focus { border-color: #3a67dd; box-shadow: 0 0 0 3px rgba(58,103,221,0.18); }
+  .label { @apply block text-[11px] font-semibold text-ink-muted uppercase mb-1.5; letter-spacing: 0.06em; }
 
-  /* Badges — soft gradient pills with bold, high-contrast text */
-  .badge { @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold; }
-  .badge-green  { @apply badge text-emerald-800 border border-success-border bg-gradient-to-r from-emerald-50 to-green-100; }
-  .badge-blue   { @apply badge text-blue-800    border border-info-border    bg-gradient-to-r from-sky-50     to-blue-100; }
-  .badge-yellow { @apply badge text-amber-800   border border-warning-border bg-gradient-to-r from-amber-50   to-yellow-100; }
-  .badge-red    { @apply badge text-rose-800    border border-danger-border  bg-gradient-to-r from-rose-50    to-red-100; }
-  .badge-gray   { @apply badge text-ink-muted   border border-surface-4      bg-gradient-to-r from-surface-2  to-surface-3; }
+  /* Badges — flat tint + inset hairline, no gradients */
+  .badge { @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold; letter-spacing: 0.005em; }
+  .badge-green  { @apply badge text-emerald-800 bg-emerald-50 ring-1 ring-inset ring-emerald-600/20; }
+  .badge-blue   { @apply badge text-brand-700   bg-brand-50   ring-1 ring-inset ring-brand-600/20; }
+  .badge-yellow { @apply badge text-amber-800   bg-amber-50   ring-1 ring-inset ring-amber-600/25; }
+  .badge-red    { @apply badge text-rose-800    bg-rose-50    ring-1 ring-inset ring-rose-600/20; }
+  .badge-gray   { @apply badge text-ink-muted   bg-surface-3  ring-1 ring-inset ring-slate-500/15; }
 
-  /* Alerts — gentle gradient washes, dark text kept for legibility */
-  .alert-warning { @apply rounded-xl border border-warning-border p-4 bg-gradient-to-br from-amber-50 to-yellow-100; }
-  .alert-danger  { @apply rounded-xl border border-danger-border  p-4 bg-gradient-to-br from-rose-50  to-red-100; }
-  .alert-info    { @apply rounded-xl border border-info-border    p-4 bg-gradient-to-br from-sky-50   to-blue-100; }
-  .alert-success { @apply rounded-xl border border-success-border p-4 bg-gradient-to-br from-emerald-50 to-green-100; }
+  /* Alerts — flat tint, hairline edge */
+  .alert-warning { @apply rounded-xl p-4 bg-amber-50   ring-1 ring-inset ring-amber-600/20; }
+  .alert-danger  { @apply rounded-xl p-4 bg-rose-50    ring-1 ring-inset ring-rose-600/20; }
+  .alert-info    { @apply rounded-xl p-4 bg-brand-50   ring-1 ring-inset ring-brand-600/15; }
+  .alert-success { @apply rounded-xl p-4 bg-emerald-50 ring-1 ring-inset ring-emerald-600/20; }
 
   .form-section { @apply text-xs font-bold text-ink-muted uppercase tracking-widest mb-3 mt-1; }
 
   /* Modal — slide up from bottom on mobile */
   .modal-backdrop {
     @apply fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4
-           bg-ink/50 backdrop-blur-md;
+           bg-slate-950/45 backdrop-blur-[3px];
   }
   .modal-panel {
     @apply bg-surface rounded-t-3xl sm:rounded-2xl w-full sm:max-w-lg max-h-[92vh] overflow-y-auto
            shadow-modal;
-    animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    animation: modalIn 0.28s var(--ease-out);
   }
 
   /* Table — responsive */
   .tbl { @apply w-full text-sm; }
-  .tbl th { @apply text-left text-xs font-bold text-ink-muted uppercase tracking-wide py-3 px-4 border-b border-surface-4 bg-gradient-to-b from-surface-2 to-surface-3; }
-  .tbl td { @apply py-3 px-4 border-b border-surface-3 text-ink; }
+  .tbl th { @apply text-left text-[11px] font-semibold text-ink-muted uppercase py-3 px-4 border-b border-surface-4 bg-surface-2; letter-spacing: 0.06em; }
+  .tbl td { @apply py-3 px-4 border-b border-surface-3 text-ink; font-variant-numeric: tabular-nums; }
   .tbl tr:last-child td { @apply border-0; }
-  .tbl tbody tr:nth-child(even) td { @apply bg-surface-2/60; }
-  .tbl tbody tr { transition: background-color .15s ease; }
-  .tbl tbody tr:hover td { @apply bg-brand-50; }
+  .tbl tbody tr:nth-child(even) td { @apply bg-surface-2/50; }
+  .tbl tbody tr { transition: background-color .12s ease; }
+  .tbl tbody tr:hover td { @apply bg-brand-50/70; }
 
   .divider { @apply h-px bg-surface-4 my-6; }
 
   /* Nav links — blue active indicator instead of amber */
   .nav-link { @apply flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-3 transition-colors; min-height: 44px; }
-  .nav-link-active { @apply nav-link font-bold text-blue-700 shadow-sm shadow-blue-500/20 bg-gradient-to-r from-blue-50 to-indigo-100 hover:from-blue-100 hover:to-indigo-200 hover:text-blue-800; }
+  .nav-link-active { @apply nav-link font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 hover:text-brand-800; box-shadow: inset 0 0 0 1px rgba(42,82,196,0.14); }
 
-  /* Stat cards — now with blue-tinted brand gradient */
-  .stat-card { @apply card p-5 bg-gradient-to-br from-white via-brand-50/40 to-brand-100/70; transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s ease; }
-  .stat-card:hover { transform: translateY(-2px); @apply shadow-card-hover; }
+  .stat-card { @apply card p-5; transition: transform .2s var(--ease-out), box-shadow .2s ease; }
+  @media (hover: hover) { .stat-card:hover { transform: translateY(-2px); @apply shadow-card-hover; } }
 
-  /* Tabular numeric display — clean zero, no slashed/dotted 0 */
+  /* Tabular numeric display — Geist with tabular, lining figures */
   .num {
-    font-family: 'DM Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font-family: inherit;
     font-variant-numeric: tabular-nums lining-nums;
-    font-feature-settings: 'tnum' 1, 'lnum' 1, 'zero' 0;
+    font-feature-settings: 'tnum' 1, 'lnum' 1;
+    letter-spacing: -0.01em;
   }
 }
 
@@ -210,8 +226,12 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
   from { transform: translateY(100%); opacity: 0.5; }
   to { transform: translateY(0); opacity: 1; }
 }
+@keyframes modalIn {
+  from { transform: translateY(12px) scale(0.98); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
 @keyframes scaleIn {
-  from { transform: scale(0.9); opacity: 0; }
+  from { transform: scale(0.96); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
 }
 @keyframes fadeIn {
@@ -265,7 +285,7 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
   font-weight: 800;
 }
 .text-gradient-brand {
-  background-image: linear-gradient(100deg, #2563eb 0%, #4f46e5 30%, #7c3aed 60%, #9333ea 100%);
+  background-image: linear-gradient(100deg, #2a52c4 0%, #3a67dd 50%, #23429d 100%);
   -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent; color: transparent;
   font-weight: 800;
@@ -302,25 +322,15 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 
 /* Festive single-customer card */
 @keyframes festiveRibbon { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
-@keyframes festiveAura {
-  0%, 100% { box-shadow: 0 12px 44px -14px rgba(59,130,246,0.45); }
-  33%      { box-shadow: 0 12px 44px -14px rgba(168,85,247,0.42); }
-  66%      { box-shadow: 0 12px 44px -14px rgba(20,184,166,0.42); }
-}
-.card-festive { position: relative; isolation: isolate; animation: festiveAura 7s ease-in-out infinite; }
+/* Single-customer card: a calm cobalt rule on top and a static, tinted
+   lift. (Was a cycling rainbow ribbon + pulsing multi-colour glow.) */
+.card-festive { position: relative; isolation: isolate; box-shadow: 0 0 0 1px rgba(42,82,196,0.08), 0 2px 4px rgba(15,23,42,0.04), 0 20px 44px -22px rgba(30,49,102,0.35); }
 .card-festive::before {
-  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 5px; z-index: 3;
-  background: linear-gradient(90deg,#3b82f6,#8b5cf6,#14b8a6,#22c55e,#a855f7,#ec4899,#3b82f6);
-  background-size: 300% 100%;
-  animation: festiveRibbon 6s linear infinite;
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; z-index: 3;
+  background: linear-gradient(90deg, #23429d, #3a67dd 50%, #0f8a60);
 }
 
-/* Rainbow progress fill */
-.progress-festive {
-  background: linear-gradient(90deg,#3b82f6,#8b5cf6,#14b8a6,#22c55e,#a855f7,#3b82f6);
-  background-size: 250% 100%;
-  animation: festiveRibbon 5s linear infinite;
-}
+.progress-festive { background: linear-gradient(90deg, #2a52c4, #3a67dd 60%, #1fae7a); }
 
 /* Confetti dots */
 @keyframes confettiFloat {
@@ -352,33 +362,24 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 }
 
 /* ── Layout ──────────────────────────────────────────────── */
-/* Updated page background — cool blue/indigo/purple base with colorful blooms */
+/* Page background — quiet cool neutral with one faint cobalt wash at the
+   top and a very fine grain so large areas don't look flat and banded.
+   Static: no full-viewport repaint every frame. */
 .page-bg {
-  background:
-    radial-gradient(1100px 560px at -8% -18%, rgba(168,85,247,0.22) 0%, transparent 58%),
-    radial-gradient(1000px 600px at 108% -12%, rgba(56,189,248,0.30) 0%, transparent 58%),
-    radial-gradient(900px 620px at 50% 122%, rgba(99,102,241,0.28) 0%, transparent 60%),
-    radial-gradient(720px 480px at 92% 112%, rgba(20,184,166,0.20) 0%, transparent 55%),
-    linear-gradient(135deg, #f0f9ff 0%, #eff6ff 45%, #f5f3ff 100%);
-  background-size: 160% 160%, 160% 160%, 160% 160%, 160% 160%, 100% 100%;
-  animation: pageAura 18s ease-in-out infinite alternate;
+  background-color: rgb(var(--tp-surface-2));
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.12 0 0 0 0 0.2 0 0 0 0.035 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    radial-gradient(1200px 420px at 50% -160px, rgba(58,103,221,0.10), transparent 70%);
   min-height: 100vh;
-}
-@keyframes pageAura {
-  0%   { background-position: 0% 0%, 100% 0%, 50% 100%, 100% 100%, 0 0; }
-  100% { background-position: 20% 10%, 80% 12%, 40% 90%, 80% 92%, 0 0; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .page-bg { animation: none; }
 }
 
 /* Section accent palette */
-.section-emerald { @apply border-l-4 border-emerald-500 bg-gradient-to-br from-emerald-50 to-white; }
-.section-indigo  { @apply border-l-4 border-indigo-500  bg-gradient-to-br from-indigo-50  to-white; }
-.section-amber   { @apply border-l-4 border-amber-500   bg-gradient-to-br from-amber-50   to-white; }
-.section-rose    { @apply border-l-4 border-rose-500    bg-gradient-to-br from-rose-50    to-white; }
-.section-violet  { @apply border-l-4 border-violet-500  bg-gradient-to-br from-violet-50  to-white; }
-.section-sky     { @apply border-l-4 border-sky-500     bg-gradient-to-br from-sky-50     to-white; }
+.section-emerald { @apply border-l-[3px] border-emerald-500 bg-surface; }
+.section-indigo  { @apply border-l-[3px] border-indigo-500  bg-surface; }
+.section-amber   { @apply border-l-[3px] border-amber-500   bg-surface; }
+.section-rose    { @apply border-l-[3px] border-rose-500    bg-surface; }
+.section-violet  { @apply border-l-[3px] border-violet-500  bg-surface; }
+.section-sky     { @apply border-l-[3px] border-sky-500     bg-surface; }
 
 /* ── Mobile-First Responsive ─────────────────────────────── */
 @media (max-width: 640px) {
@@ -445,33 +446,15 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
 /* Skeleton loading */
 @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
 .skeleton {
-  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background: linear-gradient(90deg, #eef1f5 25%, #e2e7ee 50%, #eef1f5 75%);
   background-size: 200% 100%; animation: shimmer 1.5s ease-in-out infinite; border-radius: 8px;
 }
 
-/* Gooey jelly feel on active controls */
-@keyframes jellyPop {
-  0%   { transform: scale3d(1, 1, 1); }
-  30%  { transform: scale3d(1.08, 0.82, 1); }
-  45%  { transform: scale3d(0.9, 1.1, 1); }
-  60%  { transform: scale3d(1.04, 0.94, 1); }
-  75%  { transform: scale3d(0.98, 1.02, 1); }
-  100% { transform: scale3d(1, 1, 1); }
-}
-.btn-primary:not(:disabled):active,
-.btn-secondary:not(:disabled):active,
-.btn-danger:not(:disabled):active,
-.btn-success:not(:disabled):active,
-.btn-ghost:not(:disabled):active,
-.btn-icon:not(:disabled):active,
-.tab:active,
-select:active,
-input[type='checkbox']:active {
-  animation: jellyPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-.jelly-hover { transition: transform 0.45s cubic-bezier(0.34, 1.8, 0.5, 1); }
-.jelly-hover:hover { transform: scale(1.03); }
-.jelly-hover:active { animation: jellyPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+/* Press feedback comes from .btn (scale .97). The old "jelly" squash on
+   every button felt toy-like, so it is intentionally gone. */
+.jelly-hover { transition: transform .2s var(--ease-out); }
+@media (hover: hover) { .jelly-hover:hover { transform: translateY(-1px); } }
+.jelly-hover:active { transform: scale(.97); }
 
 /* Print */
 @media print {
@@ -506,47 +489,42 @@ input[type='checkbox']:active {
 /* ── Dark theme surface overrides ────────────────────────── */
 /* The token variables above re-skin everything built on ink/surface. These
    few extras cover hand-tuned light gradients that variables can't reach. */
-.dark ::-webkit-scrollbar-track { background: #1e293b; }
-.dark ::-webkit-scrollbar-thumb { background: #475569; }
 .dark .page-bg {
-  background:
-    radial-gradient(1100px 560px at -8% -18%, rgba(129,140,248,0.14) 0%, transparent 58%),
-    radial-gradient(1000px 600px at 108% -12%, rgba(56,189,248,0.10) 0%, transparent 58%),
-    radial-gradient(900px 620px at 50% 122%, rgba(99,102,241,0.12) 0%, transparent 60%),
-    linear-gradient(135deg, #0b1120 0%, #0f172a 45%, #131129 100%);
-  animation: none;
+  background-color: rgb(var(--tp-surface-2));
+  background-image: radial-gradient(1200px 420px at 50% -160px, rgba(93,137,236,0.12), transparent 70%);
 }
 .dark .skeleton {
-  background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+  background: linear-gradient(90deg, #1c222d 25%, #2a3242 50%, #1c222d 75%);
   background-size: 200% 100%;
 }
-.dark .shadow-card, .dark .card { box-shadow: 0 1px 3px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.3); }
+.dark .shadow-card, .dark .card { box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 1px 2px rgba(0,0,0,0.5), 0 8px 24px -12px rgba(0,0,0,0.6); }
+.dark .btn-secondary { box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 0 0 1px rgba(255,255,255,0.10); }
+.dark .badge-green, .dark .badge-blue, .dark .badge-yellow, .dark .badge-red { background-color: rgb(255 255 255 / 0.06); }
+.dark .badge-green { color: #6ee7b7; } .dark .badge-blue { color: #a9c2f7; } .dark .badge-yellow { color: #fcd34d; } .dark .badge-red { color: #fda4af; }
 /* Legacy tinted washes that pair with text-ink — deepen them in dark mode */
 .dark .bg-violet-50, .dark .bg-fuchsia-50, .dark .bg-indigo-50,
 .dark .bg-brand-50, .dark .bg-sky-50, .dark .bg-emerald-50, .dark .bg-amber-50 {
   background-color: rgb(51 65 85 / 0.6);
 }
-.dark .modal-backdrop { background-color: rgb(2 6 23 / 0.7); }
+.dark .modal-backdrop { background-color: rgb(3 5 10 / 0.7); }
 
 /* ── Compatibility Aliases ───────────────────────────────── */
 .gradient-bg { @apply page-bg; }
 .grid-overlay { background-image: none; }
 .gold-line { @apply divider; }
-.badge-running  { @apply badge bg-success-light text-success border border-success-border; }
-.badge-complete { @apply badge bg-info-light text-info border border-info-border; }
-/* Soft amber pulse — reads as "awaiting your action" rather than a static label. */
-.badge-pending  {
-  @apply badge bg-warning-light text-warning border border-warning-border;
-  animation: pendingPulse 2.4s ease-in-out infinite;
+.badge-running  { @apply badge-green; }
+.badge-complete { @apply badge-blue; }
+/* Amber dot that breathes — reads as "awaiting your action". */
+.badge-pending  { @apply badge-yellow; }
+.badge-pending::before {
+  content: ''; width: 6px; height: 6px; border-radius: 9999px; background: #d98a0b;
+  animation: pendingDot 1.8s ease-in-out infinite;
 }
-@keyframes pendingPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(217,119,6,0.28); }
-  50%      { box-shadow: 0 0 0 5px rgba(217,119,6,0); }
-}
-@media (prefers-reduced-motion: reduce) { .badge-pending { animation: none; } }
-.badge-approved { @apply badge bg-info-light text-info border border-info-border; }
-.badge-rejected { @apply badge bg-danger-light text-danger border border-danger-border; }
-.badge-unpaid   { @apply badge bg-surface-3 text-ink-muted border border-surface-4; }
+@keyframes pendingDot { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .badge-pending::before { animation: none; } }
+.badge-approved { @apply badge-blue; }
+.badge-rejected { @apply badge-red; }
+.badge-unpaid   { @apply badge-gray; }
 .alert-gold { @apply alert-warning; }
 .alert-red  { @apply alert-danger; }
 .alert-blue { @apply alert-info; }
@@ -572,7 +550,10 @@ input[type='checkbox']:active {
 .text-sapphire-400 { color: #2563eb; }
 .text-slate-200, .text-slate-300 { @apply text-ink; }
 .text-slate-400, .text-slate-500 { @apply text-ink-muted; }
-.text-slate-600, .text-slate-700 { color: #94a3b8; }
+/* These were aliased to a light grey (#94a3b8), so any text meant to be
+   dark slate-600/700 rendered washed-out. Map them to real contrast. */
+.text-slate-600 { @apply text-ink-muted; }
+.text-slate-700 { @apply text-ink-light; }
 .bg-obsidian-700 { @apply bg-surface-3; }
 .bg-obsidian-800, .bg-obsidian-900 { @apply bg-surface-2; }
 
@@ -693,4 +674,28 @@ input[type='checkbox']:active {
   .cpl-glow, .cpl-phone, .cpl-ring, .cpl-rupee, .cpl-tile, .cpl-card, .cpl-coin, .cpl-shield, .cpl-shimmer, .cpl-step { animation: none !important; }
   .cpl-ring { stroke-dashoffset: 60; }
   .cpl-coin { display: none; }
+}
+
+/* ── Search + open-customer loaders (ShelfSearch / StackUnfold) ─────────── */
+.ss-track { position: absolute; left: 0; right: 0; top: 0; height: 2px; overflow: hidden; background: rgba(58,103,221,0.10); }
+.ss-track-bar { position: absolute; top: 0; bottom: 0; left: 0; width: 38%; border-radius: 9999px; background: linear-gradient(90deg, transparent, #3a67dd 40%, #5d89ec 60%, transparent); animation: ssTrack 1.1s var(--ease-in-out) infinite; }
+@keyframes ssTrack { from { transform: translateX(-110%); } to { transform: translateX(290%); } }
+.ss-lens { display: inline-flex; height: 24px; width: 24px; align-items: center; justify-content: center; border-radius: 8px; color: #2a52c4; background: rgba(58,103,221,0.10); animation: ssLens 1.6s var(--ease-in-out) infinite; }
+@keyframes ssLens { 0%, 100% { transform: translateX(0) rotate(0); } 50% { transform: translateX(2px) rotate(-8deg); } }
+.ss-dots { display: inline-flex; gap: 3px; margin-left: -4px; }
+.ss-dots i { width: 3px; height: 3px; border-radius: 9999px; background: currentColor; animation: ssDot 1s ease-in-out infinite; }
+.ss-dots i:nth-child(2) { animation-delay: .15s; } .ss-dots i:nth-child(3) { animation-delay: .3s; }
+@keyframes ssDot { 0%, 100% { opacity: .25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-2px); } }
+.ss-block { background: rgb(var(--tp-surface-3)); }
+.ss-row { animation: ssRow .26s var(--ease-out) both; }
+@keyframes ssRow { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.ss-sweep { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(100deg, transparent 20%, rgb(var(--tp-surface) / 0.75) 50%, transparent 80%); transform: translateX(-100%); animation: ssSweep 1.3s var(--ease-in-out) infinite; }
+@keyframes ssSweep { to { transform: translateX(100%); } }
+.su-sheet { box-shadow: 0 0 0 1px rgb(var(--tp-hairline) / 0.08), 0 30px 70px -20px rgba(15,23,42,0.45), 0 10px 24px -12px rgba(15,23,42,0.2); }
+.su-ring { background: conic-gradient(from 0deg, transparent 0 20%, #3a67dd 60%, #8fb0f5 80%, transparent 100%); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px)); mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px)); animation: suSpin .9s linear infinite; }
+@keyframes suSpin { to { transform: rotate(360deg); } }
+.su-tile { animation: ssRow .3s var(--ease-out) both; }
+.su-tile.rounded-xl { background: rgb(var(--tp-surface-2)); box-shadow: inset 0 0 0 1px rgb(var(--tp-hairline) / 0.06); }
+@media (prefers-reduced-motion: reduce) {
+  .ss-track-bar, .ss-lens, .ss-dots i, .ss-row, .ss-sweep, .su-ring, .su-tile { animation: none !important; }
 }

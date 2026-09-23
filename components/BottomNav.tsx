@@ -36,8 +36,8 @@ export default function BottomNav({ role, pendingCount = 0 }: { role: 'admin' | 
         initial={{ y: 80 }}
         animate={{ y: 0 }}
         transition={{ ...SPRING, delay: 0.1 }}
-        className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-surface/95 backdrop-blur-md border-t border-surface-4 sm:hidden no-print safe-bottom"
-        style={{ boxShadow: '0 -4px 24px rgba(59,130,246,0.06)' }}
+        className="fixed bottom-0 left-0 right-0 z-40 bg-surface/85 backdrop-blur-xl backdrop-saturate-150 border-t border-slate-900/[0.06] dark:border-white/[0.07] sm:hidden no-print safe-bottom"
+        style={{ boxShadow: '0 -8px 24px -12px rgba(15,23,42,0.12)' }}
       >
         <div className="flex items-center justify-around h-16 px-2 max-w-lg mx-auto">
           {tabs.map(t => {
@@ -60,13 +60,13 @@ export default function BottomNav({ role, pendingCount = 0 }: { role: 'admin' | 
                 <motion.svg
                   width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                   strokeWidth={active ? 2.5 : 1.8} strokeLinecap="round" strokeLinejoin="round"
-                  animate={{ scale: active ? 1.15 : 1, y: active ? -1 : 0 }}
-                  whileTap={{ scale: 0.85 }}
+                  animate={{ scale: active ? 1.06 : 1, y: active ? -1 : 0 }}
+                  whileTap={{ scale: 0.92 }}
                   transition={SPRING}
                 >
                   <path d={t.icon} />
                 </motion.svg>
-                <span className={`text-[10px] ${active ? 'font-bold text-brand-700' : 'font-medium'}`}>{t.label}</span>
+                <span className={`text-[10px] ${active ? 'font-semibold text-brand-700' : 'font-medium'}`}>{t.label}</span>
                 {t.label === 'Approvals' && pendingCount > 0 && (
                   <motion.span
                     variants={popIn} initial="hidden" animate="show"

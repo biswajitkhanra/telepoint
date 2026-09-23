@@ -58,21 +58,17 @@ export default function SearchInput({
   }, [autoFocus]);
 
   return (
-    <motion.div
-      className="relative"
-      animate={{ scale: focused ? 1.01 : 1 }}
-      transition={SPRING}
-    >
+    <div className="relative">
       {/* Animated focus glow ring */}
       <motion.div
-        className="pointer-events-none absolute inset-0 rounded-xl ring-2 ring-brand-400/40"
+        className="pointer-events-none absolute inset-0 z-10 rounded-xl ring-[3px] ring-brand-500/15"
         initial={false}
         animate={{ opacity: focused ? 1 : 0, scale: focused ? 1 : 0.98 }}
         transition={{ duration: 0.2 }}
       />
 
       {/* Search / spinner icon */}
-      <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-muted pointer-events-none">
+      <div className="absolute left-3.5 top-1/2 z-10 -translate-y-1/2 text-ink-muted pointer-events-none">
         <AnimatePresence mode="wait" initial={false}>
           {loading ? (
             <motion.svg
@@ -115,7 +111,7 @@ export default function SearchInput({
       {/* Clear button — the centering (-translate-y-1/2) lives on a static
           wrapper so Framer's transforms on the button (scale/rotate/opacity)
           can't clobber the vertical-centre transform and push it out of view. */}
-      <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+      <div className="absolute right-2.5 top-1/2 z-10 -translate-y-1/2">
         <AnimatePresence>
           {displayValue && (
             <motion.button
@@ -124,8 +120,7 @@ export default function SearchInput({
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.5 }}
               transition={SPRING}
-              whileHover={{ scale: 1.12, rotate: 90 }}
-              whileTap={{ scale: 0.85 }}
+              whileTap={{ scale: 0.92 }}
               onClick={handleClear}
               className="flex h-7 w-7 items-center justify-center rounded-full bg-surface-3 text-ink-muted hover:bg-surface-4 hover:text-ink"
               aria-label="Clear search"
@@ -138,6 +133,6 @@ export default function SearchInput({
           )}
         </AnimatePresence>
       </div>
-    </motion.div>
+    </div>
   );
 }

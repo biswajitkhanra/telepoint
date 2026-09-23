@@ -3,6 +3,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from 'react-hot-toast';
 import Footer from '@/components/Footer';
+import { GeistSans } from 'geist/font/sans';
+import { GeistMono } from 'geist/font/mono';
 
 export const metadata: Metadata = {
   title: 'EMI Management Portal',
@@ -19,15 +21,12 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono&display=swap" rel="stylesheet" />
         <link rel="icon" type="image/svg+xml" href="/logo.svg" />
         <link rel="apple-touch-icon" href="/icon-192.svg" />
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#3b82f6" />
+        <meta name="theme-color" content="#f6f7f9" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -48,9 +47,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Toaster
           position="top-center"
           toastOptions={{
-            style: { borderRadius: '12px', background: '#1e293b', color: '#fff', fontSize: '14px' },
-            success: { style: { background: '#16a34a', color: 'white' }, iconTheme: { primary: 'white', secondary: '#16a34a' } },
-            error: { style: { background: '#dc2626', color: 'white' }, iconTheme: { primary: 'white', secondary: '#dc2626' } },
+            style: { borderRadius: '12px', background: '#111827', color: '#f9fafb', fontSize: '14px', fontWeight: 500, padding: '10px 14px', boxShadow: '0 12px 32px -12px rgba(17,24,39,0.45), inset 0 1px 0 rgba(255,255,255,0.06)' },
+            success: { iconTheme: { primary: '#34d399', secondary: '#111827' } },
+            error: { iconTheme: { primary: '#fb7185', secondary: '#111827' } },
           }}
         />
       </body>

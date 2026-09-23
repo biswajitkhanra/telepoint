@@ -25,7 +25,7 @@ export default function DueBreakdownPanel({ breakdown }: { breakdown: DueBreakdo
       className="card overflow-hidden border-l-4 border-brand-500 bg-gradient-to-br from-brand-50 via-white to-white shadow-md"
       variants={fadeUp} initial="hidden" animate="show"
     >
-      <div className="px-5 py-3 bg-gradient-to-r from-brand-500 to-amber-500 text-white sheen-track">
+      <div className="px-5 py-3 bg-gradient-to-b from-[#1f3a8a] to-[#172b66] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
         <p className="text-[11px] font-bold uppercase tracking-widest">Next Payment Due</p>
       </div>
       <div className="p-5 space-y-2.5">
@@ -53,7 +53,7 @@ export default function DueBreakdownPanel({ breakdown }: { breakdown: DueBreakdo
         )}
         <div className="h-px bg-surface-4 my-1" />
         <motion.div
-          className="flex justify-between items-center rounded-xl px-3 py-2 bg-gradient-to-r from-brand-100 to-amber-100 border border-brand-300"
+          className="flex justify-between items-center rounded-xl px-3 py-2 bg-brand-50 border border-brand-200"
           initial={{ scale: 0.96, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ ...SPRING, delay: 0.15 }}

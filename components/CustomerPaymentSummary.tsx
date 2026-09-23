@@ -90,7 +90,7 @@ export default function CustomerPaymentSummary({
       variants={fadeUp} initial="hidden" animate="show"
     >
       {/* Header */}
-      <div className="bg-gradient-to-r from-brand-600 via-amber-500 to-rose-500 text-white px-5 py-3 flex items-center justify-between sheen-track">
+      <div className="bg-gradient-to-b from-[#1f3a8a] to-[#172b66] text-white px-5 py-3 flex items-center justify-between shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-widest text-white/80">Payment Summary</p>
           <p className="text-sm font-bold mt-0.5">{customer.customer_name}</p>
@@ -175,7 +175,7 @@ export default function CustomerPaymentSummary({
         </div>
         <div className="h-2.5 bg-surface-4 rounded-full overflow-hidden">
           <motion.div
-            className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-amber-500 to-rose-500"
+            className="h-full rounded-full bg-gradient-to-r from-brand-600 to-emerald-500"
             initial={{ width: 0 }}
             animate={{ width: `${overallProgress}%` }}
             transition={{ duration: 1, ease: [0.16, 1, 0.3, 1], delay: 0.15 }}
