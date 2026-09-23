@@ -286,23 +286,23 @@ export default function ApprovalsPage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
+          <div className="min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
               <Link href="/admin" className="btn-ghost text-xs">← Dashboard</Link>
               <h1 className="text-2xl sm:text-3xl font-bold text-ink">Payment Approvals</h1>
             </div>
             <p className="text-ink-muted text-sm mt-1">Review and approve retailer payment requests</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between gap-3 sm:justify-end">
             <div className="flex bg-surface-2 rounded-xl p-1 border border-surface-4">
               <button
                 onClick={() => { setStatusFilter('PENDING'); fetchPending(searchQuery || undefined, 'PENDING'); }}
-                className={`px-4 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${statusFilter === 'PENDING' ? 'bg-brand-500 text-ink shadow' : 'text-ink-muted'}`}
+                className={`px-4 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${statusFilter === 'PENDING' ? 'bg-brand-500 text-white shadow' : 'text-ink-muted'}`}
               >Pending</button>
               <button
                 onClick={() => { setStatusFilter('ALL'); fetchPending(searchQuery || undefined, 'ALL'); }}
-                className={`px-4 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${statusFilter === 'ALL' ? 'bg-brand-500 text-ink shadow' : 'text-ink-muted'}`}
+                className={`px-4 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${statusFilter === 'ALL' ? 'bg-brand-500 text-white shadow' : 'text-ink-muted'}`}
               >All Payments</button>
             </div>
             <button
@@ -461,20 +461,20 @@ export default function ApprovalsPage() {
                   </div>
 
                   {/* Action area */}
-                  <div className="flex gap-3 flex-wrap items-center">
+                  <div className="grid grid-cols-3 keep-cols gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
                     {/* Edit button — always available */}
                     <button
                       onClick={() => openEditModal(req)}
-                      className="btn-ghost flex items-center gap-1.5 text-sm"
+                      className="btn-secondary flex items-center justify-center gap-1.5 px-3 text-sm"
                     >
-                      ✏️ Edit Payment
+                      ✏️ <span className="sm:hidden">Edit</span><span className="hidden sm:inline">Edit Payment</span>
                     </button>
 
                     {req.status === 'PENDING' && approvingId !== req.id && (
                       <>
                         <button
                           onClick={() => setApprovingId(req.id)}
-                          className="btn-success flex items-center gap-2"
+                          className="btn-success flex items-center justify-center gap-2 px-3 sm:px-5"
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M20 6L9 17l-5-5" />
@@ -483,7 +483,7 @@ export default function ApprovalsPage() {
                         </button>
                         <button
                           onClick={() => { setRejectModal({ id: req.id }); setRejectReason(''); }}
-                          className="btn-danger flex items-center gap-2"
+                          className="btn-danger flex items-center justify-center gap-2 px-3 sm:px-5"
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M18 6L6 18M6 6l12 12" />
@@ -493,7 +493,7 @@ export default function ApprovalsPage() {
                       </>
                     )}
                     {req.status === 'PENDING' && approvingId === req.id && (
-                      <div className="flex gap-3 items-end flex-wrap w-full mt-2">
+                      <div className="col-span-3 flex gap-3 items-end flex-wrap w-full mt-2">
                         <div className="flex-1 min-w-[200px]">
                           <label className="label text-xs mb-1 block">Approval remark (optional)</label>
                           <input

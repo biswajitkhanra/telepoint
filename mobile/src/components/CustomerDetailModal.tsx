@@ -34,7 +34,7 @@ import {
   Check,
   Zap,
 } from 'lucide-react-native';
-import { PORTAL_BASE_URL } from '../config';
+import { fetchCustomerById } from '../services/api';
 import { Customer, EMIScheduleItem, DueBreakdown } from '../types';
 import { Colors } from '../constants/colors';
 import { Spacing, Radius, Shadow } from '../constants/design';
@@ -77,14 +77,9 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
 
     const fetchCustomerData = async () => {
       try {
-        const res = await fetch(`${PORTAL_BASE_URL}/api/customer-login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ customer_id: customerId }),
-        });
+        const data = await fetchCustomerById(customerId);
 
-        if (res.ok && active) {
-          const data = await res.json();
+        if (data && active) {
           if (data.customer) setCustomer(data.customer);
           if (data.emis) setEmis(data.emis);
           if (data.breakdown) setBreakdown(data.breakdown);

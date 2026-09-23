@@ -43,8 +43,13 @@ export default function CustomerPaymentSummary({
 
   // Money: EMI principal
   const totalEmiScheduled = emis.reduce((s, e) => s + Number(e.amount || 0), 0);
+  // APPROVED counts as fully paid even when partial_paid_amount was never
+  // written (manual status edits, legacy rows) — otherwise a closed loan read
+  // "₹0 paid · 0%" next to "8 of 8 EMIs paid". Same rule as the loan statement.
   const totalEmiPaid      = emis.reduce(
-    (s, e) => s + Math.min(Number(e.amount || 0), Number(e.partial_paid_amount || 0)),
+    (s, e) => s + (e.status === 'APPROVED'
+      ? Number(e.amount || 0)
+      : Math.min(Number(e.amount || 0), Number(e.partial_paid_amount || 0))),
     0,
   );
   const totalEmiDue = Math.max(0, totalEmiScheduled - totalEmiPaid);

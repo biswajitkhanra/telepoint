@@ -301,7 +301,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           device_id: deviceId,
         }).catch(() => {});
       }
-      await AsyncStorage.multiRemove([STORAGE_KEYS.SESSION, STORAGE_KEYS.TOKEN, STORAGE_KEYS.ACTIVE_LOAN]);
+      await AsyncStorage.multiRemove([STORAGE_KEYS.SESSION, STORAGE_KEYS.TOKEN, STORAGE_KEYS.ACTIVE_LOAN, STORAGE_KEYS.CUSTOMER_SESSION_TOKEN]);
       setCustomer(null);
       setEmis([]);
       setBreakdown(null);
@@ -324,7 +324,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           device_id: deviceId,
         }).catch(() => {});
       }
-      await AsyncStorage.multiRemove([STORAGE_KEYS.SESSION, STORAGE_KEYS.TOKEN, STORAGE_KEYS.ACTIVE_LOAN]);
+      await AsyncStorage.multiRemove([STORAGE_KEYS.SESSION, STORAGE_KEYS.TOKEN, STORAGE_KEYS.ACTIVE_LOAN, STORAGE_KEYS.CUSTOMER_SESSION_TOKEN]);
       setCustomer(null);
       setEmis([]);
       setBreakdown(null);

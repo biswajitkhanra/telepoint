@@ -88,7 +88,8 @@ export async function POST(req: NextRequest) {
 
   if (rpcErr) {
     console.error('submit_payment_request RPC error:', rpcErr);
-    return NextResponse.json({ error: rpcErr.message }, { status: 500 });
+    // Don't echo raw database errors (table/constraint names) to the client.
+    return NextResponse.json({ error: 'Could not submit the payment request. Please try again.' }, { status: 500 });
   }
 
   const res = result as { success?: boolean; error?: string; code?: string; request_id?: string };
