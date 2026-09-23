@@ -48,7 +48,8 @@ body {
   text-rendering: optimizeLegibility;
   font-feature-settings: 'ss01' 1, 'cv11' 1;
 }
-h1, h2, h3, h4 { color: rgb(var(--tp-ink)); letter-spacing: -0.022em; text-wrap: balance; }
+/* No colour here: headings must keep inheriting (e.g. white on dark headers). */
+h1, h2, h3, h4 { letter-spacing: -0.022em; text-wrap: balance; }
 p { text-wrap: pretty; }
 img { image-rendering: auto; }
 

@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import nextDynamic from 'next/dynamic';
+import Image from 'next/image';
 import { AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -37,6 +38,14 @@ function ibbDirect(url?: string): string {
     if (id) return `https://i.ibb.co/${id}/img.jpg`;
   }
   return url;
+}
+
+const PHOTO_HOSTS = [/^i\.ibb\.co$/, /\.ibb\.co$/, /\.supabase\.co$/];
+function safePhotoUrl(raw: string): string {
+  let u: URL;
+  try { u = new URL(raw); } catch { return ''; }
+  if (u.protocol !== 'https:' || !PHOTO_HOSTS.some(re => re.test(u.hostname))) return '';
+  return u.href;
 }
 
 // localStorage can throw (private mode, blocked storage) — never let that
@@ -588,10 +597,9 @@ export default function CustomerPortal() {
   // untrusted: keep digits/+ only and only link it when it is a real number.
   const shopDigits = String(retailer?.mobile ?? '').replace(/[^\d+]/g, '');
   const shopTel = /^\+?\d{6,15}$/.test(shopDigits) ? shopDigits : '';
-  // Same for the photo URL: only a plain http(s) image link may reach <img src>
-  // (blocks javascript:/data: values planted in the cached session).
-  const photoRaw = ibbDirect(customer?.customer_photo_url);
-  const photoSrc = /^https?:\/\/[a-z0-9.-]+\/[^\s"'<>`]*$/i.test(photoRaw) ? photoRaw : '';
+  // Same for the photo URL: only an https link on the image hosts the app
+  // actually uploads to (see next.config.js remotePatterns) is rendered.
+  const photoSrc = safePhotoUrl(ibbDirect(customer?.customer_photo_url));
   const firstName = String(customer?.customer_name || '').trim().split(/\s+/)[0] || 'there';
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
@@ -656,13 +664,13 @@ export default function CustomerPortal() {
                 {customer?.customer_name?.[0]?.toUpperCase() ?? '?'}
               </span>
               {photoSrc && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <Image
                   src={photoSrc}
                   alt=""
-                  loading="lazy"
-                  decoding="async"
-                  className="absolute inset-0 h-full w-full object-cover"
+                  fill
+                  sizes="56px"
+                  unoptimized
+                  className="object-cover"
                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                 />
               )}
