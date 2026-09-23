@@ -27,6 +27,11 @@ concurrency:
 
 jobs:
   backup:
+    # SAFETY: this job commits a full database export (customers incl. Aadhaar,
+    # retailer PINs, app login tokens) into the repository. It must never run
+    # while the repository is public — anyone could read the snapshot and its
+    # git history forever. Make the repo private to enable it again.
+    if: ${{ github.event.repository.private }}
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository

@@ -39,3 +39,10 @@ next-env.d.ts
 /mobile/android/
 /mobile/dist/
 
+
+# Customer data must never be committed (the repo is public).
+# One-off imports / exports / database backups stay on your machine only.
+/supabase/seed_*.sql
+/supabase/database_upload_*.sql
+/backups/latest/
+*.dump
