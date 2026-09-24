@@ -112,13 +112,13 @@ export default function NavBar({ role, userName, pendingCount = 0 }: NavBarProps
           transition={{ ...SPRING, delay: 0.08 }}
         >
           <motion.div whileTap={{ scale: 0.95 }} transition={SPRING} className="flex-shrink-0">
-            <Logo size={32} className="rounded-[9px] shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_2px_6px_-2px_rgba(30,49,102,0.35)]" />
+            <Logo size={32} className="rounded-lg shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_2px_6px_-2px_rgba(30,49,102,0.35)]" />
           </motion.div>
           {/* Wordmark + who is signed in (shown on every screen size) */}
           <div className="min-w-0 leading-tight">
             <span className="block font-display font-semibold text-ink text-[15px] tracking-[-0.02em]">Telepoint</span>
             <span className="flex min-w-0 items-center gap-1.5 text-[11px] text-ink-muted">
-              <span className={`inline-flex flex-shrink-0 items-center px-1.5 py-px rounded-md text-[9px] font-semibold uppercase tracking-[0.08em] ring-1 ring-inset ${
+              <span className={`inline-flex flex-shrink-0 items-center px-1.5 py-px rounded-full text-[9px] font-semibold uppercase tracking-[0.08em] ring-1 ring-inset ${
                 role === 'admin'
                   ? 'bg-brand-50 text-brand-700 ring-brand-600/15'
                   : 'bg-emerald-50 text-emerald-700 ring-emerald-600/15'

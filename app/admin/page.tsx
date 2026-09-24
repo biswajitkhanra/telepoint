@@ -21,6 +21,7 @@ import { format } from 'date-fns';
 import { diffDaysIST } from '@/lib/ist';
 import { formatCurrency, formatDateOnly, readJsonSafe } from '@/lib/formatters';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Search, Store, FileBarChart2, LineChart, Settings, Megaphone, BarChart3 } from 'lucide-react';
 import dynamicImport from 'next/dynamic';
 import StackUnfold from '@/components/motion/StackUnfold';
 import ShelfSearch from '@/components/motion/ShelfSearch';
@@ -338,21 +339,31 @@ export default function AdminDashboard() {
       <NavBar role="admin" pendingCount={pendingCount} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Tab Navigation */}
-        <div className="flex items-center gap-1 mb-8 bg-surface-2 rounded-2xl p-1.5 border border-surface-4 overflow-x-auto" style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}>
+        {/* Dashboard sections — a tab list inside the Dashboard page (the top bar
+            holds the page-level links), with line icons that match the cards. */}
+        <div
+          role="tablist"
+          aria-label="Dashboard sections"
+          className="flex items-center gap-1 mb-8 bg-surface-2 rounded-2xl p-1.5 border border-surface-4 overflow-x-auto"
+          style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
+        >
           {([
-            { key: 'search', label: '🔍 Search' },
-            { key: 'retailers', label: '🏪 Shops' },
-            { key: 'reports', label: '📊 Reports' },
-            { key: 'analysis', label: '📈 Analytics' },
-            { key: 'settings', label: '⚙️ Settings' },
-            { key: 'broadcast', label: '📢 Alerts' },
+            { key: 'search', label: 'Search', icon: Search },
+            { key: 'retailers', label: 'Shops', icon: Store },
+            { key: 'reports', label: 'Reports', icon: FileBarChart2 },
+            { key: 'analysis', label: 'Analytics', icon: LineChart },
+            { key: 'settings', label: 'Settings', icon: Settings },
+            { key: 'broadcast', label: 'Alerts', icon: Megaphone },
           ] as const).map((t) => (
             <motion.button
               key={t.key}
+              id={`admin-tab-${t.key}`}
+              role="tab"
+              aria-selected={tab === t.key}
+              aria-controls="admin-tabpanel"
               onClick={() => setTab(t.key)}
               whileTap={{ scale: 0.94 }}
-              className={`relative z-10 px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap flex-shrink-0 transition-colors duration-200 ${
+              className={`relative z-10 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap flex-shrink-0 transition-colors duration-200 ${
                 tab === t.key ? 'text-white' : 'text-ink-muted hover:text-ink'
               }`}
             >
@@ -363,6 +374,7 @@ export default function AdminDashboard() {
                   transition={SPRING}
                 />
               )}
+              <t.icon size={16} strokeWidth={2} aria-hidden />
               {t.label}
             </motion.button>
           ))}
@@ -371,6 +383,9 @@ export default function AdminDashboard() {
         {/* Animated tab transition — content slides/fades in on every switch */}
         <motion.div
           key={tab}
+          id="admin-tabpanel"
+          role="tabpanel"
+          aria-labelledby={`admin-tab-${tab}`}
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
@@ -687,9 +702,9 @@ export default function AdminDashboard() {
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => setSummaryRetailerId(r.id)}
-                      className="btn-secondary whitespace-nowrap"
+                      className="btn-secondary whitespace-nowrap gap-1.5"
                     >
-                      📊 Summary
+                      <BarChart3 size={15} aria-hidden /> Summary
                     </button>
                     <button
                       onClick={() => { setEditingRetailer(r); setRetailerForm({ name: r.name, username: r.username, password: '', retail_pin: '', mobile: r.mobile || '' }); setShowRetailerForm(true); }}
@@ -730,7 +745,7 @@ export default function AdminDashboard() {
                       <td className="text-xs text-ink-muted whitespace-nowrap">{format(new Date(r.created_at), 'd MMM yyyy')}</td>
                       <td>
                         <div className="flex items-center gap-2">
-                          <button onClick={() => setSummaryRetailerId(r.id)} className="btn-secondary whitespace-nowrap">📊 Summary</button>
+                          <button onClick={() => setSummaryRetailerId(r.id)} className="btn-secondary whitespace-nowrap gap-1.5"><BarChart3 size={15} aria-hidden /> Summary</button>
                           <button onClick={() => { setEditingRetailer(r); setRetailerForm({ name: r.name, username: r.username, password: '', retail_pin: '', mobile: r.mobile || '' }); setShowRetailerForm(true); }} className="btn-ghost whitespace-nowrap">Edit</button>
                           <button onClick={() => handleToggleRetailerActive(r)} className={`btn whitespace-nowrap ${r.is_active ? 'bg-danger-light text-danger border border-danger-border' : 'bg-success-light text-success border border-success-border'}`}>
                             {r.is_active ? 'Deactivate' : 'Activate'}

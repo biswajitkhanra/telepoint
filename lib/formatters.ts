@@ -102,3 +102,16 @@ export function todayIST(): string {
   const dy  = String(now.getUTCDate()).padStart(2, '0');
   return `${yr}-${mo}-${dy}`;
 }
+
+/**
+ * Display form of a name typed in ALL CAPS ("RAJU MOBILE CENTRE" → "Raju
+ * Mobile Centre"). Short all-caps words (≤2 letters, e.g. "SK") are kept as
+ * initials; names already in mixed case are returned unchanged.
+ */
+export function toDisplayName(value?: string | null): string {
+  const s = (value ?? '').trim();
+  if (!s || s !== s.toUpperCase() || !/[A-Z]/.test(s)) return s;
+  return s.split(/(\s+)/).map(w =>
+    /^[A-Z]{3,}/.test(w) ? w.charAt(0) + w.slice(1).toLowerCase() : w,
+  ).join('');
+}

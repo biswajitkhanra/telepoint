@@ -22,12 +22,12 @@ import {
   Wallet, Crown,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { formatCurrency } from '@/lib/formatters';
+import { formatCurrency, toDisplayName } from '@/lib/formatters';
 import { staggerContainer } from '@/lib/motion';
 import { cn } from '@/lib/cn';
 import { KpiCard, KpiGrid } from '@/components/ui/KpiCard';
 import {
-  Panel, SectionHead, Segmented, BottomSheet, EmptyState, Skeleton, RankRow, Chip, ProgressBar,
+  Panel, SectionHead, Segmented, BottomSheet, EmptyState, Skeleton, RankRow, ProgressBar,
 } from '@/components/ui/primitives';
 import { DataTablePro, Column } from '@/components/ui/DataTablePro';
 import type { BreakdownRow } from '@/app/api/admin/top-products/route';
@@ -220,38 +220,38 @@ export default function AnalyticsPro({ supabase }: { supabase: ReturnType<typeof
       <div className="flex items-center gap-2">
         <select
           value={month} onChange={e => setMonth(Number(e.target.value))}
-          className="input !w-auto !py-2 text-sm" aria-label="Month"
+          className="input !w-auto !h-11 !py-0 text-sm" aria-label="Month"
         >
           {MONTHS.map((mn, i) => <option key={mn} value={i + 1}>{mn}</option>)}
         </select>
-        <div className="flex items-center rounded-xl border border-surface-4 bg-surface-2 overflow-hidden">
-          <button onClick={() => setYear(y => y - 1)} className="px-3 py-2.5 text-ink-muted hover:bg-surface-3 transition-colors" aria-label="Previous year"><ChevronLeft size={14} /></button>
-          <span className="px-2 text-sm font-bold text-ink num">{year}</span>
+        <div className="flex h-11 items-center rounded-xl border border-surface-4 bg-surface-2 overflow-hidden">
+          <button onClick={() => setYear(y => y - 1)} className="flex h-11 w-11 items-center justify-center text-ink-muted hover:bg-surface-3 transition-colors" aria-label="Previous year"><ChevronLeft size={16} aria-hidden /></button>
+          <span className="min-w-[3.5rem] border-x border-surface-4 px-3 text-center text-sm font-bold text-ink num" aria-live="polite">{year}</span>
           <button
             onClick={() => setYear(y => Math.min(now.getFullYear(), y + 1))}
             disabled={year >= now.getFullYear()}
-            className="px-3 py-2.5 text-ink-muted hover:bg-surface-3 disabled:opacity-30 transition-colors" aria-label="Next year"
-          ><ChevronRight size={14} /></button>
+            className="flex h-11 w-11 items-center justify-center text-ink-muted hover:bg-surface-3 disabled:opacity-30 transition-colors" aria-label="Next year"
+          ><ChevronRight size={16} aria-hidden /></button>
         </div>
       </div>
       <select
         value={selectedRetailerId} onChange={e => setSelectedRetailerId(e.target.value)}
-        className="input !w-auto !py-2 text-sm max-w-[180px]" aria-label="Retailer focus"
+        className="input !w-auto !h-11 !py-0 text-sm max-w-[180px]" aria-label="Retailer focus"
       >
         <option value="">All retailers</option>
         {(retSummary ?? []).map(r => <option key={r.retailerId} value={r.retailerId}>{r.name}</option>)}
       </select>
       <button
         onClick={resetFilters}
-        className="inline-flex items-center gap-1.5 rounded-xl border border-surface-4 px-3 py-2.5 text-xs font-bold text-ink-muted hover:text-ink hover:border-indigo-300 transition-colors"
+        className="btn-secondary !h-11 !px-4 !py-0 text-xs gap-1.5"
       >
-        <X size={12} aria-hidden /> Reset
+        <X size={14} aria-hidden /> Reset
       </button>
       <button
         onClick={() => load(true)}
-        className="inline-flex items-center gap-1.5 rounded-xl border border-surface-4 px-3 py-2.5 text-xs font-bold text-ink-muted hover:text-ink hover:border-indigo-300 transition-colors"
+        className="btn-secondary !h-11 !px-4 !py-0 text-xs gap-1.5"
       >
-        <RefreshCcw size={12} className={loading ? 'animate-spin' : ''} aria-hidden /> {loading ? 'Loading…' : 'Refresh'}
+        <RefreshCcw size={14} className={loading ? 'animate-spin' : ''} aria-hidden /> {loading ? 'Loading…' : 'Refresh'}
       </button>
     </>
   );
@@ -262,7 +262,7 @@ export default function AnalyticsPro({ supabase }: { supabase: ReturnType<typeof
       {/* ═══ Header ═══ */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-purple-500 dark:text-purple-300">Analytics</p>
+          <p className="text-sm font-bold uppercase tracking-[0.08em] text-purple-700 dark:text-purple-300">Analytics</p>
           <h1 className="font-display text-2xl sm:text-3xl font-extrabold mt-1">
             <span className="bg-gradient-to-r from-purple-600 via-fuchsia-500 to-rose-500 dark:from-purple-300 dark:via-fuchsia-300 dark:to-rose-300 bg-clip-text text-transparent">
               Business intelligence
@@ -270,17 +270,18 @@ export default function AnalyticsPro({ supabase }: { supabase: ReturnType<typeof
           </h1>
           <p className="text-sm text-ink-muted mt-1">
             {MONTHS[month - 1]} {year} vs {MONTHS[month - 1]} {year - 1}
-            {isCurrentMonth && <Chip className="ml-2 border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300">Month till date</Chip>}
+            {isCurrentMonth && <span className="text-ink-muted"> · month till date</span>}
           </p>
         </div>
       </div>
 
       {/* ═══ Sticky filter bar (desktop) / floating button + sheet (mobile) ═══ */}
       <div className="sticky top-14 z-30 -mx-4 sm:mx-0 px-4 sm:px-0">
-        <div className="hidden sm:flex flex-wrap items-center gap-2 rounded-[18px] border border-surface-4/80 bg-surface/90 backdrop-blur-md p-2.5 shadow-card dark:border-surface-3">
-          <span className="inline-flex items-center gap-1.5 px-2 text-[11px] font-bold uppercase tracking-widest text-ink-muted">
-            <FilterIcon size={12} aria-hidden /> Filters
-          </span>
+        <div
+          role="group" aria-labelledby="analytics-filters-label"
+          className="hidden sm:flex flex-wrap items-center gap-2 rounded-[20px] border border-surface-4/80 bg-surface/90 backdrop-blur-md p-2.5 shadow-card dark:border-surface-3"
+        >
+          <span id="analytics-filters-label" className="pl-2 pr-1 text-sm font-medium text-ink-muted">Filters</span>
           {filterControls}
         </div>
         <div className="sm:hidden flex justify-end">
@@ -515,7 +516,7 @@ function TopRanking({ rows, metric }: { rows: BreakdownRow[]; metric: 'amount' |
             transition={{ delay: i * 0.04 }}
             className="flex items-center gap-3"
           >
-            <span className={cn('w-7 h-7 rounded-lg text-white text-[11px] font-extrabold flex items-center justify-center shrink-0 shadow-sm num', c.dot)}>
+            <span className={cn('w-7 h-7 rounded-lg text-white text-xs font-extrabold flex items-center justify-center shrink-0 shadow-sm num', c.dot)}>
               {i + 1}
             </span>
             <div className="flex-1 min-w-0">
@@ -563,11 +564,11 @@ function RetailerRecovery({
 
   const DeficitPill = ({ value }: { value: number }) =>
     value > 0 ? (
-      <span className="num inline-flex items-center rounded-full border border-rose-200 dark:border-rose-500/40 bg-rose-50 dark:bg-rose-500/10 px-2.5 py-1 text-[11px] font-extrabold text-rose-700 dark:text-rose-300">
+      <span className="num inline-flex items-center rounded-full border border-rose-200 dark:border-rose-500/40 bg-rose-50 dark:bg-rose-500/10 px-2.5 py-1 text-xs font-extrabold text-rose-700 dark:text-rose-300">
         ▼ {fmt(value)}
       </span>
     ) : (
-      <span className="num inline-flex items-center rounded-full border border-emerald-200 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-1 text-[11px] font-extrabold text-emerald-700 dark:text-emerald-300">
+      <span className="num inline-flex items-center rounded-full border border-emerald-200 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-1 text-xs font-extrabold text-emerald-700 dark:text-emerald-300">
         ▲ +{fmt(Math.abs(value))}
       </span>
     );
@@ -578,7 +579,7 @@ function RetailerRecovery({
       cell: r => (
         <span>
           <span className="block font-semibold text-ink">
-            {r.name}{!r.isActive && <span className="ml-1.5 text-[10px] text-ink-muted">(inactive)</span>}
+            {toDisplayName(r.name)}{!r.isActive && <span className="ml-1.5 text-xs text-ink-muted">(inactive)</span>}
           </span>
           <span className="block mt-1 max-w-[130px]">
             <ProgressBar pct={Math.max(recoveryPct(r.loanGiven, r.totalCollected), 3)} height="h-1" />
@@ -662,14 +663,14 @@ function RetailerRecovery({
 
                   <div className="rounded-2xl border border-surface-4 bg-surface-2 p-4">
                     <div className="flex items-center justify-between mb-2">
-                      <p className="text-[11px] font-bold uppercase tracking-widest text-ink-muted">Investment recovery</p>
+                      <p className="text-xs font-bold uppercase tracking-widest text-ink-muted">Investment recovery</p>
                       <p className="num text-sm font-extrabold text-ink">{pct}%</p>
                     </div>
                     <ProgressBar
                       pct={Math.max(pct, 4)} height="h-3"
                       barClassName={cleared ? 'bg-gradient-to-r from-emerald-500 to-teal-400' : 'bg-gradient-to-r from-indigo-500 to-sky-500'}
                     />
-                    <p className="text-[11px] text-ink-muted mt-2">
+                    <p className="text-xs text-ink-muted mt-2">
                       {cleared
                         ? `Invested amount fully recovered — ${fmt(Math.abs(selected.deficit))} in surplus at this shop.`
                         : `${fmt(selected.deficit)} more to collect before the invested amount is fully back.`}
@@ -708,9 +709,9 @@ function RetailerRecovery({
 function StatTile({ label, value, sub, tone, small }: { label: string; value: number; sub?: string; tone: string; small?: boolean }) {
   return (
     <div className={cn('rounded-2xl border p-3.5', tone)}>
-      <p className="text-[10px] font-extrabold uppercase tracking-widest">{label}</p>
+      <p className="text-xs font-extrabold uppercase tracking-widest">{label}</p>
       <p className={cn('num font-extrabold mt-1', small ? 'text-lg' : 'text-xl sm:text-2xl')}>{fmt(value)}</p>
-      {sub && <p className="text-[10px] text-ink-muted mt-0.5">{sub}</p>}
+      {sub && <p className="text-xs text-ink-muted mt-0.5">{sub}</p>}
     </div>
   );
 }
