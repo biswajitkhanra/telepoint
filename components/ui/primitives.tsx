@@ -9,10 +9,11 @@
  * tokens (CSS variables), so light and dark themes both render first-class.
  */
 
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useEffect, useId, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { LucideIcon, Info, X } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { toDisplayName } from '@/lib/formatters';
 import { SPRING, sheetPanel, backdrop, cardRise } from '@/lib/motion';
 
 /* ── Panel — the standard rounded card ──────────────────────────────────── */
@@ -67,7 +68,7 @@ export function SectionHead({
 export function Chip({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <span className={cn(
-      'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold border',
+      'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold border',
       'border-surface-4 bg-surface-2 text-ink-muted',
       className,
     )}>
@@ -107,7 +108,7 @@ export function Segmented<T extends string>({
             onClick={() => onChange(o.value)}
             className={cn(
               'relative z-0 rounded-lg font-semibold whitespace-nowrap transition-colors shrink-0',
-              size === 'sm' ? 'px-2.5 py-1.5 text-[11px]' : 'px-3.5 py-2 text-xs',
+              size === 'sm' ? 'px-2.5 py-1.5 text-xs' : 'px-3.5 py-2 text-xs',
               active ? 'text-white' : 'text-ink-muted hover:text-ink',
             )}
           >
@@ -149,23 +150,34 @@ export function ProgressBar({
   );
 }
 
-/* ── Info tooltip (accessible, hover + focus) ───────────────────────────── */
+/* ── Info tooltip (accessible: hover, focus, and tap on touch) ──────────── */
 export function InfoTip({ text, className }: { text: string; className?: string }) {
+  const id = useId();
+  const [open, setOpen] = useState(false);
   return (
     <span className={cn('relative inline-flex group/tip', className)}>
+      {/* 28×28 hit target around the 14px glyph; the negative margin keeps the
+          card layout unchanged. Tap toggles it, since touch has no hover. */}
       <button
         type="button"
-        aria-label={text}
-        className="text-ink-muted/70 hover:text-ink-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 rounded-full"
+        aria-label="How this is calculated"
+        aria-describedby={id}
+        aria-expanded={open}
+        onClick={() => setOpen(o => !o)}
+        onBlur={() => setOpen(false)}
+        onKeyDown={e => { if (e.key === 'Escape') setOpen(false); }}
+        className="-m-2 inline-flex h-7 w-7 items-center justify-center rounded-full text-ink-muted/70 hover:text-ink-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
       >
-        <Info size={13} aria-hidden />
+        <Info size={14} aria-hidden />
       </button>
       <span
+        id={id}
         role="tooltip"
         className={cn(
           'pointer-events-none absolute bottom-full right-0 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 mb-2 z-30',
-          'w-52 rounded-xl border border-surface-4 bg-surface px-3 py-2 text-[11px] leading-relaxed text-ink shadow-modal',
-          'opacity-0 translate-y-1 transition-all duration-150',
+          'w-56 rounded-xl border border-surface-4 bg-surface px-3 py-2 text-xs leading-relaxed text-ink shadow-modal',
+          'transition-all duration-150',
+          open ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1',
           'group-hover/tip:opacity-100 group-hover/tip:translate-y-0',
           'group-focus-within/tip:opacity-100 group-focus-within/tip:translate-y-0',
         )}
@@ -267,7 +279,7 @@ export function RankRow({
     >
       <span
         className={cn(
-          'w-7 h-7 rounded-lg text-[11px] font-extrabold flex items-center justify-center shrink-0 shadow-sm num',
+          'w-7 h-7 rounded-lg text-xs font-extrabold flex items-center justify-center shrink-0 shadow-sm num',
           RANK_STYLES[rank - 1] ?? 'bg-surface-3 text-ink-muted',
         )}
         aria-label={`Rank ${rank}`}
@@ -276,9 +288,9 @@ export function RankRow({
       </span>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2 mb-1">
-          <p className="text-[13px] font-semibold text-ink truncate">
-            {name}
-            {sub && <span className="ml-1.5 text-[10px] font-medium text-ink-muted">{sub}</span>}
+          <p className="text-[13px] font-semibold text-ink truncate" title={name}>
+            {toDisplayName(name)}
+            {sub && <span className="ml-1.5 text-xs font-medium text-ink-muted">{sub}</span>}
           </p>
           <p className="num text-xs font-bold text-ink whitespace-nowrap">{valueLabel}</p>
         </div>

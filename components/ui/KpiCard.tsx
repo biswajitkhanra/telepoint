@@ -133,7 +133,7 @@ export function KpiCard({
           {deltaPct !== undefined && (
             <span
               className={cn(
-                'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold num',
+                'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-extrabold num',
                 good
                   ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
                   : 'bg-rose-50 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300',
@@ -151,7 +151,7 @@ export function KpiCard({
       <div className="relative mt-3 flex items-end justify-between gap-2">
         <div className="min-w-0">
           <CountUp value={value} format={fmt} duration={0.8} className="num block text-xl sm:text-2xl font-extrabold text-ink leading-tight" />
-          <p className="text-[11px] font-semibold text-ink-muted mt-1 truncate">{label}</p>
+          <p className="text-xs font-semibold text-ink-muted mt-1 truncate">{label}</p>
         </div>
         {spark && spark.length >= 2 && (
           <div className="shrink-0 hidden xs:block sm:block"><Sparkline points={spark} color={t.spark} /></div>
@@ -159,7 +159,7 @@ export function KpiCard({
       </div>
 
       {secondary && (
-        <p className="relative mt-2 text-[11px] text-ink-muted">
+        <p className="relative mt-2 text-xs text-ink-muted">
           {secondary.label}{' '}
           <span className="num font-bold text-ink">{(secondary.format ?? fmt)(secondary.value)}</span>
         </p>
@@ -168,8 +168,8 @@ export function KpiCard({
       {progressPct !== undefined && (
         <div className="relative mt-3">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-ink-muted">{progressLabel ?? 'Progress'}</span>
-            <span className="num text-[10px] font-extrabold text-ink">{Math.round(progressPct)}%</span>
+            <span className="text-xs font-medium text-ink-muted">{progressLabel ?? 'Progress'}</span>
+            <span className="num text-xs font-extrabold text-ink">{Math.round(progressPct)}%</span>
           </div>
           <ProgressBar pct={progressPct} height="h-1.5" barClassName={t.bar} />
         </div>

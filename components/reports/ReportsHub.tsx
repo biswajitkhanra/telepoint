@@ -21,7 +21,7 @@ import {
   Wallet, HandCoins, CalendarClock, AlertTriangle, Users, Landmark,
   PiggyBank, Gauge, FileSpreadsheet, FileText, Database, RefreshCcw,
   Search, Filter, IndianRupee, ReceiptText, ArrowRight, Clock4,
-  ShieldAlert, Download, LifeBuoy, BadgePercent, Store,
+  ShieldAlert, Download, LifeBuoy, BadgePercent, Store, ChevronDown,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Retailer, PaymentRequest } from '@/lib/types';
@@ -129,6 +129,17 @@ export default function ReportsHub({
     loadMonth();
   }, [reloadMetrics, loadToday, loadMonth]);
 
+  // Headline KPIs show first; the full set of 12 is one tap away. The choice
+  // is remembered per browser (best effort — storage can be unavailable).
+  const [showAllKpis, setShowAllKpis] = useState(false);
+  useEffect(() => {
+    try { if (localStorage.getItem('tp.kpis.all') === '1') setShowAllKpis(true); } catch {}
+  }, []);
+  const toggleAllKpis = () => setShowAllKpis(v => {
+    try { localStorage.setItem('tp.kpis.all', v ? '0' : '1'); } catch {}
+    return !v;
+  });
+
   /* ── Derived figures — identical formulas to the old dashboard ────────── */
   const m = metrics;
   const totals = useMemo(() => {
@@ -175,7 +186,7 @@ export default function ReportsHub({
       {/* ═══ Dashboard header ═══ */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-500 dark:text-indigo-300">Reports</p>
+          <p className="text-sm font-bold uppercase tracking-[0.08em] text-indigo-700 dark:text-indigo-300">Reports</p>
           <h1 className="font-display text-2xl sm:text-3xl font-extrabold mt-1">
             <span className="bg-gradient-to-r from-indigo-600 via-purple-500 to-sky-500 dark:from-indigo-300 dark:via-purple-300 dark:to-sky-300 bg-clip-text text-transparent">
               {greeting}, TelePoint
@@ -195,21 +206,20 @@ export default function ReportsHub({
             </Chip>
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={refreshAll}
-            className="inline-flex items-center gap-2 rounded-xl border border-surface-4 bg-surface px-4 py-2.5 text-xs font-bold text-ink-muted hover:text-ink hover:border-indigo-300 transition-colors shadow-sm"
-          >
-            <RefreshCcw size={13} className={refreshing ? 'animate-spin' : ''} aria-hidden />
-            {refreshing ? 'Refreshing…' : 'Refresh'}
-          </button>
-        </div>
       </div>
 
       {/* ═══ KPI cards — swipeable on mobile, 4-up desktop ═══ */}
       <section aria-label="Key metrics">
-        <div className="flex items-center justify-between mb-3">
-          <SectionHead icon={Gauge} title="Portfolio pulse" sub="Running (active) loans — completed, settled & NPA excluded" />
+        <div className="mb-3">
+          <SectionHead
+            icon={Gauge} title="Portfolio pulse" sub="Running (active) loans — completed, settled & NPA excluded"
+            right={
+              <button onClick={refreshAll} disabled={refreshing} className="btn-secondary !px-4 !py-2 text-xs gap-2">
+                <RefreshCcw size={14} className={refreshing ? 'animate-spin' : ''} aria-hidden />
+                {refreshing ? 'Refreshing…' : 'Refresh'}
+              </button>
+            }
+          />
         </div>
         <KpiGrid>
           <KpiCard
@@ -238,6 +248,17 @@ export default function ReportsHub({
               formula="Money collected this month (EMI + fines + charges, anchored to each EMI's own collection date). Delta compares the same month last year."
             />
           )}
+        </KpiGrid>
+        <AnimatePresence initial={false}>
+          {showAllKpis && (
+            <motion.div
+              id="more-kpis"
+              initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              className="overflow-hidden"
+            >
+              <div className="pt-3 sm:pt-4">
+        <KpiGrid>
           <KpiCard
             loading={metricsLoading} icon={Users} tone="indigo"
             label="Active Customers" value={m?.runningCount ?? 0}
@@ -286,6 +307,21 @@ export default function ReportsHub({
             formula="EMI principal collected vs still outstanding on the running book."
           />
         </KpiGrid>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        <div className="mt-3 flex justify-center">
+          <button
+            onClick={toggleAllKpis}
+            aria-expanded={showAllKpis}
+            aria-controls="more-kpis"
+            className="btn-ghost text-xs gap-1.5"
+          >
+            {showAllKpis ? 'Show fewer metrics' : 'Show all 12 metrics'}
+            <ChevronDown size={14} className={cn('transition-transform', showAllKpis && 'rotate-180')} aria-hidden />
+          </button>
+        </div>
       </section>
 
       {/* ═══ Quick actions ═══ */}
@@ -360,7 +396,7 @@ function QuickActions({ retailers, onRefreshMetrics }: { retailers: Retailer[]; 
               </span>
               <span className="min-w-0">
                 <span className="block text-[13px] font-bold text-ink leading-tight">{a.title}</span>
-                <span className="block text-[11px] text-ink-muted mt-0.5 leading-snug">{a.sub}</span>
+                <span className="block text-xs text-ink-muted mt-0.5 leading-snug">{a.sub}</span>
               </span>
             </>
           );
@@ -599,16 +635,16 @@ function DueFilters({
 
         <div className="mt-4 space-y-3">
           <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1" style={{ scrollbarWidth: 'none' }}>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-ink-muted shrink-0">Upcoming</span>
+            <span className="text-xs font-bold uppercase tracking-widest text-ink-muted shrink-0">Upcoming</span>
             {[5, 10, 15, 20, 25, 30].map(d => chip(`upcoming_${d}`, `Next ${d} days`))}
           </div>
           <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1" style={{ scrollbarWidth: 'none' }}>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-ink-muted shrink-0">Overdue</span>
+            <span className="text-xs font-bold uppercase tracking-widest text-ink-muted shrink-0">Overdue</span>
             {[2, 3, 4, 5].map(mo => chip(`months_${mo}`, `${mo}+ months`, true))}
             {chip('fine_only', 'Fine due only', true)}
           </div>
           <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1" style={{ scrollbarWidth: 'none' }}>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-ink-muted shrink-0">Special</span>
+            <span className="text-xs font-bold uppercase tracking-widest text-ink-muted shrink-0">Special</span>
             {chip('first_emi_due', '1st EMI due')}
             {chip('first_emi_charge_due', '1st charge due')}
           </div>
@@ -708,7 +744,7 @@ function ProfitAndRisk({
       key: 'overdue', header: 'Overdue', accessor: r => r.daysOverdue, align: 'right', numeric: true,
       cell: r => (
         <span className={cn(
-          'inline-flex rounded-lg px-2 py-0.5 text-[11px] font-extrabold num',
+          'inline-flex rounded-lg px-2 py-0.5 text-xs font-extrabold num',
           r.daysOverdue >= 180
             ? 'bg-rose-50 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300'
             : 'bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
@@ -725,9 +761,9 @@ function ProfitAndRisk({
   ], []);
 
   return (
-    <section aria-label="Profit, loss and risk" className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
+    <section aria-label="Profit, loss and risk" className="grid grid-cols-1 xl:grid-cols-2 gap-4">
       {/* P&L */}
-      <Panel className="p-5 sm:p-6">
+      <Panel className="p-5 sm:p-6 h-full">
         <SectionHead
           icon={Landmark} title="Profit & Loss — year-wise"
           sub="Profit: completed customers (collected − loan value) · Loss: NPA + settled"
@@ -746,25 +782,25 @@ function ProfitAndRisk({
         ) : (
           <>
             <div className="grid grid-cols-3 gap-2.5 mt-4 keep-cols">
-              <div className="rounded-2xl border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50/60 dark:bg-emerald-500/10 p-3">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Profit {plYear}</p>
+              <div className="rounded-xl border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50/60 dark:bg-emerald-500/10 p-3">
+                <p className="text-xs font-bold uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Profit {plYear}</p>
                 <p className="num text-lg font-extrabold text-emerald-700 dark:text-emerald-300 mt-0.5">{fmt(yP.amount)}</p>
-                <p className="text-[10px] text-ink-muted mt-0.5">{yP.count} completed</p>
+                <p className="text-xs text-ink-muted mt-0.5">{yP.count} completed</p>
               </div>
-              <div className="rounded-2xl border border-rose-200 dark:border-rose-500/30 bg-rose-50/60 dark:bg-rose-500/10 p-3">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-rose-700 dark:text-rose-300">Loss {plYear}</p>
+              <div className="rounded-xl border border-rose-200 dark:border-rose-500/30 bg-rose-50/60 dark:bg-rose-500/10 p-3">
+                <p className="text-xs font-bold uppercase tracking-widest text-rose-700 dark:text-rose-300">Loss {plYear}</p>
                 <p className="num text-lg font-extrabold text-rose-700 dark:text-rose-300 mt-0.5">{fmt(yL.amount)}</p>
-                <p className="text-[10px] text-ink-muted mt-0.5">{yL.count} accounts</p>
+                <p className="text-xs text-ink-muted mt-0.5">{yL.count} accounts</p>
               </div>
               <div className={cn(
-                'rounded-2xl border p-3',
+                'rounded-xl border p-3',
                 net >= 0
-                  ? 'border-teal-200 dark:border-teal-500/30 bg-teal-50/60 dark:bg-teal-500/10'
+                  ? 'border-emerald-200 dark:border-emerald-500/30 bg-emerald-50/60 dark:bg-emerald-500/10'
                   : 'border-rose-200 dark:border-rose-500/30 bg-rose-50/60 dark:bg-rose-500/10',
               )}>
-                <p className={cn('text-[10px] font-bold uppercase tracking-widest', net >= 0 ? 'text-teal-700 dark:text-teal-300' : 'text-rose-700 dark:text-rose-300')}>Net {plYear}</p>
-                <p className={cn('num text-lg font-extrabold mt-0.5', net >= 0 ? 'text-teal-700 dark:text-teal-300' : 'text-rose-700 dark:text-rose-300')}>{fmt(net)}</p>
-                <p className="text-[10px] text-ink-muted mt-0.5">Profit − loss</p>
+                <p className={cn('text-xs font-bold uppercase tracking-widest', net >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300')}>Net {plYear}</p>
+                <p className={cn('num text-lg font-extrabold mt-0.5', net >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300')}>{fmt(net)}</p>
+                <p className="text-xs text-ink-muted mt-0.5">Profit − loss</p>
               </div>
             </div>
             <div className="mt-4">
@@ -774,9 +810,8 @@ function ProfitAndRisk({
         )}
       </Panel>
 
-      <div className="space-y-4">
         {/* Fine collection trend */}
-        <Panel className="p-5 sm:p-6">
+        <Panel className="p-5 sm:p-6 h-full">
           <SectionHead
             icon={ReceiptText} title="Fine collection trend"
             sub="Late-fine money actually collected, by IST month of approval — last 12 months"
@@ -787,7 +822,8 @@ function ProfitAndRisk({
             : <div className="mt-4"><TrendArea data={fineSeries} format={fmtShort} color="#a855f7" /></div>}
         </Panel>
 
-        {/* Expected loss */}
+        {/* Expected loss — full-width bar under both charts */}
+        <div className="xl:col-span-2">
         <Panel className="overflow-hidden">
           <button
             onClick={toggleEl}
@@ -805,12 +841,12 @@ function ProfitAndRisk({
             </div>
             <div className="flex items-center gap-5 ml-auto">
               <div className="text-right">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">Accounts</p>
-                <p className="num text-lg font-extrabold text-amber-600 dark:text-amber-300">{metrics?.expectedLossCount ?? 0}</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-ink-muted">Accounts</p>
+                <p className="num text-lg font-extrabold text-amber-700 dark:text-amber-300">{metrics?.expectedLossCount ?? 0}</p>
               </div>
               <div className="text-right">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">EMI Due</p>
-                <p className="num text-lg font-extrabold text-amber-600 dark:text-amber-300">{fmt(metrics?.expectedLossEmiDue ?? 0)}</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-ink-muted">EMI Due</p>
+                <p className="num text-lg font-extrabold text-amber-700 dark:text-amber-300">{fmt(metrics?.expectedLossEmiDue ?? 0)}</p>
               </div>
               <motion.span animate={{ rotate: showEl ? 180 : 0 }} className="text-ink-muted" aria-hidden>▾</motion.span>
             </div>
@@ -844,7 +880,7 @@ function ProfitAndRisk({
             )}
           </AnimatePresence>
         </Panel>
-      </div>
+        </div>
     </section>
   );
 }
@@ -881,7 +917,7 @@ function UtrSearch({ supabase }: { supabase: ReturnType<typeof createClient> }) 
         return (
           <span>
             <span className="block font-medium text-ink">{cust?.customer_name || '—'}</span>
-            <span className="block num text-[10px] text-ink-muted">{cust?.imei || ''}</span>
+            <span className="block num text-xs text-ink-muted">{cust?.imei || ''}</span>
           </span>
         );
       },
