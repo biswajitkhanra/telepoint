@@ -13,7 +13,7 @@
  * imported history reports in its real month.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -79,35 +79,6 @@ interface AnalysisData {
 
 const EMPTY_PERIOD: PeriodMetrics = { loanGiven: 0, collected: 0, customers: 0, dueEmis: 0, bouncedEmis: 0 };
 
-function inMonth(value: string | null | undefined, year: number, month: number): boolean {
-  if (!value) return false;
-  const d = new Date(value.length <= 10 ? value + 'T00:00:00' : value);
-  if (Number.isNaN(d.getTime())) return false;
-  return d.getFullYear() === year && d.getMonth() + 1 === month;
-}
-
-function loanOf(c: { disburse_amount?: number | null; purchase_value?: number | null; down_payment?: number | null }): number {
-  const disbursed = Number(c.disburse_amount || 0);
-  if (disbursed > 0) return disbursed;
-  return Math.max(0, Number(c.purchase_value || 0) - Number(c.down_payment || 0));
-}
-
-type EmiRow = {
-  customer_id?: string; due_date?: string; status?: string;
-  amount?: number; partial_paid_amount?: number; fine_paid_amount?: number;
-  paid_at?: string | null; collection_requested_at?: string | null;
-};
-
-function collectionDateOf(e: EmiRow): string | undefined {
-  return e.collection_requested_at || e.paid_at || e.due_date || undefined;
-}
-function paidOnSchedule(e: EmiRow, customerStatus: string | undefined): boolean {
-  return e.status === 'APPROVED' || customerStatus === 'COMPLETE';
-}
-function emiPrincipalCollected(e: EmiRow, customerStatus: string | undefined): number {
-  if (paidOnSchedule(e, customerStatus)) return Number(e.amount || 0);
-  return Number(e.partial_paid_amount || 0);
-}
 function bounceRate(p: PeriodMetrics): number {
   return p.dueEmis > 0 ? (p.bouncedEmis / p.dueEmis) * 100 : 0;
 }
@@ -157,111 +128,29 @@ export default function AnalyticsPro({ supabase }: { supabase: ReturnType<typeof
     return () => { cancelled = true; };
   }, []);
 
-  /* ── YoY analysis: RPC first, identical client fallback second ─────────── */
-  const load = useCallback(async () => {
+  /* ── YoY analysis: computed on the server from EVERY customer + EMI row ── */
+  // (imported history included). The old browser fallback read whole tables
+  // in one request and was silently capped at 1000 rows; the RPC depends on
+  // migration 023 being applied. Server endpoint first, RPC only as backup.
+  const reqSeq = useRef(0);
+  const load = useCallback(async (fresh = false) => {
+    const seq = ++reqSeq.current;
     setLoading(true);
     try {
-      const rpc = await supabase.rpc('get_emi_analysis', { p_month: month, p_year: year });
-      if (!rpc.error && rpc.data && (rpc.data as AnalysisData).thisYear) {
-        setData(rpc.data as AnalysisData);
+      const res = await fetch(`/api/admin/analysis?month=${month}&year=${year}${fresh ? '&fresh=1' : ''}`, { cache: 'no-store' });
+      if (res.ok) {
+        const d = (await res.json()) as AnalysisData;
+        if (seq === reqSeq.current) setData(d);
         return;
       }
-
-      const [{ data: customers }, { data: emis }, { data: retailers }] =
-        await Promise.all([
-          supabase.from('customers').select('id, retailer_id, status, purchase_value, down_payment, disburse_amount, purchase_date, created_at, first_emi_charge_amount, first_emi_charge_paid_at'),
-          supabase.from('emi_schedule').select('customer_id, due_date, status, amount, partial_paid_amount, fine_paid_amount, paid_at, collection_requested_at'),
-          supabase.from('retailers').select('id, name'),
-        ]);
-
-      const retailerName = new Map<string, string>(
-        (retailers || []).map((r: { id: string; name: string }) => [r.id, r.name]),
-      );
-
-      type CustomerRow = {
-        id?: string; retailer_id?: string; status?: string;
-        purchase_date?: string; created_at?: string;
-        purchase_value?: number; down_payment?: number; disburse_amount?: number;
-        first_emi_charge_amount?: number; first_emi_charge_paid_at?: string | null;
-      };
-
-      const customerRows = (customers || []) as CustomerRow[];
-      const emiRows = (emis || []) as EmiRow[];
-
-      const COUNTED = new Set(['RUNNING', 'COMPLETE']);
-      const statusOf = new Map<string, string>();
-      const retailerOf = new Map<string, string>();
-      const countedCustomerIds = new Set<string>();
-      for (const c of customerRows) {
-        if (!c.id) continue;
-        statusOf.set(c.id, c.status || '');
-        if (c.retailer_id) retailerOf.set(c.id, c.retailer_id);
-        if (COUNTED.has(c.status || '')) countedCustomerIds.add(c.id);
+      const rpc = await supabase.rpc('get_emi_analysis', { p_month: month, p_year: year });
+      if (seq === reqSeq.current) {
+        setData(!rpc.error && rpc.data && (rpc.data as AnalysisData).thisYear ? (rpc.data as AnalysisData) : null);
       }
-
-      const period = (y: number): PeriodMetrics => {
-        const p: PeriodMetrics = { ...EMPTY_PERIOD };
-        for (const c of customerRows) {
-          if (COUNTED.has(c.status || '') && inMonth(c.purchase_date || c.created_at, y, month)) {
-            p.loanGiven += loanOf(c);
-            p.customers += 1;
-          }
-          if (COUNTED.has(c.status || '') && c.first_emi_charge_paid_at && inMonth(c.first_emi_charge_paid_at, y, month)) {
-            p.collected += Number(c.first_emi_charge_amount || 0);
-          }
-        }
-        for (const e of emiRows) {
-          if (!e.customer_id || !countedCustomerIds.has(e.customer_id)) continue;
-          const st = statusOf.get(e.customer_id);
-          const principal = emiPrincipalCollected(e, st);
-          const fine = Number(e.fine_paid_amount || 0);
-          if ((principal > 0 || fine > 0) && inMonth(collectionDateOf(e), y, month)) {
-            p.collected += principal + fine;
-          }
-          if (inMonth(e.due_date, y, month)) {
-            p.dueEmis += 1;
-            if (!paidOnSchedule(e, st)) p.bouncedEmis += 1;
-          }
-        }
-        return p;
-      };
-
-      const leadMap = new Map<string, number>();
-      for (const c of customerRows) {
-        if (c.retailer_id && COUNTED.has(c.status || '') && inMonth(c.purchase_date || c.created_at, year, month)) {
-          leadMap.set(c.retailer_id, (leadMap.get(c.retailer_id) || 0) + 1);
-        }
-      }
-      const collMap = new Map<string, number>();
-      for (const e of emiRows) {
-        if (!e.customer_id || !countedCustomerIds.has(e.customer_id)) continue;
-        const rid = retailerOf.get(e.customer_id);
-        if (!rid) continue;
-        const st = statusOf.get(e.customer_id);
-        const value = emiPrincipalCollected(e, st) + Number(e.fine_paid_amount || 0);
-        if (value > 0 && inMonth(collectionDateOf(e), year, month)) {
-          collMap.set(rid, (collMap.get(rid) || 0) + value);
-        }
-      }
-      for (const c of customerRows) {
-        if (c.retailer_id && COUNTED.has(c.status || '') && c.first_emi_charge_paid_at && inMonth(c.first_emi_charge_paid_at, year, month)) {
-          collMap.set(c.retailer_id, (collMap.get(c.retailer_id) || 0) + Number(c.first_emi_charge_amount || 0));
-        }
-      }
-      const toBoard = (mp: Map<string, number>): LeaderRow[] =>
-        [...mp.entries()]
-          .map(([retailerId, value]) => ({ retailerId, name: retailerName.get(retailerId) || 'Unknown shop', value }))
-          .filter((r) => r.value > 0)
-          .sort((a, b) => b.value - a.value);
-
-      setData({
-        thisYear: period(year),
-        lastYear: period(year - 1),
-        leadLeaderboard: toBoard(leadMap),
-        collectionLeaderboard: toBoard(collMap),
-      });
+    } catch {
+      if (seq === reqSeq.current) setData(null);
     } finally {
-      setLoading(false);
+      if (seq === reqSeq.current) setLoading(false);
     }
   }, [supabase, month, year]);
 
@@ -359,7 +248,7 @@ export default function AnalyticsPro({ supabase }: { supabase: ReturnType<typeof
         <X size={12} aria-hidden /> Reset
       </button>
       <button
-        onClick={load}
+        onClick={() => load(true)}
         className="inline-flex items-center gap-1.5 rounded-xl border border-surface-4 px-3 py-2.5 text-xs font-bold text-ink-muted hover:text-ink hover:border-indigo-300 transition-colors"
       >
         <RefreshCcw size={12} className={loading ? 'animate-spin' : ''} aria-hidden /> {loading ? 'Loading…' : 'Refresh'}

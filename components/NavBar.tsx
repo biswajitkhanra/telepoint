@@ -40,7 +40,7 @@ const Icons = {
   ),
 };
 
-export default function NavBar({ role, pendingCount = 0 }: NavBarProps) {
+export default function NavBar({ role, userName, pendingCount = 0 }: NavBarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const _sbRef = useRef<ReturnType<typeof createClient> | null>(null);
@@ -83,23 +83,28 @@ export default function NavBar({ role, pendingCount = 0 }: NavBarProps) {
       <div className="max-w-6xl mx-auto px-3 sm:px-4 h-14 flex items-center justify-between gap-2">
         {/* Logo + wordmark */}
         <motion.div
-          className="flex items-center gap-2 flex-shrink-0"
+          className="flex min-w-0 items-center gap-2"
           initial={{ opacity: 0, x: -12 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ ...SPRING, delay: 0.08 }}
         >
-          <motion.div whileTap={{ scale: 0.95 }} transition={SPRING}>
+          <motion.div whileTap={{ scale: 0.95 }} transition={SPRING} className="flex-shrink-0">
             <Logo size={32} className="rounded-[9px] shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_2px_6px_-2px_rgba(30,49,102,0.35)]" />
           </motion.div>
-          <span className="font-display font-semibold text-ink text-[15px] inline tracking-[-0.02em]">Telepoint</span>
-          {/* Role chip */}
-          <span className={`hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-[0.08em] ring-1 ring-inset ${
-            role === 'admin'
-              ? 'bg-brand-50 text-brand-700 ring-brand-600/15'
-              : 'bg-emerald-50 text-emerald-700 ring-emerald-600/15'
-          }`}>
-            {role === 'admin' ? 'Admin' : 'Retailer'}
-          </span>
+          {/* Wordmark + who is signed in (shown on every screen size) */}
+          <div className="min-w-0 leading-tight">
+            <span className="block font-display font-semibold text-ink text-[15px] tracking-[-0.02em]">Telepoint</span>
+            <span className="flex min-w-0 items-center gap-1.5 text-[11px] text-ink-muted">
+              <span className={`inline-flex flex-shrink-0 items-center px-1.5 py-px rounded-md text-[9px] font-semibold uppercase tracking-[0.08em] ring-1 ring-inset ${
+                role === 'admin'
+                  ? 'bg-brand-50 text-brand-700 ring-brand-600/15'
+                  : 'bg-emerald-50 text-emerald-700 ring-emerald-600/15'
+              }`}>
+                {role === 'admin' ? 'Admin' : 'Retailer'}
+              </span>
+              {userName && <span className="truncate font-medium text-ink-light" title={userName}>{userName}</span>}
+            </span>
+          </div>
         </motion.div>
 
         {/* Desktop nav links */}

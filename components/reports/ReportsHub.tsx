@@ -103,9 +103,17 @@ export default function ReportsHub({
   const [monthStats, setMonthStats] = useState<{ collected: number; lastYear: number } | null>(null);
   const loadMonth = useCallback(async () => {
     const now = new Date();
-    const rpc = await supabase.rpc('get_emi_analysis', { p_month: now.getMonth() + 1, p_year: now.getFullYear() });
-    const d = rpc.data as { thisYear?: { collected?: number }; lastYear?: { collected?: number } } | null;
-    if (!rpc.error && d?.thisYear) {
+    // Full-database analysis (imported history included) — see /api/admin/analysis.
+    let d: { thisYear?: { collected?: number }; lastYear?: { collected?: number } } | null = null;
+    try {
+      const res = await fetch(`/api/admin/analysis?month=${now.getMonth() + 1}&year=${now.getFullYear()}`, { cache: 'no-store' });
+      if (res.ok) d = await res.json();
+    } catch { /* fall back to the RPC below */ }
+    if (!d?.thisYear) {
+      const rpc = await supabase.rpc('get_emi_analysis', { p_month: now.getMonth() + 1, p_year: now.getFullYear() });
+      if (!rpc.error) d = rpc.data as typeof d;
+    }
+    if (d?.thisYear) {
       setMonthStats({ collected: Number(d.thisYear.collected || 0), lastYear: Number(d.lastYear?.collected || 0) });
     } else {
       // RPC not deployed — hide the card rather than fabricate a figure.
@@ -394,7 +402,7 @@ function QuickActions({ retailers, onRefreshMetrics }: { retailers: Retailer[]; 
             <div>
               <label className="label" htmlFor="qa-year">Year</label>
               <select id="qa-year" value={year} onChange={e => setYear(Number(e.target.value))} className="input">
-                {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
+                {Array.from({ length: new Date().getFullYear() - 2019 }, (_, i) => new Date().getFullYear() - i).map(y => <option key={y} value={y}>{y}</option>)}
               </select>
             </div>
           </div>
@@ -485,8 +493,17 @@ function DueFilters({
         query = query.lt('due_date', cutoff);
       }
 
-      const { data, error } = await query.order('due_date').limit(100);
-      if (error) { toast.error(error.message); return; }
+      // Page through every match (PostgREST caps a response at 1000 rows; the
+      // old .limit(100) silently dropped everything after the first 100).
+      const PAGE = 1000;
+      const data: Record<string, unknown>[] = [];
+      const ordered = query.order('due_date').order('id');
+      for (let from = 0; from < 20000; from += PAGE) {
+        const { data: page, error } = await ordered.range(from, from + PAGE - 1);
+        if (error) { toast.error(error.message); return; }
+        data.push(...((page ?? []) as Record<string, unknown>[]));
+        if (!page || page.length < PAGE) break;
+      }
 
       const mapped: FilteredEMI[] = (data || []).map((row: Record<string, unknown>) => {
         const cust = row.customer as Record<string, unknown> | null;

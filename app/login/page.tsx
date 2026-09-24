@@ -52,8 +52,10 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signInWithPassword({ email: toEmail(username, tab), password });
       if (error) { toast.error('Incorrect username or password'); return; }
       toast.success('Signed in');
+      // No router.refresh(): it re-fetched this login page from the server
+      // before navigating. The session cookie is already set, so going
+      // straight to the dashboard is enough (and noticeably faster).
       router.replace(tab === 'admin' ? '/admin' : '/retailer');
-      router.refresh();
     } finally { setLoading(false); }
   }
 

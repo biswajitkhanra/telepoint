@@ -15,7 +15,7 @@ import CustomerPaymentSummary from '@/components/CustomerPaymentSummary';
 import EMIScheduleTable from '@/components/EMIScheduleTable';
 import DueBreakdownPanel from '@/components/DueBreakdownPanel';
 import SmartAlertPopup from '@/components/SmartAlertPopup';
-import PaymentModal from '@/components/PaymentModal';
+import nextDynamic from 'next/dynamic';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { diffDaysIST } from '@/lib/ist';
@@ -24,6 +24,9 @@ import { calculateTotalFineFromEmis } from '@/lib/fineCalc';
 import { firstChargeRemaining } from '@/lib/firstCharge';
 import BottomNav from '@/components/BottomNav';
 import UpcomingEmiWidget from '@/components/UpcomingEmiWidget';
+
+// Opened on demand only — keep it out of the first-load bundle.
+const PaymentModal = nextDynamic(() => import('@/components/PaymentModal'), { ssr: false });
 
 function fmt(n: number) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(n);

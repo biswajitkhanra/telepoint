@@ -10,11 +10,10 @@ import CustomerDetailPanel from '@/components/CustomerDetailPanel';
 import PhoneLockBadge from '@/components/PhoneLockBadge';
 import CustomerPaymentSummary from '@/components/CustomerPaymentSummary';
 import RetailerPaymentSummary from '@/components/RetailerPaymentSummary';
-import CustomerFormModal, { type FormData as CustomerFormData } from '@/components/CustomerFormModal';
+import type { FormData as CustomerFormData } from '@/components/CustomerFormModal';
 import EMIScheduleTable from '@/components/EMIScheduleTable';
 import DueBreakdownPanel from '@/components/DueBreakdownPanel';
 import SmartAlertPopup from '@/components/SmartAlertPopup';
-import PaymentModal from '@/components/PaymentModal';
 import toast from 'react-hot-toast';
 import { calculateTotalFineFromEmis } from '@/lib/fineCalc';
 import BottomNav from '@/components/BottomNav';
@@ -43,6 +42,9 @@ const AnalyticsPro = dynamicImport(() => import('@/components/analytics/Analytic
 const SettingsHub = dynamicImport(() => import('@/components/settings/SettingsHub'), { ssr: false, loading: hubLoading });
 // EMI Calculator (ECAL) — super-admin only; code-split so it loads on demand.
 const EmiCalculatorModal = dynamicImport(() => import('@/components/EmiCalculatorModal'), { ssr: false });
+// Opened on demand only — keep them out of the first-load bundle.
+const CustomerFormModal = dynamicImport(() => import('@/components/CustomerFormModal'), { ssr: false });
+const PaymentModal = dynamicImport(() => import('@/components/PaymentModal'), { ssr: false });
 
 type Tab = 'search' | 'retailers' | 'reports' | 'analysis' | 'settings' | 'broadcast';
 
