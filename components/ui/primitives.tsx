@@ -9,7 +9,8 @@
  * tokens (CSS variables), so light and dark themes both render first-class.
  */
 
-import { ReactNode, useEffect, useId, useState } from 'react';
+import { ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { LucideIcon, Info, X } from 'lucide-react';
 import { cn } from '@/lib/cn';
@@ -151,39 +152,80 @@ export function ProgressBar({
 }
 
 /* ── Info tooltip (accessible: hover, focus, and tap on touch) ──────────── */
+// The bubble is portalled to <body> with fixed positioning: KPI cards use
+// overflow-hidden and the mobile KPI row scrolls sideways, and either one
+// clipped an in-card tooltip so it never showed.
+const TIP_W = 240;
 export function InfoTip({ text, className }: { text: string; className?: string }) {
   const id = useId();
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const lastPointer = useRef<string>('');
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ left: number; top: number; above: boolean } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!open || !btnRef.current) { setPos(null); return; }
+    const r = btnRef.current.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const left = Math.min(Math.max(8, r.left + r.width / 2 - TIP_W / 2), vw - TIP_W - 8);
+    const above = r.top > 140;               // not enough room → open below
+    setPos({ left, top: above ? r.top - 8 : r.bottom + 8, above });
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
   return (
-    <span className={cn('relative inline-flex group/tip', className)}>
+    <span
+      className={cn('relative inline-flex', className)}
+      // Mouse opens on hover; touch fires emulated hover/focus before the
+      // click, so those are ignored for touch and the tap alone toggles.
+      onPointerEnter={e => { if (e.pointerType === 'mouse') setOpen(true); }}
+      onPointerLeave={e => { if (e.pointerType === 'mouse') setOpen(false); }}
+    >
       {/* 28×28 hit target around the 14px glyph; the negative margin keeps the
           card layout unchanged. Tap toggles it, since touch has no hover. */}
       <button
+        ref={btnRef}
         type="button"
         aria-label="How this is calculated"
         aria-describedby={id}
         aria-expanded={open}
-        onClick={() => setOpen(o => !o)}
+        onPointerDown={e => { lastPointer.current = e.pointerType; }}
+        onClick={e => {
+          e.stopPropagation();
+          if (lastPointer.current !== 'mouse') setOpen(o => !o);
+          lastPointer.current = '';
+        }}
+        onFocus={e => { if (e.currentTarget.matches(':focus-visible')) setOpen(true); }}
         onBlur={() => setOpen(false)}
-        onKeyDown={e => { if (e.key === 'Escape') setOpen(false); }}
         className="-m-2 inline-flex h-7 w-7 items-center justify-center rounded-full text-ink-muted/70 hover:text-ink-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
       >
         <Info size={14} aria-hidden />
       </button>
-      <span
-        id={id}
-        role="tooltip"
-        className={cn(
-          'pointer-events-none absolute bottom-full right-0 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 mb-2 z-30',
-          'w-56 rounded-xl border border-surface-4 bg-surface px-3 py-2 text-xs leading-relaxed text-ink shadow-modal',
-          'transition-all duration-150',
-          open ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1',
-          'group-hover/tip:opacity-100 group-hover/tip:translate-y-0',
-          'group-focus-within/tip:opacity-100 group-focus-within/tip:translate-y-0',
-        )}
-      >
-        {text}
-      </span>
+      {/* Always in the DOM for aria-describedby; the visible bubble is below. */}
+      <span id={id} className="sr-only">{text}</span>
+      {open && pos && typeof document !== 'undefined' && createPortal(
+        <span
+          aria-hidden
+          className="pointer-events-none fixed z-[90] rounded-xl border border-surface-4 bg-surface px-3 py-2 text-xs leading-relaxed text-ink shadow-modal animate-fade-in"
+          style={{ left: pos.left, top: pos.top, width: TIP_W, transform: pos.above ? 'translateY(-100%)' : undefined }}
+        >
+          {text}
+        </span>,
+        document.body,
+      )}
     </span>
   );
 }
