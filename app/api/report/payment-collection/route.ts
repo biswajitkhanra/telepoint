@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
-import { fetchAllPaged } from '@/lib/dbFetch';
+import { fetchAllPaged, fetchAllByIds } from '@/lib/dbFetch';
+import { loadPortfolio } from '@/lib/portfolioData';
+import { collectionDateOf, emiPrincipalCollected, istMonth } from '@/lib/analysis';
 import { istMonthRange, IST_OFFSET_MS } from '@/lib/ist';
 import { buildCsv, csvHeaders } from '@/lib/csv';
 
@@ -93,17 +95,72 @@ export async function GET(req: NextRequest) {
     return q.range(from, to) as unknown as PromiseLike<{ data: PaymentRow[] | null; error: { message: string } | null }>;
   });
 
+  // ── Imported history (paid before the portal existed) ─────────────────────
+  // Sheet-imported payments never produced payment_requests, so a month from
+  // before the portal went live exported as an empty file. Anything collected
+  // before the FIRST ever approved portal payment is taken from emi_schedule
+  // instead. From that moment on every payment has a request, so the two
+  // sources never overlap (no double counting).
+  const { data: firstPortal } = await svc
+    .from('payment_requests').select('approved_at')
+    .eq('status', 'APPROVED').not('approved_at', 'is', null)
+    .order('approved_at', { ascending: true }).limit(1).maybeSingle();
+  const portalStart = firstPortal?.approved_at ? new Date(firstPortal.approved_at).getTime() : Infinity;
+  const ym = `${year}-${pad(month)}`;
+  type HistoryRow = { when: string; emi: number; fine: number; mode: string; utr: string; customerId: string };
+  const history: HistoryRow[] = [];
+  if (new Date(startUtc).getTime() < portalStart) {
+    const book = await loadPortfolio(retailerId);
+    const statusOf = new Map(book.customers.map(c => [c.id, c.status]));
+    for (const e of book.emis) {
+      const when = collectionDateOf(e);
+      if (!when || istMonth(when) !== ym) continue;
+      if (new Date(when.length <= 10 ? when + 'T00:00:00+05:30' : when).getTime() >= portalStart) continue;
+      const emi = emiPrincipalCollected(e, statusOf.get(e.customer_id));
+      const fine = Number(e.fine_paid_amount || 0);
+      if (emi + fine <= 0) continue;
+      history.push({ when, emi, fine, mode: e.mode || (e.utr ? 'UPI' : 'CASH'), utr: e.utr || '', customerId: e.customer_id });
+    }
+  }
+  type Who = { id: string; customer_name: string | null; mobile: string | null; imei: string | null; retailer: { name: string | null } | null };
+  const who = new Map<string, Who>();
+  if (history.length) {
+    const people = await fetchAllByIds<Who>([...new Set(history.map(h => h.customerId))], (chunk, from, to) =>
+      svc.from('customers').select('id, customer_name, mobile, imei, retailer:retailers(name)')
+        .in('id', chunk).order('id').range(from, to) as unknown as PromiseLike<{ data: Who[] | null; error: { message: string } | null }>);
+    for (const w of people) who.set(w.id, w);
+    history.sort((a, b) => a.when.localeCompare(b.when));
+  }
+
   const monthLabel = `${MONTHS_UPPER[month - 1]}-${String(year).slice(-2)}`;
   const filename = `Payment-Collection-${retailerName}-${monthLabel}.csv`;
 
   const header = [
     'Customer Name', 'Customer Phone Number', 'IMEI Number', 'EMI Amount', 'Fine Amount',
     '1st EMI Charge', 'Total Collected Amount', 'Payment Date & Time', 'Payment Method',
-    'UPI UTR Number', 'Retailer Name',
+    'UPI UTR Number', 'Retailer Name', 'Source',
   ];
 
   let totalEmi = 0, totalFine = 0, totalCharge = 0, totalCollected = 0;
-  const rows = payments.map(p => {
+  const historyRows = history.map(h => {
+    const c = who.get(h.customerId);
+    totalEmi += h.emi; totalFine += h.fine; totalCollected += h.emi + h.fine;
+    return {
+      'Customer Name': c?.customer_name || '',
+      'Customer Phone Number': c?.mobile || '',
+      'IMEI Number': c?.imei || '',
+      'EMI Amount': h.emi || '',
+      'Fine Amount': h.fine || '',
+      '1st EMI Charge': '',
+      'Total Collected Amount': h.emi + h.fine,
+      'Payment Date & Time': h.when.length <= 10 ? h.when : formatDateTimeIST(h.when),
+      'Payment Method': h.mode,
+      'UPI UTR Number': h.mode === 'UPI' ? h.utr : '',
+      'Retailer Name': c?.retailer?.name || '',
+      'Source': 'Imported history',
+    };
+  });
+  const portalRows = payments.map(p => {
     const emi = Number(p.total_emi_amount || 0);
     const fine = Number(p.fine_amount || 0);
     const charge = Number(p.first_emi_charge_amount || 0);
@@ -122,8 +179,10 @@ export async function GET(req: NextRequest) {
       'Payment Method': p.mode || '',
       'UPI UTR Number': isUpi ? (p.utr || '') : '',
       'Retailer Name': p.retailer?.name || '',
+      'Source': 'Portal',
     };
   });
+  const rows = [...historyRows, ...portalRows];
 
   const csv = buildCsv({
     header,
@@ -141,6 +200,7 @@ export async function GET(req: NextRequest) {
         'Payment Method': '',
         'UPI UTR Number': '',
         'Retailer Name': '',
+        'Source': '',
       },
     ],
   });

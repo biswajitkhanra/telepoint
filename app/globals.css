@@ -735,3 +735,11 @@ button, .badge, .btn, .tab, .nav-link, .nav-link-active, th {
   .fs-phone, .fs-list, .fs-beam, .fs-lens, .fs-coin, .fs-chip { animation: none !important; }
   .fs-coin { display: none; }
 }
+
+/* Charts: tapping a Recharts chart focused its SVG and drew a thick black
+   focus box around the whole plot. The tooltip already shows what was
+   tapped, so drop the outline on chart internals only. */
+.recharts-wrapper,
+.recharts-wrapper *:focus,
+.recharts-surface:focus { outline: none !important; }
+.recharts-wrapper { -webkit-tap-highlight-color: transparent; }

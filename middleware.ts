@@ -10,16 +10,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // API routes that don't need a Supabase session — they do their own auth.
-  // /api/backup is the database backup feed: it authenticates with the
-  // BACKUP_TOKEN secret (Authorization: Bearer / ?token=), not a login cookie,
-  // so it must skip the session check below — otherwise the unauthenticated
-  // backup job gets redirected to the HTML /login page and the GitHub Action /
-  // Google Sheet sees "<!DOCTYPE …" instead of JSON.
-  if (
-    pathname.startsWith('/api/customer-login') ||
-    pathname.startsWith('/api/backup')
-  ) {
+  // API routes authenticate and authorise themselves (every route checks the
+  // session + role, or its own token), so the middleware skips them. Running
+  // getUser() + a profiles lookup here as well doubled the Supabase round trips
+  // on every API call — the main cause of slow tab loads. It also used to
+  // answer unauthenticated API calls with the HTML /login page instead of JSON.
+  if (pathname.startsWith('/api/')) {
     return NextResponse.next();
   }
 
@@ -56,6 +52,15 @@ export async function middleware(request: NextRequest) {
     .single();
 
   const role = profile?.role;
+
+  // Home page: we already know the role, so redirect here instead of letting
+  // app/page.tsx repeat the same getUser() + profiles round trips.
+  if (pathname === '/' && (role === 'super_admin' || role === 'retailer')) {
+    const home = NextResponse.redirect(new URL(role === 'super_admin' ? '/admin' : '/retailer', request.url));
+    // Carry over any session cookies Supabase refreshed during getUser().
+    response.cookies.getAll().forEach(c => home.cookies.set(c));
+    return home;
+  }
 
   if (pathname.startsWith('/admin') && role !== 'super_admin') {
     return NextResponse.redirect(new URL('/retailer', request.url));

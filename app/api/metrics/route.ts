@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { calculateTotalFineFromEmis } from '@/lib/fineCalc';
 import { firstChargeRemaining, firstChargePaid } from '@/lib/firstCharge';
-import { fetchAllByIds, fetchAllPaged } from '@/lib/dbFetch';
-import { toISTDateString } from '@/lib/ist';
+import { loadPortfolio } from '@/lib/portfolioData';
+import { closedYear, istMonth } from '@/lib/analysis';
 import { EMISchedule } from '@/lib/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -32,6 +32,8 @@ type CustomerRow = {
   down_payment: number | null;
   disburse_amount: number | null;
   completion_date: string | null;
+  purchase_date: string | null;
+  created_at: string | null;
   settlement_amount: number | null;
   settlement_date: string | null;
   first_emi_charge_amount: number | null;
@@ -101,49 +103,27 @@ export async function GET(req: NextRequest) {
     retailerId = r.id;
   }
 
-  // ── Fine settings + customers + approved payments — independent reads, so
-  // they run IN PARALLEL instead of three sequential round-trip stacks.
-  type PayReqRow = { fine_amount: number | null; approved_at: string | null; created_at: string | null };
-  const [fsRes, customers, payReqs] = await Promise.all([
+  // ── Every customer + EMI in scope (paged past the 1000-row cap, cached ~60s)
+  // and the fine settings, in parallel.
+  const [fsRes, portfolio] = await Promise.all([
     svc.from('fine_settings').select('default_fine_amount, weekly_fine_increment').eq('id', 1).single(),
-    fetchAllPaged<CustomerRow>((from, to) => {
-      let q = svc
-        .from('customers')
-        .select('id, status, purchase_value, down_payment, disburse_amount, completion_date, settlement_amount, settlement_date, first_emi_charge_amount, first_emi_charge_paid_amount, first_emi_charge_paid_at')
-        .order('id')
-        .range(from, to);
-      if (retailerId) q = q.eq('retailer_id', retailerId);
-      return q as unknown as PromiseLike<{ data: CustomerRow[] | null; error: { message: string } | null }>;
-    }),
-    // Fine collected, bucketed by month of approval (transaction-level):
-    // every APPROVED payment request (paged, scoped), summed below.
-    fetchAllPaged<PayReqRow>((from, to) => {
-      let q = svc
-        .from('payment_requests')
-        .select('fine_amount, approved_at, created_at')
-        .eq('status', 'APPROVED')
-        .order('id')
-        .range(from, to);
-      if (retailerId) q = q.eq('retailer_id', retailerId);
-      return q as unknown as PromiseLike<{ data: PayReqRow[] | null; error: { message: string } | null }>;
-    }),
+    loadPortfolio(retailerId, req.nextUrl.searchParams.get('fresh') === '1'),
   ]);
+  const customers = portfolio.customers as unknown as CustomerRow[];
+  const emiList = portfolio.emis as unknown as EMISchedule[];
   const fs = fsRes.data;
   const baseFine = Number(fs?.default_fine_amount ?? 450);
   const weeklyIncrement = Number(fs?.weekly_fine_increment ?? 25);
 
+  // Fine collected per IST month, from the fine actually recorded on each EMI
+  // (fine_paid_amount). payment_requests only exist for portal-era payments,
+  // so reading them showed ₹0 for every month of imported history.
   const fineCollectedByMonth: Record<string, number> = {};
-  for (const p of payReqs) {
-    const amt = Number(p.fine_amount || 0);
+  for (const e of portfolio.emis) {
+    const amt = Number(e.fine_paid_amount || 0);
     if (amt <= 0) continue;
-    const when = p.approved_at || p.created_at;
-    if (!when) continue;
-    // Bucket by IST calendar month (server runs UTC; the portal is IST) so a
-    // fine taken just after IST midnight on the 1st lands in the right month.
-    const istDate = toISTDateString(when);
-    if (!istDate) continue;
-    const ym = istDate.slice(0, 7); // "YYYY-MM"
-    fineCollectedByMonth[ym] = (fineCollectedByMonth[ym] || 0) + amt;
+    const ym = istMonth(e.fine_paid_at || e.paid_at || e.collection_requested_at || e.due_date);
+    if (ym) fineCollectedByMonth[ym] = (fineCollectedByMonth[ym] || 0) + amt;
   }
 
   const empty: PortfolioMetrics = {
@@ -155,18 +135,6 @@ export async function GET(req: NextRequest) {
     fineCollectedByMonth,
   };
   if (!customers.length) return NextResponse.json(empty, { headers: { 'Cache-Control': 'no-store' } });
-
-  // ── Load every EMI for those customers (chunked + paged) ──────────────────
-  const ids = customers.map(c => c.id);
-  const emiList = await fetchAllByIds<EMISchedule>(ids, (chunk, from, to) =>
-    svc
-      .from('emi_schedule')
-      .select('id, customer_id, emi_no, due_date, amount, status, partial_paid_amount, paid_at, fine_amount, fine_waived, fine_paid_amount, collection_requested_at')
-      .in('customer_id', chunk)
-      .order('customer_id')
-      .order('emi_no')
-      .range(from, to) as unknown as PromiseLike<{ data: EMISchedule[] | null; error: { message: string } | null }>,
-  );
 
   const byCustomer = new Map<string, EMISchedule[]>();
   for (const e of emiList) {
@@ -187,8 +155,9 @@ export async function GET(req: NextRequest) {
   const todayMs = Date.now();
   const in30Ms = todayMs + 30 * 86_400_000;
   const staleCutoffMs = todayMs - 90 * 86_400_000; // EMI unpaid > 3 months
-  const closedYearOf = (c: CustomerRow) =>
-    c.completion_date ? (toISTDateString(c.completion_date) || '').slice(0, 4) || 'unknown' : 'unknown';
+  // Year a closed loan belongs to: its real last activity (see closedYear) —
+  // completion_date alone put all imported history into the import year.
+  const closedYearOf = (c: CustomerRow) => closedYear(c, byCustomer.get(c.id) ?? []);
 
   const m: PortfolioMetrics = { ...empty, customerCount: customers.length };
 
