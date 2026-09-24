@@ -282,7 +282,7 @@ export default function ApprovalsPage() {
 
   return (
     <div className="min-h-screen page-bg">
-      <NavBar role="admin" userName="TELEPOINT" pendingCount={pendingNavCount} />
+      <NavBar role="admin" pendingCount={pendingNavCount} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
