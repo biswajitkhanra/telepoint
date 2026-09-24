@@ -21,7 +21,7 @@ import {
   Wallet, HandCoins, CalendarClock, AlertTriangle, Users, Landmark,
   PiggyBank, Gauge, FileSpreadsheet, FileText, Database, RefreshCcw,
   Search, Filter, IndianRupee, ReceiptText, ArrowRight, Clock4,
-  ShieldAlert, Download, LifeBuoy, BadgePercent, Store, ChevronDown,
+  ShieldAlert, Download, LifeBuoy, BadgePercent, Store,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Retailer, PaymentRequest } from '@/lib/types';
@@ -128,17 +128,6 @@ export default function ReportsHub({
     loadToday();
     loadMonth();
   }, [reloadMetrics, loadToday, loadMonth]);
-
-  // Headline KPIs show first; the full set of 12 is one tap away. The choice
-  // is remembered per browser (best effort — storage can be unavailable).
-  const [showAllKpis, setShowAllKpis] = useState(false);
-  useEffect(() => {
-    try { if (localStorage.getItem('tp.kpis.all') === '1') setShowAllKpis(true); } catch {}
-  }, []);
-  const toggleAllKpis = () => setShowAllKpis(v => {
-    try { localStorage.setItem('tp.kpis.all', v ? '0' : '1'); } catch {}
-    return !v;
-  });
 
   /* ── Derived figures — identical formulas to the old dashboard ────────── */
   const m = metrics;
@@ -248,17 +237,6 @@ export default function ReportsHub({
               formula="Money collected this month (EMI + fines + charges, anchored to each EMI's own collection date). Delta compares the same month last year."
             />
           )}
-        </KpiGrid>
-        <AnimatePresence initial={false}>
-          {showAllKpis && (
-            <motion.div
-              id="more-kpis"
-              initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-              className="overflow-hidden"
-            >
-              <div className="pt-3 sm:pt-4">
-        <KpiGrid>
           <KpiCard
             loading={metricsLoading} icon={Users} tone="indigo"
             label="Active Customers" value={m?.runningCount ?? 0}
@@ -307,21 +285,6 @@ export default function ReportsHub({
             formula="EMI principal collected vs still outstanding on the running book."
           />
         </KpiGrid>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-        <div className="mt-3 flex justify-center">
-          <button
-            onClick={toggleAllKpis}
-            aria-expanded={showAllKpis}
-            aria-controls="more-kpis"
-            className="btn-ghost text-xs gap-1.5"
-          >
-            {showAllKpis ? 'Show fewer metrics' : 'Show all 12 metrics'}
-            <ChevronDown size={14} className={cn('transition-transform', showAllKpis && 'rotate-180')} aria-hidden />
-          </button>
-        </div>
       </section>
 
       {/* ═══ Quick actions ═══ */}
