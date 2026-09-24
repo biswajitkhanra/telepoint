@@ -54,6 +54,7 @@ export default function RetailerDashboard() {
   if (typeof window !== 'undefined' && !supabaseRef2.current) supabaseRef2.current = createClient();
   const supabase = supabaseRef2.current!;
   const [retailer, setRetailer] = useState<Retailer | null>(null);
+  const [loginName, setLoginName] = useState('');
   const [searchResults, setSearchResults] = useState<Customer[] | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerLoading, setCustomerLoading] = useState(false);
@@ -136,6 +137,7 @@ export default function RetailerDashboard() {
     const sb = supabaseRef.current;
     const { data: { user } } = await sb.auth.getUser();
     if (!user) return;
+    setLoginName((user.email || '').split('@')[0]);
     const { data } = await sb.from('retailers').select('*').eq('auth_user_id', user.id).single();
     if (data) {
       setRetailer(data);
@@ -341,9 +343,14 @@ export default function RetailerDashboard() {
 
   const paidCount = customerEmis.filter(e => e.status === 'APPROVED').length;
 
+  // Shop name, else the login username — never the bare word "Retailer",
+  // which only repeated the role chip beside it.
+  const rawName = (retailer?.name || '').trim();
+  const shopName = rawName && rawName.toLowerCase() !== 'retailer' ? rawName : (retailer?.username || loginName);
+
   return (
     <div className="min-h-screen page-bg">
-      <NavBar role="retailer" userName={retailer?.name || 'Retailer'} />
+      <NavBar role="retailer" userName={shopName} />
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24">
         {/* Welcome Banner */}
@@ -362,7 +369,7 @@ export default function RetailerDashboard() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ ...SPRING, delay: 0.15 }}
               >
-                {retailer?.name || 'Retailer'}
+                {shopName || 'there'}
               </motion.span>
               <motion.span
                 className="inline-block ml-1 origin-bottom"

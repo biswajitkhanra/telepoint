@@ -40,7 +40,11 @@ const Icons = {
   ),
 };
 
+// Names that would just repeat the brand or the role chip ("RETAILER Retailer").
+const GENERIC_NAMES = new Set(['admin', 'super admin', 'retailer', 'telepoint', 'my shop']);
+
 export default function NavBar({ role, userName, pendingCount = 0 }: NavBarProps) {
+  const shownName = userName?.trim() && !GENERIC_NAMES.has(userName.trim().toLowerCase()) ? userName.trim() : '';
   const pathname = usePathname();
   const router = useRouter();
   const _sbRef = useRef<ReturnType<typeof createClient> | null>(null);
@@ -102,7 +106,7 @@ export default function NavBar({ role, userName, pendingCount = 0 }: NavBarProps
               }`}>
                 {role === 'admin' ? 'Admin' : 'Retailer'}
               </span>
-              {userName && <span className="truncate font-medium text-ink-light" title={userName}>{userName}</span>}
+              {shownName && <span className="truncate font-medium text-ink-light" title={shownName}>{shownName}</span>}
             </span>
           </div>
         </motion.div>
