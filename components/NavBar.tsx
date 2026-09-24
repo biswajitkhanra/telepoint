@@ -1,6 +1,6 @@
 'use client';
-import { useRef } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import toast from 'react-hot-toast';
@@ -46,16 +46,35 @@ const GENERIC_NAMES = new Set(['admin', 'super admin', 'retailer', 'telepoint', 
 export default function NavBar({ role, userName, pendingCount = 0 }: NavBarProps) {
   const shownName = userName?.trim() && !GENERIC_NAMES.has(userName.trim().toLowerCase()) ? userName.trim() : '';
   const pathname = usePathname();
-  const router = useRouter();
   const _sbRef = useRef<ReturnType<typeof createClient> | null>(null);
   if (typeof window !== 'undefined' && !_sbRef.current) _sbRef.current = createClient();
   const supabase = _sbRef.current!;
 
+  const [loggingOut, setLoggingOut] = useState(false);
+
   async function logout() {
-    // scope: 'local' clears ONLY this browser's session — not all devices.
-    await supabase.auth.signOut({ scope: 'local' });
+    if (loggingOut) return;
+    setLoggingOut(true);
+    let failed = false;
+    try {
+      // scope: 'local' clears ONLY this browser's session — not all devices.
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
+      failed = !!error;
+    } catch {
+      failed = true;
+    }
+    // On a network error supabase-js keeps the session, which left people
+    // "logged out" on the login screen but still signed in. Drop the auth
+    // cookies (including chunked .0/.1 parts) ourselves in that case.
+    if (failed) {
+      document.cookie.split(';').map(c => c.split('=')[0].trim())
+        .filter(n => /^sb-.+-auth-token(\.\d+)?$/.test(n))
+        .forEach(n => { document.cookie = `${n}=; Max-Age=0; path=/`; });
+    }
     toast.success('Logged out');
-    router.replace('/login');
+    // Full page load, not a client transition: drops the router cache and all
+    // in-memory state, so Back or a re-login never shows the previous account.
+    window.location.replace('/login');
   }
 
   const isActive = (href: string, exact = false) => exact ? pathname === href : pathname.startsWith(href);
@@ -141,7 +160,10 @@ export default function NavBar({ role, userName, pendingCount = 0 }: NavBarProps
         <motion.button
           {...pressable}
           onClick={logout}
-          className="btn-ghost text-xs px-3 py-2 text-danger hover:bg-danger-light hover:text-danger flex-shrink-0 gap-1.5"
+          disabled={loggingOut}
+          aria-label="Log out"
+          title="Log out"
+          className="btn-ghost text-xs px-3 py-2 text-danger hover:bg-danger-light hover:text-danger flex-shrink-0 gap-1.5 disabled:opacity-60"
         >
           {Icons.logout}
           <span className="hidden sm:inline">Logout</span>
