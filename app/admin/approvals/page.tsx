@@ -1,7 +1,7 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import { useState, useCallback, useRef, useMemo } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import { PaymentRequest } from '@/lib/types';
@@ -26,13 +26,17 @@ export default function ApprovalsPage() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [requests, setRequests] = useState<PaymentRequest[] | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [rejectModal, setRejectModal] = useState<{ id: string } | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [approveRemark, setApproveRemark] = useState('');
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null); // tracks which request is in-flight
   const [statusFilter, setStatusFilter] = useState<'PENDING' | 'ALL'>('PENDING');
+  // fetchPending is memoised once, so it reads the live tab from a ref —
+  // otherwise a search always fell back to the initial 'PENDING'.
+  const statusRef = useRef(statusFilter);
+  statusRef.current = statusFilter;
   // Success celebration — mounted ONLY from the verified approve-success path
   // and unmounted on a timer, so re-renders / refreshes / rotation can never
   // replay it. The ref guards against double-fires from rapid double-clicks.
@@ -72,7 +76,7 @@ export default function ApprovalsPage() {
         .order('created_at', { ascending: false })
         .limit(50);
 
-      const useFilter = filter ?? statusFilter;
+      const useFilter = filter ?? statusRef.current;
       if (useFilter === 'PENDING') {
         qb = qb.eq('status', 'PENDING');
       }
@@ -112,9 +116,13 @@ export default function ApprovalsPage() {
     }
   }, []);
 
+  // Open on the Pending list straight away, the same as tapping Pending.
+  useEffect(() => { fetchPending(undefined, 'PENDING'); }, [fetchPending]);
+
   const handleSearch = useCallback((query: string) => {
     setSearchQuery(query);
-    if (!query || query.length < 3) { setRequests(null); return; }
+    if (!query) { fetchPending(); return; }   // cleared → back to the full list
+    if (query.length < 3) return;
     fetchPending(query);
   }, [fetchPending]);
 
@@ -318,7 +326,7 @@ export default function ApprovalsPage() {
               <path d="M21 12a9 9 0 11-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
               <path d="M21 3v5h-5" />
             </svg>
-            {loading ? 'Loading…' : statusFilter === 'PENDING' ? 'Load Pending' : 'Reload'}
+            {loading ? 'Loading…' : 'Reload'}
           </button>
           </div>
         </div>
@@ -341,7 +349,7 @@ export default function ApprovalsPage() {
                 <path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
               </svg>
             </div>
-            <p className="text-ink-muted text-lg">Search for pending requests or click "Load All Pending"</p>
+            <p className="text-ink-muted text-lg">Couldn't load requests — tap Reload to try again</p>
           </div>
         )}
 
