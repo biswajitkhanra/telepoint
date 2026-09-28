@@ -1,0 +1,23 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!--
+    Device-admin receiver for consent-based EMI device management.
+    The user must explicitly activate this in the Android system dialog; the
+    manifest entry alone grants nothing. android:exported=true is required so
+    the OS device-admin subsystem can bind to the receiver.
+  -->
+  <application>
+    <receiver
+      android:name="com.telepoint.devicemanagement.TelepointDeviceAdminReceiver"
+      android:label="@string/telepoint_device_admin_label"
+      android:description="@string/telepoint_device_admin_description"
+      android:permission="android.permission.BIND_DEVICE_ADMIN"
+      android:exported="true">
+      <meta-data
+        android:name="android.app.device_admin"
+        android:resource="@xml/telepoint_device_admin" />
+      <intent-filter>
+        <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+      </intent-filter>
+    </receiver>
+  </application>
+</manifest>

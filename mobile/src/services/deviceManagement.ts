@@ -1,0 +1,76 @@
+import * as DeviceMgmt from 'expo-telepoint-device-management';
+import type {
+  DeviceInfo,
+  DeviceManagementStatus,
+  LockResult,
+  ManagementMode,
+} from 'expo-telepoint-device-management';
+
+/**
+ * Thin app-facing wrapper over the native TelePoint device-management module.
+ * Keeps the single `expo-telepoint-device-management` import in one place so
+ * screens depend on a small, typed surface, and so behaviour degrades cleanly
+ * in Expo Go / on non-Android where the native module is absent.
+ */
+
+export type { DeviceInfo, DeviceManagementStatus, LockResult, ManagementMode };
+
+export function isDeviceManagementSupported(): boolean {
+  return DeviceMgmt.isSupported();
+}
+
+export function isDeviceAdminEnabled(): Promise<boolean> {
+  return DeviceMgmt.isDeviceAdminEnabled();
+}
+
+export function requestDeviceAdmin(): Promise<void> {
+  return DeviceMgmt.requestDeviceAdmin();
+}
+
+export function openDeviceAdminSettings(): Promise<void> {
+  return DeviceMgmt.openDeviceAdminSettings();
+}
+
+export function getManagementMode(): Promise<ManagementMode> {
+  return DeviceMgmt.getManagementMode();
+}
+
+export function getDeviceManagementStatus(): Promise<DeviceManagementStatus> {
+  return DeviceMgmt.getDeviceManagementStatus();
+}
+
+export function getDeviceInfo(): Promise<DeviceInfo> {
+  return DeviceMgmt.getDeviceInfo();
+}
+
+export function lockNow(): Promise<boolean> {
+  return DeviceMgmt.lockNow();
+}
+
+export function setUninstallProtection(active: boolean): Promise<{ applied: boolean; reason?: string; mode?: string }> {
+  return DeviceMgmt.setUninstallProtection(active);
+}
+
+export function executeAuthorizedLock(commandId: string): Promise<LockResult> {
+  return DeviceMgmt.executeAuthorizedLock(commandId);
+}
+
+export function executeAuthorizedUnlock(commandId: string): Promise<LockResult> {
+  return DeviceMgmt.executeAuthorizedUnlock(commandId);
+}
+
+/** Human-readable explanation of a management mode, for the consent/status UI. */
+export function describeMode(mode: ManagementMode): { label: string; canLock: boolean; detail: string } {
+  switch (mode) {
+    case 'DEVICE_OWNER':
+      return { label: 'Fully managed', canLock: true, detail: 'This device is enrolled as a fully managed EMI device.' };
+    case 'PROFILE_OWNER':
+      return { label: 'Work profile', canLock: false, detail: 'A work profile cannot lock the whole personal device. Full-device enrolment is required for lock.' };
+    case 'DEVICE_ADMIN':
+      return { label: 'Device administrator', canLock: true, detail: 'You have granted device-admin permission, which supports the EMI lock.' };
+    case 'UNMANAGED':
+      return { label: 'Not enrolled', canLock: false, detail: 'Device management is not enabled yet. Grant the permission to enable the EMI lock.' };
+    default:
+      return { label: 'Unavailable', canLock: false, detail: 'Device management is not available on this device or build (Expo Go is not sufficient).' };
+  }
+}

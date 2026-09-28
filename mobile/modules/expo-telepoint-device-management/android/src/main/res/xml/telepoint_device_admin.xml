@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Minimal device-admin policy set. We request only "force-lock" — the ability
+  to lock the screen (DevicePolicyManager.lockNow) for an overdue financed
+  device. We deliberately do NOT request wipe-data, password policies, or any
+  surveillance-style capability.
+-->
+<device-admin xmlns:android="http://schemas.android.com/apk/res/android">
+  <uses-policies>
+    <force-lock />
+  </uses-policies>
+</device-admin>

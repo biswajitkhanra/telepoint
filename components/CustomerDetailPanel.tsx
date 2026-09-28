@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import PhoneLockBadge from './PhoneLockBadge';
+import DeviceManagementPanel from './DeviceManagementPanel';
 import CustomerAppDownload from './CustomerAppDownload';
 import LoanStatementModal from './LoanStatementModal';
 import { SPRING, fadeUp, staggerContainer } from '@/lib/motion';
@@ -184,6 +185,15 @@ export default function CustomerDetailPanel({ customer, paidCount, totalEmis, is
           <div className="flex flex-wrap items-center gap-3 mt-2.5">
             <PhoneLockBadge customerId={customer.id} isLocked={customer.is_locked || false} lockProvider={customer.lock_provider} isAdmin={isAdmin || false} variant="badge" onToggled={onLockToggled} />
           </div>
+
+          {/* Consent-based EMI device management (admin only). Auto-checks the
+              registered device's admin status; hidden entirely for retailers
+              and when the customer app is not installed. */}
+          {isAdmin && (
+            <div className="mt-3">
+              <DeviceManagementPanel customerId={customer.id} isAdmin={isAdmin} />
+            </div>
+          )}
 
           {/* Phones + share */}
           <div className="flex flex-wrap gap-2 mt-2.5">

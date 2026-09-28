@@ -1,0 +1,4 @@
+<resources>
+  <string name="telepoint_device_admin_label">TelePoint EMI Device Management</string>
+  <string name="telepoint_device_admin_description">Lets TelePoint lock this financed device when your EMI is overdue. The lock screen shows your amount due and store contact. You can review this permission anytime in Settings.</string>
+</resources>

@@ -31,11 +31,13 @@ import {
   MessageCircle,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { PressableScale } from '../components/PressableScale';
 import { JellyCard } from '../components/JellyCard';
 import { Colors } from '../constants/colors';
 import { Spacing, Radius } from '../constants/design';
+import { APP_VARIANT } from '../config';
 import { customerCodeOf } from '../utils/customerCode';
 
 export const CENTRAL_SUPPORT_PHONE = '7003617029';
@@ -43,6 +45,7 @@ export const CENTRAL_SUPPORT_PHONE = '7003617029';
 export const ProfileScreen = () => {
   const insets = useSafeAreaInsets();
   const topInset = Math.max(insets.top, StatusBar.currentHeight || 28);
+  const navigation = useNavigation<{ navigate: (screen: string) => void }>();
   const {
     customer,
     pushToken,
@@ -261,6 +264,25 @@ export const ProfileScreen = () => {
           </View>
         )}
 
+        {/* Device Management entry (consent-based EMI device management) */}
+        <View style={styles.section}>
+          <Text style={styles.sectionHeading}>DEVICE MANAGEMENT</Text>
+          <PressableScale
+            style={styles.actionRowCard}
+            onPress={() => navigation.navigate('DeviceManagement')}
+            scaleTo={0.96}
+          >
+            <ShieldCheck size={18} color="#1A6FD6" />
+            <View style={styles.actionRowInfo}>
+              <Text style={styles.actionRowTitle}>Device Management</Text>
+              <Text style={styles.actionRowSub}>
+                Review your EMI device-management status and permission
+              </Text>
+            </View>
+            <ChevronRight size={18} color="#94A3B8" />
+          </PressableScale>
+        </View>
+
         {/* Partner Store & Fixed Support Contact Card */}
         <View style={styles.section}>
           <Text style={styles.sectionHeading}>STORE PARTNER & SUPPORT</Text>
@@ -338,7 +360,9 @@ export const ProfileScreen = () => {
             <ChevronRight size={18} color="#94A3B8" />
           </PressableScale>
 
-          {/* Switch App Mode (Staff / Customer) */}
+          {/* Switch App Mode (Staff / Customer) — combined build only. The
+              customer-only APK stays a pure customer app. */}
+          {APP_VARIANT === 'combined' && (
           <PressableScale
             style={[styles.switchModeCard, { marginTop: 10 }]}
             onPress={handleSwitchRole}
@@ -355,6 +379,7 @@ export const ProfileScreen = () => {
             </View>
             <ChevronRight size={18} color="#94A3B8" />
           </PressableScale>
+          )}
         </View>
 
         {/* Security / Sign Out Action */}
