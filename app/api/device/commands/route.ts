@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     .eq('device_id', device.id).in('status', ['PENDING', 'RECEIVED']).lte('expires_at', nowIso);
 
   const { data: active } = await svc.from('device_commands')
-    .select('id, device_id, customer_id, retailer_id, command_type, reason, emi_amount, status, expires_at, created_at')
+    .select('id, device_id, customer_id, retailer_id, command_type, reason, emi_amount, voice, language, status, expires_at, created_at')
     .eq('device_id', device.id).in('status', ['PENDING', 'RECEIVED']).gt('expires_at', nowIso)
     .order('created_at', { ascending: true });
 
@@ -54,17 +54,33 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Live amount due + retailer contact for the locked screen.
+  // Live amount due + retailer contact + photo for the locked screen / reminders.
   const { data: customer } = await svc.from('customers')
-    .select('id, customer_name, retailer:retailers(name, mobile)').eq('id', customerId).single();
+    .select('id, customer_name, customer_photo_url, retailer:retailers(name, mobile)').eq('id', customerId).single();
   let breakdown: unknown = null;
   try { const { data } = await svc.rpc('get_due_breakdown', { p_customer_id: customerId }); breakdown = data; } catch { breakdown = null; }
+
+  // Reminder configuration the app caches locally for its OFFLINE engine
+  // (migration 032). Defaults reproduce today's behaviour if no row exists yet.
+  const { data: rs } = await svc.from('reminder_settings')
+    .select('reminder_enabled, overdue_reminder_enabled, voice_enabled, voice_language, voice_on_overdue, schedule_version')
+    .eq('customer_id', customerId).maybeSingle();
+  const reminder_settings = rs ?? {
+    reminder_enabled: true,
+    overdue_reminder_enabled: true,
+    voice_enabled: true,
+    voice_language: 'bn',
+    voice_on_overdue: false,
+    schedule_version: 1,
+  };
 
   return NextResponse.json({
     commands,
     device: { id: device.id, management_status: device.management_status },
     retailer: (customer as Record<string, unknown> | null)?.retailer ?? null,
     customer_name: (customer as Record<string, unknown> | null)?.customer_name ?? null,
+    customer_photo_url: (customer as Record<string, unknown> | null)?.customer_photo_url ?? null,
     breakdown,
+    reminder_settings,
   });
 }

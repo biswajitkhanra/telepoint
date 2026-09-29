@@ -87,11 +87,22 @@ export interface PollCommand {
   device_id: string;
   customer_id: string;
   retailer_id: string;
-  command_type: 'LOCK' | 'UNLOCK';
+  command_type: 'LOCK' | 'UNLOCK' | 'EMI_REMINDER';
   reason?: string | null;
   emi_amount?: number | null;
+  voice?: boolean | null;
+  language?: 'bn' | 'hi' | null;
   status: string;
   expires_at: string;
+}
+
+export interface ReminderSettingsPayload {
+  reminder_enabled: boolean;
+  overdue_reminder_enabled: boolean;
+  voice_enabled: boolean;
+  voice_language: 'bn' | 'hi';
+  voice_on_overdue: boolean;
+  schedule_version: number;
 }
 
 export interface DeviceStatusResponse {
@@ -99,7 +110,9 @@ export interface DeviceStatusResponse {
   device?: { id: string; management_status: string } | null;
   retailer?: { name?: string; mobile?: string } | null;
   customer_name?: string | null;
+  customer_photo_url?: string | null;
   breakdown?: Record<string, unknown> | null;
+  reminder_settings?: ReminderSettingsPayload | null;
 }
 
 export async function pollCommands(customerId: string, installationId: string) {

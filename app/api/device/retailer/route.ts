@@ -34,16 +34,28 @@ export async function POST(req: NextRequest) {
     .eq('customer_id', customerId).order('registered_at', { ascending: false }).limit(1).maybeSingle();
 
   const { data: commands } = await svc.from('device_commands')
-    .select('id, command_type, reason, status, emi_amount, created_at, received_at, executed_at, expires_at, failure_reason')
+    .select('id, command_type, reason, status, emi_amount, voice, language, created_at, received_at, executed_at, expires_at, failure_reason')
     .eq('customer_id', customerId).order('created_at', { ascending: false }).limit(20);
 
   let breakdown: unknown = null;
   try { const { data } = await svc.rpc('get_due_breakdown', { p_customer_id: customerId }); breakdown = data; } catch { breakdown = null; }
+
+  const { data: rs } = await svc.from('reminder_settings')
+    .select('reminder_enabled, overdue_reminder_enabled, voice_enabled, voice_language, voice_on_overdue, schedule_version')
+    .eq('customer_id', customerId).maybeSingle();
 
   return NextResponse.json({
     customer: { id: customer.id, name: customer.customer_name, mobile: customer.mobile, model: customer.model_no },
     device: device ?? null,
     commands: commands ?? [],
     breakdown,
+    reminder_settings: rs ?? {
+      reminder_enabled: true,
+      overdue_reminder_enabled: true,
+      voice_enabled: true,
+      voice_language: 'bn',
+      voice_on_overdue: false,
+      schedule_version: 1,
+    },
   });
 }

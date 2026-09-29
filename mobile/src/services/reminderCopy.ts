@@ -64,6 +64,34 @@ function bodyHi(i: CopyInput, dateLabel: string): string {
   return `आपकी ईएमआई ${amt} अतिदेय है। डिवाइस लॉक से बचने के लिए अभी भुगतान करें।`.replace('  ', ' ');
 }
 
+/**
+ * Copy for a MANUAL admin/retailer reminder (Section 18). Neutral wording (not
+ * tied to pre-due / due-day / overdue), personalised, in the chosen language.
+ */
+export function manualReminderCopy(
+  amount: number | null,
+  dueDate: string | null | undefined,
+  customerName: string | null | undefined,
+  language: VoiceLanguage,
+): ReminderCopy {
+  const amt = money(amount);
+  const dateLabel = dueDate ? (formatShortDateIST(dueDate) || dueDate) : '';
+  const name = customerName ? `${customerName}, ` : '';
+  const on = dateLabel ? ` (${dateLabel})` : '';
+
+  const en = `This is a reminder to pay your EMI ${amt}${on}. Please pay at the earliest.`.replace('  ', ' ');
+  const bn = `আপনার ইএমআই ${amt}${on} পরিশোধের জন্য এটি একটি রিমাইন্ডার। অনুগ্রহ করে যত দ্রুত সম্ভব পরিশোধ করুন।`.replace('  ', ' ');
+  const hi = `आपकी ईएमआई ${amt}${on} भुगतान करने का यह एक रिमाइंडर है। कृपया शीघ्र भुगतान करें।`.replace('  ', ' ');
+  const loc = language === 'hi' ? hi : bn;
+  const title = language === 'hi' ? 'ईएमआई रिमाइंडर · EMI Reminder' : 'ইএমআই রিমাইন্ডার · EMI Reminder';
+
+  return {
+    title,
+    body: `${name}${en}\n${loc}`,
+    speech: `${name}${loc}`,
+  };
+}
+
 export function localizedReminderCopy(input: CopyInput): ReminderCopy {
   const dateLabel = formatShortDateIST(input.dueDate) || input.dueDate;
   const name = input.customerName ? `${input.customerName}, ` : '';

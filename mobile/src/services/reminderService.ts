@@ -9,12 +9,14 @@ import {
   type ReminderConfig,
   type ReminderOccurrence,
 } from './reminderScheduler';
-import { localizedReminderCopy } from './reminderCopy';
+import { localizedReminderCopy, manualReminderCopy } from './reminderCopy';
+import * as Notifications from 'expo-notifications';
 import {
   applyPlan,
   cancelAll,
   getExactAlarmStatus,
   isSupported as remindersSupported,
+  speakNow,
   type NativeReminderOccurrence,
   type OverdueChaining,
 } from 'expo-telepoint-reminders';
@@ -218,6 +220,73 @@ export async function syncReminders(): Promise<{ scheduled: number }> {
 export async function cancelAllReminders(): Promise<void> {
   if (!remindersSupported()) return;
   await cancelAll();
+}
+
+interface ServerReminderConfig {
+  reminder_enabled: boolean;
+  overdue_reminder_enabled: boolean;
+  voice_enabled: boolean;
+  voice_language: 'bn' | 'hi';
+  voice_on_overdue: boolean;
+  schedule_version: number;
+}
+
+/**
+ * Apply reminder config synced from the server (via the device poll). Only
+ * re-applies the alarm plan when the server's schedule_version changed, so the
+ * routine 60s poll is cheap. First sync (no stored version) always applies.
+ */
+export async function syncReminderConfigFromServer(payload: ServerReminderConfig | null | undefined): Promise<void> {
+  if (!payload) return;
+  const cfg = {
+    reminderEnabled: payload.reminder_enabled,
+    overdueReminderEnabled: payload.overdue_reminder_enabled,
+    voiceEnabled: payload.voice_enabled,
+    voiceLanguage: payload.voice_language,
+    voiceOnOverdue: payload.voice_on_overdue,
+    _version: payload.schedule_version,
+  };
+  let lastVersion: number | null = null;
+  try {
+    const raw = await AsyncStorage.getItem(STORAGE_KEYS.REMINDER_CONFIG);
+    if (raw) lastVersion = (JSON.parse(raw)?._version ?? null) as number | null;
+  } catch { /* ignore */ }
+
+  try { await AsyncStorage.setItem(STORAGE_KEYS.REMINDER_CONFIG, JSON.stringify(cfg)); } catch { /* ignore */ }
+
+  if (lastVersion !== payload.schedule_version) {
+    await syncReminders();
+  }
+}
+
+/**
+ * Present a MANUAL admin/retailer reminder immediately (Section 18): a heads-up
+ * notification plus optional TTS in the configured language. Called when the app
+ * receives an EMI_REMINDER command (foreground, or woken by the command push).
+ */
+export async function presentManualReminder(opts: {
+  amount: number | null;
+  dueDate: string | null | undefined;
+  customerName: string | null | undefined;
+  voice: boolean;
+  language: 'bn' | 'hi';
+}): Promise<void> {
+  const copy = manualReminderCopy(opts.amount, opts.dueDate, opts.customerName, opts.language);
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: copy.title,
+        body: copy.body,
+        sound: 'default',
+        data: { type: 'emi_reminder', screen: 'EmiSchedule' },
+      },
+      trigger: { seconds: 1, channelId: 'emi-reminders' } as Notifications.NotificationTriggerInput,
+    });
+  } catch { /* notifications unavailable */ }
+
+  if (opts.voice) {
+    try { await speakNow(copy.speech, opts.language); } catch { /* TTS unavailable */ }
+  }
 }
 
 /** Exposed for the consent/status UI: whether exact alarms can be scheduled. */

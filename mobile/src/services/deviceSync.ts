@@ -4,7 +4,6 @@ import {
   pollCommands,
   sendHeartbeat,
   type DeviceStatusResponse,
-  type PollCommand,
 } from './deviceApi';
 import {
   executeAuthorizedLock,
@@ -15,6 +14,7 @@ import {
   setUninstallProtection,
   setUninstallProtected,
 } from './deviceManagement';
+import { cacheCustomerPhoto, presentManualReminder, syncReminderConfigFromServer } from './reminderService';
 
 /**
  * One headless pass of the device-command lifecycle, shared by the foreground
@@ -28,13 +28,6 @@ import {
  * transient network/OS failure just retries on the next pass.
  */
 
-function commandActionable(cmd: PollCommand): boolean {
-  if (cmd.status !== 'PENDING' && cmd.status !== 'RECEIVED') return false;
-  const exp = Date.parse(cmd.expires_at);
-  if (!Number.isFinite(exp) || exp <= Date.now()) return false;
-  return cmd.command_type === 'LOCK' || cmd.command_type === 'UNLOCK';
-}
-
 export interface DeviceSyncResult {
   resp: DeviceStatusResponse | null;
   /** True if a LOCK was executed this pass, false if an UNLOCK, else undefined. */
@@ -44,6 +37,11 @@ export interface DeviceSyncResult {
 export async function syncDeviceCommandsOnce(customerId: string): Promise<DeviceSyncResult> {
   const installationId = await getInstallationId();
   const resp = await pollCommands(customerId, installationId);
+
+  // Cache reminder config + customer photo from the server for the OFFLINE
+  // engine (re-applies the alarm plan only when the server version changed).
+  try { await syncReminderConfigFromServer(resp?.reminder_settings ?? null); } catch { /* ignore */ }
+  if (resp?.customer_photo_url) { try { await cacheCustomerPhoto(resp.customer_photo_url); } catch { /* ignore */ } }
 
   // Keep the app un-removable while the EMI is outstanding (only effective as
   // Device Owner; a no-op otherwise). Released once the loan is cleared.
@@ -66,8 +64,30 @@ export async function syncDeviceCommandsOnce(customerId: string): Promise<Device
   }
 
   let lockedChangeTo: boolean | undefined;
-  const commands = (resp?.commands ?? []).filter(commandActionable);
-  for (const cmd of commands) {
+  const bd = (resp?.breakdown ?? null) as Record<string, unknown> | null;
+  for (const cmd of resp?.commands ?? []) {
+    // Local re-validation (defence in depth): only fresh, in-flight commands.
+    if (cmd.status !== 'PENDING' && cmd.status !== 'RECEIVED') continue;
+    const exp = Date.parse(cmd.expires_at);
+    if (!Number.isFinite(exp) || exp <= Date.now()) continue;
+
+    if (cmd.command_type === 'EMI_REMINDER') {
+      // Manual admin/retailer reminder — show it now (+ optional voice), then ack.
+      const v = bd?.total_payable ?? bd?.next_emi_amount;
+      const amount = typeof cmd.emi_amount === 'number' ? cmd.emi_amount : (typeof v === 'number' ? v : null);
+      const dueDate = typeof bd?.next_emi_due_date === 'string' ? bd.next_emi_due_date : null;
+      await presentManualReminder({
+        amount,
+        dueDate,
+        customerName: resp?.customer_name ?? null,
+        voice: cmd.voice === true,
+        language: cmd.language === 'hi' ? 'hi' : 'bn',
+      });
+      await ackCommand(customerId, installationId, cmd.id, 'EXECUTED');
+      continue;
+    }
+
+    if (cmd.command_type !== 'LOCK' && cmd.command_type !== 'UNLOCK') continue;
     const result = cmd.command_type === 'LOCK'
       ? await executeAuthorizedLock(cmd.id)
       : await executeAuthorizedUnlock(cmd.id);
