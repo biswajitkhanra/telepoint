@@ -1,7 +1,7 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
@@ -39,6 +39,19 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // If a valid session already exists (e.g. the mobile WebView relaunched, or a
+  // returning browser), don't show the login form — send them to their portal.
+  // getSession() reads the local cookie (no network), so this is instant. The
+  // root page ("/") then routes to /admin or /retailer by role.
+  useEffect(() => {
+    let cancelled = false;
+    supabase.auth.getSession().then(({ data }) => {
+      if (!cancelled && data.session) router.replace('/');
+    }).catch(() => { /* stay on login */ });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const toEmail = (u: string, t: Tab) =>
     t === 'admin'

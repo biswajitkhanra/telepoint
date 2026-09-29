@@ -1,18 +1,25 @@
-import React, { useRef, useState } from 'react';
-import { View, StyleSheet, ActivityIndicator, Text, TouchableOpacity, BackHandler, RefreshControl, ScrollView } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, StyleSheet, ActivityIndicator, Text, TouchableOpacity, BackHandler, RefreshControl, ScrollView, AppState, type AppStateStatus, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView, type WebViewNavigation } from 'react-native-webview';
 import { PORTAL_BASE_URL } from '../config';
 import { Colors } from '../constants/colors';
 
 /**
- * Staff (admin / retailer) surface = the real TelePoint web portal, loaded in a
- * WebView. This guarantees the staff app is EXACTLY the web app — every screen,
- * every number, every feature — with zero data-drift and nothing to keep in
- * sync. The staff sign in with their normal web credentials inside the WebView
- * (Supabase session cookies persist in the WebView), so auth is identical too.
+ * Staff (admin / retailer) surface = the real TelePoint web portal in a WebView.
+ * The staff sign in with their normal web credentials; the Supabase session is
+ * kept in cookies that persist across app restarts.
  *
- * The customer app stays fully native; only the staff build uses this.
+ * SESSION PERSISTENCE (the "retailer keeps getting logged out" fix):
+ *   1. We load the portal ROOT ("/"), NOT "/login". The root page (and the
+ *      middleware) route by the CURRENT session — an authenticated staff member
+ *      is sent straight to /admin or /retailer, and only a genuinely signed-out
+ *      user reaches /login. Previously we always opened /login, so even a valid
+ *      persisted session showed the login form and looked "logged out".
+ *   2. On every background/inactive transition we FLUSH the Android WebView
+ *      cookie store to disk, so the Supabase auth cookie survives an app kill or
+ *      reboot instead of being lost with the process. Best-effort + guarded, so
+ *      it degrades cleanly when the cookie module is unavailable.
  */
 export const WebPortalScreen = () => {
   const webRef = useRef<WebView>(null);
@@ -20,11 +27,32 @@ export const WebPortalScreen = () => {
   const [failed, setFailed] = useState(false);
   const canGoBack = useRef(false);
 
+  // Persist WebView cookies to disk so the session survives app kill / reboot.
+  const flushCookies = () => {
+    if (Platform.OS !== 'android') return;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const mod = require('@react-native-cookies/cookies');
+      const CookieManager = mod?.default ?? mod;
+      CookieManager?.flush?.();
+    } catch {
+      /* cookie module not present — WebView still persists on its own schedule */
+    }
+  };
+
   // Hardware back navigates the web history first, then falls through to exit.
-  React.useEffect(() => {
+  useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (canGoBack.current) { webRef.current?.goBack(); return true; }
       return false;
+    });
+    return () => sub.remove();
+  }, []);
+
+  // Flush cookies whenever the app leaves the foreground.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (s: AppStateStatus) => {
+      if (s === 'background' || s === 'inactive') flushCookies();
     });
     return () => sub.remove();
   }, []);
@@ -50,10 +78,11 @@ export const WebPortalScreen = () => {
         <>
           <WebView
             ref={webRef}
-            source={{ uri: `${PORTAL_BASE_URL}/login` }}
+            // Portal ROOT — routes by the current session (see note above).
+            source={{ uri: `${PORTAL_BASE_URL}/` }}
             onNavigationStateChange={onNav}
             onLoadStart={() => setLoading(true)}
-            onLoadEnd={() => setLoading(false)}
+            onLoadEnd={() => { setLoading(false); flushCookies(); }}
             onError={() => { setFailed(true); setLoading(false); }}
             onHttpError={() => { /* keep showing page; server renders its own errors */ }}
             originWhitelist={['*']}
@@ -61,6 +90,8 @@ export const WebPortalScreen = () => {
             domStorageEnabled
             sharedCookiesEnabled
             thirdPartyCookiesEnabled
+            incognito={false}
+            cacheEnabled
             pullToRefreshEnabled
             startInLoadingState={false}
             allowsBackForwardNavigationGestures
