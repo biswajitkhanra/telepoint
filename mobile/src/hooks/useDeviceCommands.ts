@@ -22,6 +22,9 @@ import { syncDeviceCommandsOnce } from '../services/deviceSync';
  */
 
 const POLL_MS = 60_000;
+// While locked, poll much faster so an admin UNLOCK issued online is applied
+// within seconds, not up to a minute.
+const POLL_MS_LOCKED = 12_000;
 
 export interface LockedInfo {
   locked: boolean;
@@ -112,12 +115,13 @@ export function useDeviceCommands(customerId: string | null | undefined) {
   useEffect(() => {
     if (!customerId) return;
     tick();
-    const interval = setInterval(tick, POLL_MS);
+    // Poll faster while locked so a web/admin UNLOCK reaches the phone quickly.
+    const interval = setInterval(tick, info.locked ? POLL_MS_LOCKED : POLL_MS);
     const sub = AppState.addEventListener('change', (s: AppStateStatus) => {
       if (s === 'active') tick();
     });
     return () => { clearInterval(interval); sub.remove(); };
-  }, [customerId, tick]);
+  }, [customerId, tick, info.locked]);
 
   return { ...info, refresh: tick };
 }
