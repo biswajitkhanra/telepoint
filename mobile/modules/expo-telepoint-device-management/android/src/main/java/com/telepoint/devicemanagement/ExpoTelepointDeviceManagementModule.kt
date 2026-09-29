@@ -309,31 +309,6 @@ class ExpoTelepointDeviceManagementModule : Module() {
       }
     }
 
-    // Whether the TelePoint uninstall-protection accessibility service is enabled.
-    AsyncFunction("isAccessibilityEnabled") {
-      val expected = ComponentName(context, TelepointAccessibilityService::class.java)
-      val enabled = Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: ""
-      val flat = expected.flattenToString()
-      val flatShort = expected.flattenToShortString()
-      enabled.split(':').any { it.equals(flat, true) || it.equals(flatShort, true) }
-    }
-
-    // Open the OS Accessibility settings so the user can enable the protection.
-    AsyncFunction("openAccessibilitySettings") {
-      context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-    }
-
-    // Set whether uninstall/admin-removal is blocked (true while the EMI is
-    // outstanding; false once cleared). Also applies the Device-Owner block when
-    // available. The accessibility service reads this flag.
-    AsyncFunction("setUninstallProtected") { active: Boolean ->
-      LockStateStore.setUninstallProtected(context, active)
-      if (isDeviceOwner()) {
-        try { dpm.setUninstallBlocked(adminComponent, context.packageName, active) } catch (_: Exception) {}
-      }
-      mapOf("ok" to true, "protected" to active)
-    }
-
     // Open the connectivity panel so the customer can turn ON Wi-Fi / mobile data
     // from the locked screen (needed to receive the UNLOCK).
     AsyncFunction("openInternetPanel") {

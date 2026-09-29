@@ -12,7 +12,6 @@ import {
   isDeviceManagementSupported,
   lockNow,
   setUninstallProtection,
-  setUninstallProtected,
 } from './deviceManagement';
 import { cacheCustomerPhoto, presentManualReminder, syncReminderConfigFromServer } from './reminderService';
 
@@ -49,9 +48,9 @@ export async function syncDeviceCommandsOnce(customerId: string): Promise<Device
     const bd = (resp?.breakdown ?? null) as Record<string, unknown> | null;
     const status = typeof bd?.customer_status === 'string' ? bd.customer_status : undefined;
     const cleared = status === 'COMPLETE' || status === 'SETTLED';
-    // Device-Owner block (strong) + accessibility-based block (no-ADB path).
+    // Device-Owner uninstall block (the only supported mechanism). No-op with an
+    // honest reason on non-owner devices — no Accessibility workaround.
     try { await setUninstallProtection(!cleared); } catch { /* ignore */ }
-    try { await setUninstallProtected(!cleared); } catch { /* ignore */ }
   }
 
   // Cheap heartbeat so the backend/admin sees whether admin permission is still

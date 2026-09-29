@@ -1,6 +1,4 @@
 <resources>
   <string name="telepoint_device_admin_label">TelePoint EMI Device Management</string>
   <string name="telepoint_device_admin_description">Lets TelePoint lock this financed device when your EMI is overdue. The lock screen shows your amount due and store contact. You can review this permission anytime in Settings.</string>
-  <string name="telepoint_accessibility_label">TelePoint EMI Protection</string>
-  <string name="telepoint_accessibility_description">Keeps the TelePoint app installed on this financed device until your EMI is fully paid, as agreed at purchase. It only detects the app-uninstall and device-admin-removal screens for this app and returns you to the previous screen. It collects no data and reads no personal content. Once your EMI is cleared, this does nothing and can be turned off.</string>
 </resources>

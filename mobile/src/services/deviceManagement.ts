@@ -38,21 +38,6 @@ export function requestIgnoreBatteryOptimizations() {
   return DeviceMgmt.requestIgnoreBatteryOptimizations();
 }
 
-/** True when the uninstall-protection accessibility service is enabled. */
-export function isAccessibilityEnabled(): Promise<boolean> {
-  return DeviceMgmt.isAccessibilityEnabled();
-}
-
-/** Open the OS Accessibility settings to enable uninstall protection. */
-export function openAccessibilitySettings(): Promise<void> {
-  return DeviceMgmt.openAccessibilitySettings();
-}
-
-/** Block/allow uninstall (false = allow, once EMI cleared). */
-export function setUninstallProtected(active: boolean) {
-  return DeviceMgmt.setUninstallProtected(active);
-}
-
 /** Open the connectivity panel to turn on Wi-Fi / mobile data. */
 export function openInternetPanel() {
   return DeviceMgmt.openInternetPanel();

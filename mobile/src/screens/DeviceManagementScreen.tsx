@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { ShieldCheck, Smartphone, Lock, ChevronLeft, Info, BatteryCharging } from 'lucide-react-native';
+import { ShieldCheck, Smartphone, Lock, ChevronLeft, Info, BatteryCharging, AlarmClock } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import { Colors } from '../constants/colors';
 import { Spacing, Radius } from '../constants/design';
@@ -17,10 +17,9 @@ import {
   openDeviceAdminSettings,
   isIgnoringBatteryOptimizations,
   requestIgnoreBatteryOptimizations,
-  isAccessibilityEnabled,
-  openAccessibilitySettings,
   type DeviceManagementStatus,
 } from '../services/deviceManagement';
+import { reminderExactAlarmStatus, requestReminderExactAlarmPermission } from '../services/reminderService';
 
 /**
  * Transparent, consent-first device-management screen (spec parts 7 & 9).
@@ -35,7 +34,7 @@ export const DeviceManagementScreen = ({ navigation }: { navigation?: { goBack: 
   const [model, setModel] = useState<string>(customer?.model_no || '');
   const [busy, setBusy] = useState(false);
   const [batteryOk, setBatteryOk] = useState(true);
-  const [protectionOk, setProtectionOk] = useState(true);
+  const [exactAlarmsOk, setExactAlarmsOk] = useState(true);
 
   const refresh = useCallback(async () => {
     if (!supported) return;
@@ -43,7 +42,7 @@ export const DeviceManagementScreen = ({ navigation }: { navigation?: { goBack: 
       const [st, info] = await Promise.all([getDeviceManagementStatus(), getDeviceInfo()]);
       setStatus(st);
       isIgnoringBatteryOptimizations().then(setBatteryOk).catch(() => {});
-      isAccessibilityEnabled().then(setProtectionOk).catch(() => {});
+      reminderExactAlarmStatus().then((r) => setExactAlarmsOk(!!r.canScheduleExactAlarms)).catch(() => {});
       if (info.model) setModel(`${info.manufacturer} ${info.model}`.trim());
       // Keep the backend device row in sync with the real admin state.
       if (customer?.id) {
@@ -96,9 +95,9 @@ export const DeviceManagementScreen = ({ navigation }: { navigation?: { goBack: 
     setTimeout(() => { isIgnoringBatteryOptimizations().then(setBatteryOk).catch(() => {}); }, 800);
   };
 
-  const onEnableProtection = async () => {
-    await openAccessibilitySettings();
-    setTimeout(() => { isAccessibilityEnabled().then(setProtectionOk).catch(() => {}); }, 800);
+  const onAllowExactAlarms = async () => {
+    await requestReminderExactAlarmPermission();
+    setTimeout(() => { reminderExactAlarmStatus().then((r) => setExactAlarmsOk(!!r.canScheduleExactAlarms)).catch(() => {}); }, 800);
   };
 
   const mode = status?.mode ?? 'UNSUPPORTED';
@@ -165,21 +164,39 @@ export const DeviceManagementScreen = ({ navigation }: { navigation?: { goBack: 
           </View>
         )}
 
-        {supported && !protectionOk && (
+        {supported && !exactAlarmsOk && (
           <View style={[styles.card, styles.warnCard]}>
             <View style={styles.warnHead}>
-              <ShieldCheck size={18} color={Colors.warning} />
-              <Text style={styles.warnTitle}>Enable uninstall protection</Text>
+              <AlarmClock size={18} color={Colors.warning} />
+              <Text style={styles.warnTitle}>Allow exact alarms</Text>
             </View>
             <Text style={styles.warnText}>
-              As agreed at purchase, the TelePoint app stays installed until your
-              EMI is fully paid. Enable &ldquo;TelePoint EMI Protection&rdquo; in
-              Accessibility so the app can&rsquo;t be removed while dues remain. It
-              collects no data and turns off automatically once your EMI is cleared.
+              EMI reminders fire at exact times (10:00 AM &amp; 6:00 PM before the
+              due date, hourly on the due day). On Android 12+ this needs the
+              &ldquo;Alarms &amp; reminders&rdquo; permission. Tap below and allow it
+              so reminders are never late.
             </Text>
-            <TouchableOpacity style={[styles.primaryBtn, { marginTop: Spacing.sm }]} onPress={onEnableProtection} activeOpacity={0.85}>
-              <Text style={styles.primaryBtnText}>Enable protection</Text>
+            <TouchableOpacity style={[styles.primaryBtn, { marginTop: Spacing.sm }]} onPress={onAllowExactAlarms} activeOpacity={0.85}>
+              <Text style={styles.primaryBtnText}>Allow exact alarms</Text>
             </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Uninstall protection is only claimed when it is actually enforceable —
+            i.e. the device is enrolled as Device Owner. On ordinary devices
+            Android does not permit blocking uninstall, and we do not pretend to
+            (no Accessibility workaround). */}
+        {supported && mode === 'DEVICE_OWNER' && (
+          <View style={styles.card}>
+            <View style={styles.warnHead}>
+              <ShieldCheck size={18} color={Colors.primary} />
+              <Text style={[styles.warnTitle, { color: Colors.textPrimary }]}>Uninstall protection active</Text>
+            </View>
+            <Text style={styles.p}>
+              This device is fully managed under the EMI agreement, so the TelePoint
+              app cannot be removed while dues remain. It is released automatically
+              once your EMI is fully cleared.
+            </Text>
           </View>
         )}
 

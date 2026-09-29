@@ -16,6 +16,7 @@ import {
   cancelAll,
   getExactAlarmStatus,
   isSupported as remindersSupported,
+  requestExactAlarmPermission,
   speakNow,
   type NativeReminderOccurrence,
   type OverdueChaining,
@@ -292,4 +293,10 @@ export async function presentManualReminder(opts: {
 /** Exposed for the consent/status UI: whether exact alarms can be scheduled. */
 export async function reminderExactAlarmStatus() {
   return getExactAlarmStatus();
+}
+
+/** Open the OS "Alarms & reminders" screen so the user can allow exact alarms. */
+export async function requestReminderExactAlarmPermission(): Promise<void> {
+  if (!remindersSupported()) return;
+  await requestExactAlarmPermission();
 }
