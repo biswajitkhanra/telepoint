@@ -210,7 +210,9 @@ export async function GET(req: NextRequest) {
         : cCollected;
       const y = closedYearOf(c);
       const bucket = m.lossBookedByYear[y] || { amount: 0, count: 0 };
-      bucket.amount += cLoanValue - cRecovered;
+      // Booked loss is never negative: an account that recovered more than its
+      // loan value adds 0, it does not reduce the other accounts' loss.
+      bucket.amount += Math.max(0, cLoanValue - cRecovered);
       bucket.count += 1;
       m.lossBookedByYear[y] = bucket;
     }

@@ -161,6 +161,9 @@ export default function ReportsHub({
     return out;
   }, [m]);
 
+  /* Fine collected over the same 12 months, from every customer. */
+  const fineLast12m = useMemo(() => fineSeries.reduce((s, p) => s + p.value, 0), [fineSeries]);
+
   const monthDelta = monthStats && monthStats.lastYear > 0
     ? ((monthStats.collected - monthStats.lastYear) / monthStats.lastYear) * 100
     : undefined;
@@ -263,10 +266,10 @@ export default function ReportsHub({
           />
           <KpiCard
             loading={metricsLoading} icon={ReceiptText} tone="purple"
-            label="Fine Collected" value={m?.fineCollected ?? 0} format={fmt}
+            label="Fine Collected (12 months)" value={fineLast12m} format={fmt}
             secondary={m ? { label: 'Fine still due', value: m.fineDue, format: fmt } : undefined}
             spark={fineSeries.map(p => p.value)}
-            formula="Late fines actually collected (running customers). Sparkline: real monthly totals for the last 12 months."
+            formula="Late fines actually collected in the last 12 months (this month included), from all customers, dated by when each fine was paid. Sparkline: the same monthly totals."
           />
           <KpiCard
             loading={metricsLoading} icon={CalendarClock} tone="sky"
