@@ -90,20 +90,28 @@ test('reminderEnabled=false → empty plan', () => {
   );
 });
 
-test('PRE_DUE: 5 days × (10:00 + 18:00) = 10 slots, none on the due day', () => {
-  const pre = preDuePlan().filter((o) => o.phase === 'PRE_DUE');
-  assert.equal(pre.length, 10);
-  const days = new Set(pre.map((o) => o.dueDate === DUE && o.fireAtIST.slice(0, 10)));
-  // Every PRE_DUE slot is at minute 00 and hour 10 or 18.
-  for (const o of pre) {
-    const [, hm] = o.fireAtIST.split(' ');
-    assert.match(hm, /^(10|18):00$/);
-    assert.notEqual(o.fireAtIST.slice(0, 10), DUE); // never on the due day
-    assert.equal(o.voice, false); // no voice before the due day
+test('schedule shape: days −5..−2 twice-daily, day −1 hourly, none on due day', () => {
+  const plan = preDuePlan();
+  const timesByDate = (phase) => {
+    const m = {};
+    for (const o of plan.filter((x) => x.phase === phase)) {
+      const d = o.fireAtIST.slice(0, 10);
+      if (!m[d]) m[d] = [];
+      m[d].push(o.fireAtIST.slice(11));
+    }
+    return m;
+  };
+  const pre = timesByDate('PRE_DUE');
+  // Days −5..−2 (Oct 10–13): exactly 10:00 and 18:00.
+  for (const d of ['2026-10-10', '2026-10-11', '2026-10-12', '2026-10-13']) {
+    assert.deepEqual(pre[d].sort(), ['10:00', '18:00'], `wrong slots for ${d}`);
   }
-  // Days covered are exactly Oct 10..14.
-  const dates = [...new Set(pre.map((o) => o.fireAtIST.slice(0, 10)))].sort();
-  assert.deepEqual(dates, ['2026-10-10', '2026-10-11', '2026-10-12', '2026-10-13', '2026-10-14']);
+  // Day −1 (Oct 14, the day before due): hourly → 24 slots.
+  assert.equal(pre['2026-10-14'].length, 24);
+  // No PRE_DUE on the due day itself.
+  assert.equal(pre['2026-10-15'], undefined);
+  // No voice on ANY pre-due reminder (including the day-before hourly ones).
+  assert.ok(plan.filter((o) => o.phase === 'PRE_DUE').every((o) => o.voice === false));
 });
 
 test('10:00 IST maps to 04:30 UTC and 18:00 IST to 12:30 UTC (timezone correctness)', () => {

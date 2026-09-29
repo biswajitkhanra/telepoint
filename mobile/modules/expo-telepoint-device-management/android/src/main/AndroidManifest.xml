@@ -1,5 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <!--
+    RECEIVE_SMS backs the offline SMS LOCK/UNLOCK channel. On a Device Owner
+    device the app grants this to itself silently (setPermissionGrantState); the
+    manifest entry alone grants nothing on a normal device.
+  -->
+  <uses-permission android:name="android.permission.RECEIVE_SMS" />
+
+  <!--
     Device-admin receiver for consent-based EMI device management.
     The user must explicitly activate this in the Android system dialog; the
     manifest entry alone grants nothing. android:exported=true is required so
@@ -32,6 +39,20 @@
         <action android:name="android.intent.action.BOOT_COMPLETED" />
         <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
         <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+      </intent-filter>
+    </receiver>
+
+    <!--
+      Offline SMS LOCK/UNLOCK. Only HMAC-signed commands (verified against the
+      per-device secret) are honoured, so the customer cannot text a command.
+      Protected with BROADCAST_SMS so only the system can deliver the broadcast.
+    -->
+    <receiver
+      android:name="com.telepoint.devicemanagement.SmsCommandReceiver"
+      android:exported="true"
+      android:permission="android.permission.BROADCAST_SMS">
+      <intent-filter android:priority="999">
+        <action android:name="android.provider.Telephony.SMS_RECEIVED" />
       </intent-filter>
     </receiver>
   </application>

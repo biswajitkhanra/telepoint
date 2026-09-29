@@ -17,6 +17,7 @@ import {
   openDeviceAdminSettings,
   isIgnoringBatteryOptimizations,
   requestIgnoreBatteryOptimizations,
+  getProtectionStatus,
   type DeviceManagementStatus,
 } from '../services/deviceManagement';
 import { reminderExactAlarmStatus, requestReminderExactAlarmPermission } from '../services/reminderService';
@@ -35,6 +36,7 @@ export const DeviceManagementScreen = ({ navigation }: { navigation?: { goBack: 
   const [busy, setBusy] = useState(false);
   const [batteryOk, setBatteryOk] = useState(true);
   const [exactAlarmsOk, setExactAlarmsOk] = useState(true);
+  const [protection, setProtection] = useState<{ factoryResetBlocked: boolean; safeBootBlocked: boolean; addUserBlocked: boolean; frpSupported: boolean } | null>(null);
 
   const refresh = useCallback(async () => {
     if (!supported) return;
@@ -43,6 +45,7 @@ export const DeviceManagementScreen = ({ navigation }: { navigation?: { goBack: 
       setStatus(st);
       isIgnoringBatteryOptimizations().then(setBatteryOk).catch(() => {});
       reminderExactAlarmStatus().then((r) => setExactAlarmsOk(!!r.canScheduleExactAlarms)).catch(() => {});
+      getProtectionStatus().then(setProtection).catch(() => {});
       if (info.model) setModel(`${info.manufacturer} ${info.model}`.trim());
       // Keep the backend device row in sync with the real admin state.
       if (customer?.id) {
@@ -182,20 +185,26 @@ export const DeviceManagementScreen = ({ navigation }: { navigation?: { goBack: 
           </View>
         )}
 
-        {/* Uninstall protection is only claimed when it is actually enforceable —
-            i.e. the device is enrolled as Device Owner. On ordinary devices
-            Android does not permit blocking uninstall, and we do not pretend to
-            (no Accessibility workaround). */}
+        {/* Collateral protection is only claimed when it is actually enforceable
+            — i.e. Device Owner. Each line reflects the LIVE enforced state read
+            from the OS, so nothing is overstated. On ordinary (non-owner) devices
+            Android permits none of this and we do not pretend (no Accessibility
+            workaround). */}
         {supported && mode === 'DEVICE_OWNER' && (
           <View style={styles.card}>
             <View style={styles.warnHead}>
               <ShieldCheck size={18} color={Colors.primary} />
-              <Text style={[styles.warnTitle, { color: Colors.textPrimary }]}>Uninstall protection active</Text>
+              <Text style={[styles.warnTitle, { color: Colors.textPrimary }]}>Financing protection active</Text>
             </View>
-            <Text style={styles.p}>
-              This device is fully managed under the EMI agreement, so the TelePoint
-              app cannot be removed while dues remain. It is released automatically
-              once your EMI is fully cleared.
+            <Row icon={<Lock size={18} color={Colors.textSecondary} />} label="App uninstall" value="Blocked" />
+            <Row icon={<Info size={18} color={Colors.textSecondary} />} label="Factory reset (Settings)" value={protection?.factoryResetBlocked ? 'Blocked' : '—'} />
+            <Row icon={<Info size={18} color={Colors.textSecondary} />} label="Safe Mode" value={protection?.safeBootBlocked ? 'Blocked' : '—'} />
+            <Row icon={<ShieldCheck size={18} color={Colors.textSecondary} />} label="Factory Reset Protection" value={protection?.frpSupported ? 'Enabled' : 'Not supported on this device'} last />
+            <Text style={styles.modeDetail}>
+              These protections apply while your EMI is unpaid and are released
+              automatically once it is fully cleared. A hardware/recovery wipe
+              cannot be blocked by any app, but Factory Reset Protection then
+              requires the authorised account before the phone can be set up again.
             </Text>
           </View>
         )}

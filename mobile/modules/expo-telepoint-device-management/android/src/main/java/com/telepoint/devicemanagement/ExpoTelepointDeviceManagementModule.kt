@@ -52,12 +52,12 @@ class ExpoTelepointDeviceManagementModule : Module() {
     context.packageManager.getLaunchIntentForPackage(context.packageName)?.component
 
   /**
-   * The full, persistent policy set that makes an EMI lock real collateral
-   * protection. Device Owner only — a no-op otherwise, by Android design.
+   * KIOSK/lock-state policies only (Device Owner). Applied when LOCKED, cleared
+   * when UNLOCKED. Deliberately does NOT touch factory-reset / safe-boot / FRP /
+   * uninstall — those are collateral protections tied to the LOAN being
+   * outstanding (see applyFinancingProtection), so a normal UNLOCK never strips
+   * them while the customer still owes money.
    *   • whitelist self for lock-task (kiosk with no user confirmation)
-   *   • block uninstall of the collateral app
-   *   • while locked: block factory reset, safe boot and adding users so the
-   *     lock cannot be trivially wiped
    *   • while locked: make this app the HOME launcher so a reboot lands on the
    *     lock screen; cleared on release
    */
@@ -88,21 +88,6 @@ class ExpoTelepointDeviceManagementModule : Module() {
       } catch (_: Exception) {}
     }
 
-    try {
-      dpm.setUninstallBlocked(admin, pkg, active)
-    } catch (_: Exception) {}
-
-    val restrictions = listOf(
-      UserManager.DISALLOW_FACTORY_RESET,
-      UserManager.DISALLOW_SAFE_BOOT,
-      UserManager.DISALLOW_ADD_USER
-    )
-    for (r in restrictions) {
-      try {
-        if (active) dpm.addUserRestriction(admin, r) else dpm.clearUserRestriction(admin, r)
-      } catch (_: Exception) {}
-    }
-
     val launcher = launcherComponent()
     if (launcher != null) {
       try {
@@ -117,6 +102,77 @@ class ExpoTelepointDeviceManagementModule : Module() {
         }
       } catch (_: Exception) {}
     }
+  }
+
+  /** Parse a JSON array (or comma list) of FRP account identifiers, safely. */
+  private fun parseFrpAccounts(raw: String?): List<String> {
+    if (raw.isNullOrBlank()) return emptyList()
+    return try {
+      val arr = org.json.JSONArray(raw)
+      (0 until arr.length()).mapNotNull { arr.optString(it, null)?.trim()?.ifBlank { null } }
+    } catch (_: Exception) {
+      raw.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+    }
+  }
+
+  /**
+   * Collateral protection applied WHILE THE LOAN IS OUTSTANDING (independent of
+   * lock state). Device Owner only. When active:
+   *   • block uninstall of the collateral app
+   *   • DISALLOW_FACTORY_RESET — blocks a Settings-menu factory reset
+   *   • DISALLOW_SAFE_BOOT     — blocks entering Safe Mode at all
+   *   • DISALLOW_ADD_USER      — stops sidestepping via a new user
+   *   • Factory Reset Protection policy (Android 11+/API 30, supported devices):
+   *     even a recovery-mode wipe (which no app can block) then demands the
+   *     configured account before the phone can be set up again.
+   * Released (all cleared) once the EMI is fully paid.
+   *
+   * IMPORTANT/HONEST: a hardware recovery wipe cannot be prevented by any app;
+   * FRP is the deterrent for that path, and it only works on Device Owner +
+   * Android 11+ + devices whose OEM implements FactoryResetProtectionPolicy.
+   */
+  private fun applyFinancingProtection(active: Boolean, frpAccounts: List<String>): Map<String, Any?> {
+    val mode = currentMode()
+    if (mode != "DEVICE_OWNER") {
+      return mapOf("applied" to false, "mode" to mode, "reason" to "requires_device_owner")
+    }
+    val admin = adminComponent
+    val pkg = context.packageName
+
+    try { dpm.setUninstallBlocked(admin, pkg, active) } catch (_: Exception) {}
+
+    val restrictions = listOf(
+      UserManager.DISALLOW_FACTORY_RESET,
+      UserManager.DISALLOW_SAFE_BOOT,
+      UserManager.DISALLOW_ADD_USER,
+    )
+    for (r in restrictions) {
+      try { if (active) dpm.addUserRestriction(admin, r) else dpm.clearUserRestriction(admin, r) } catch (_: Exception) {}
+    }
+
+    var frpApplied = false
+    val frpSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
+    if (frpSupported) {
+      try {
+        val builder = android.app.admin.FactoryResetProtectionPolicy.Builder()
+          .setFactoryResetProtectionEnabled(active)
+        if (frpAccounts.isNotEmpty()) builder.setFactoryResetProtectionAccounts(frpAccounts)
+        val policy = builder.build()
+        // Pass the policy to enable; null to clear when released.
+        dpm.setFactoryResetProtectionPolicy(admin, if (active) policy else null)
+        frpApplied = true
+      } catch (_: Exception) { frpApplied = false }
+    }
+
+    return mapOf(
+      "applied" to true,
+      "mode" to mode,
+      "active" to active,
+      "frpApplied" to frpApplied,
+      "frpSupported" to frpSupported,
+      "accountsConfigured" to frpAccounts.size,
+      "sdkInt" to Build.VERSION.SDK_INT,
+    )
   }
 
   /** Enter the kiosk (lock-task) on the foreground activity, if permitted. */
@@ -266,6 +322,69 @@ class ExpoTelepointDeviceManagementModule : Module() {
       } catch (e: Exception) {
         mapOf("applied" to false, "mode" to mode, "reason" to "exception")
       }
+    }
+
+    // Collateral protection tied to the LOAN being outstanding (Device Owner):
+    // uninstall block + DISALLOW_FACTORY_RESET + DISALLOW_SAFE_BOOT +
+    // DISALLOW_ADD_USER + Factory Reset Protection policy. `frpAccountsJson` is a
+    // JSON array of account identifiers that may unlock the device after a wipe.
+    // Applied while owing; call with active=false once the EMI is cleared.
+    AsyncFunction("applyFinancingProtection") { active: Boolean, frpAccountsJson: String? ->
+      applyFinancingProtection(active, parseFrpAccounts(frpAccountsJson))
+    }
+
+    // Report which collateral protections are actually in force right now, read
+    // from the live user restrictions — so the UI never claims more than is true.
+    AsyncFunction("getProtectionStatus") {
+      val mode = currentMode()
+      val um = context.getSystemService(Context.USER_SERVICE) as UserManager
+      val r = um.userRestrictions
+      mapOf(
+        "mode" to mode,
+        "factoryResetBlocked" to r.getBoolean(UserManager.DISALLOW_FACTORY_RESET, false),
+        "safeBootBlocked" to r.getBoolean(UserManager.DISALLOW_SAFE_BOOT, false),
+        "addUserBlocked" to r.getBoolean(UserManager.DISALLOW_ADD_USER, false),
+        "frpSupported" to (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R),
+        "sdkInt" to Build.VERSION.SDK_INT,
+      )
+    }
+
+    // --- SMS command channel (offline LOCK/UNLOCK) --------------------------
+    // Configure the authorised sender numbers + this device's customer code so an
+    // SMS "LOCK <code>" / "UNLOCK <code>" from an allowlisted number is honoured.
+    AsyncFunction("configureSmsControl") { sendersCsv: String, customerCode: String ->
+      SmsCommandStore.setConfig(context, sendersCsv, customerCode)
+      mapOf("ok" to true, "configured" to SmsCommandStore.isConfigured(context))
+    }
+
+    AsyncFunction("isSmsControlConfigured") { SmsCommandStore.isConfigured(context) }
+
+    // Device Owner can silently grant itself RECEIVE_SMS (managed device). On a
+    // non-owner device this is a no-op with a reason (SMS control then requires a
+    // manual runtime grant, which modern Android rarely allows for non-SMS apps).
+    AsyncFunction("grantSmsPermissionIfOwner") {
+      if (!isDeviceOwner()) return@AsyncFunction mapOf("granted" to false, "reason" to "requires_device_owner")
+      try {
+        dpm.setPermissionGrantState(
+          adminComponent,
+          context.packageName,
+          android.Manifest.permission.RECEIVE_SMS,
+          DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED,
+        )
+        mapOf("granted" to true)
+      } catch (e: Exception) {
+        mapOf("granted" to false, "reason" to "exception")
+      }
+    }
+
+    AsyncFunction("getSmsControlStatus") {
+      val perm = context.checkSelfPermission(android.Manifest.permission.RECEIVE_SMS) ==
+        android.content.pm.PackageManager.PERMISSION_GRANTED
+      mapOf(
+        "configured" to SmsCommandStore.isConfigured(context),
+        "permissionGranted" to perm,
+        "mode" to currentMode(),
+      )
     }
 
     // Whether the app is already exempt from battery optimization. Unrestricted

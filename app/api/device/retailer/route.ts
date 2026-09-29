@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
 
   const svc = createServiceClient();
   const { data: customer } = await svc.from('customers')
-    .select('id, retailer_id, customer_name, mobile, model_no').eq('id', customerId).single();
+    .select('id, retailer_id, customer_name, customer_code, mobile, model_no, customer_photo_url, status').eq('id', customerId).single();
   if (!customer) return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
 
   if (staff.role === 'retailer') {
@@ -45,7 +45,15 @@ export async function POST(req: NextRequest) {
     .eq('customer_id', customerId).maybeSingle();
 
   return NextResponse.json({
-    customer: { id: customer.id, name: customer.customer_name, mobile: customer.mobile, model: customer.model_no },
+    customer: {
+      id: customer.id,
+      name: customer.customer_name,
+      code: customer.customer_code ?? null,
+      mobile: customer.mobile,
+      model: customer.model_no,
+      photo_url: customer.customer_photo_url ?? null,
+      status: customer.status ?? null,
+    },
     device: device ?? null,
     commands: commands ?? [],
     breakdown,

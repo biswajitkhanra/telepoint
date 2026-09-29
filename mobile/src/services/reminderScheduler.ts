@@ -19,7 +19,8 @@ import {
  * timezone the whole app and the server use; India observes no DST, so an IST
  * wall-clock time maps to one fixed UTC instant):
  *
- *   PRE_DUE  : dueDate−5 … dueDate−1, at 10:00 and 18:00 each day.        (no voice)
+ *   PRE_DUE  : dueDate−5 … dueDate−2, at 10:00 and 18:00 each day.        (no voice)
+ *              PLUS dueDate−1 (the day BEFORE due) every hour 00:00 … 23:00.
  *   DUE_DAY  : the due date, every hour 00:00 … 23:00.                    (voice on)
  *   OVERDUE  : from 00:00 the day AFTER the due date, every 5 minutes,    (voice off
  *              while the overdue reminder is enabled.                       by default)
@@ -83,7 +84,9 @@ export interface PlanOptions {
 }
 
 export const PRE_DUE_HOURS = [10, 18] as const;
-export const PRE_DUE_DAY_OFFSETS = [-5, -4, -3, -2, -1] as const;
+// Days −5…−2 get the twice-daily 10:00/18:00 slots. Day −1 (the day before due)
+// and the due day itself are HOURLY (handled separately below).
+export const PRE_DUE_DAY_OFFSETS = [-5, -4, -3, -2] as const;
 export const OVERDUE_INTERVAL_MS = 5 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
 const DEFAULT_HORIZON_MS = 26 * HOUR_MS;
@@ -166,12 +169,23 @@ export function computeReminderPlan(
     });
   };
 
-  // PRE_DUE: dueDate−5 … dueDate−1 at 10:00 and 18:00. Never voice.
+  // PRE_DUE: dueDate−5 … dueDate−2 at 10:00 and 18:00. Never voice.
   for (const offset of PRE_DUE_DAY_OFFSETS) {
     const dayStr = addDaysIST(dueDate, offset);
     if (!dayStr) continue;
     for (const hour of PRE_DUE_HOURS) {
       push('PRE_DUE', istWallToEpoch(dayStr, hour, 0), false);
+    }
+  }
+
+  // Day BEFORE the due date (dueDate−1): every hour 00:00 … 23:00. Never voice.
+  const dayBefore = addDaysIST(dueDate, -1);
+  if (dayBefore) {
+    const dayBeforeMidnight = midnightIST(dayBefore);
+    if (Number.isFinite(dayBeforeMidnight)) {
+      for (let hour = 0; hour < 24; hour += 1) {
+        push('PRE_DUE', dayBeforeMidnight + hour * HOUR_MS, false);
+      }
     }
   }
 

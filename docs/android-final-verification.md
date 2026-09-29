@@ -80,9 +80,17 @@ physical device; (3) nothing pushed without your go-ahead.
 - [x] **No hidden APIs / no root / no FRP bypass / no Safe Mode bypass / no fake system UI** — **PASS (review).** Only documented `DevicePolicyManager`/`AlarmManager`/`TextToSpeech`/notifications are used; the locked screen is the app's own branded screen.
 - [ ] **Physical Android test completed** — **NOT TESTED.** Requires a device + build.
 
-### FRP / Safe Mode (Sections 9, 10)
-- [ ] **FRP** — **NOT IMPLEMENTED / documented limitation.** No fake FRP. Real FRP requires an Android Enterprise / DEVICE_OWNER provisioning config and specific Android versions; must be configured at enrolment, not hard-coded. Left to the DEVICE_OWNER provisioning process (see `docs/DEVICE_OWNER_PROVISIONING.md`). Not faked.
-- [ ] **Safe Mode prevention** — **DOCUMENTED LIMITATION.** `DISALLOW_SAFE_BOOT` is applied under DEVICE_OWNER while locked (the only legitimate control); arbitrary Safe Mode prevention is not possible and is not attempted.
+### FRP / Safe Mode / anti-format (Sections 9, 10) — now IMPLEMENTED (Device Owner)
+Implemented via `applyFinancingProtection(active, frpAccounts)` in the native module,
+applied by `deviceSync` **while the loan is outstanding** (not just while locked) and
+released when the EMI clears. All **Device-Owner-only**; honest no-op otherwise.
+
+- [ ] **Factory reset blocked (Settings)** — **CODE DONE / device test pending.** `DISALLOW_FACTORY_RESET`. Blocks the Settings-menu reset. NOT TESTED on device.
+- [ ] **FRP (anti-format after wipe)** — **CODE DONE / device + support pending.** `DevicePolicyManager.setFactoryResetProtectionPolicy` (Android 11+/API 30) with configurable account(s) via `EXPO_PUBLIC_FRP_ACCOUNTS`. After any wipe (including recovery/hardware — which no app can block), the device demands the configured account. Works only on DEVICE_OWNER + API 30+ + devices whose OEM implements the policy. Account-identifier format is device-specific (often the Gaia id, not the plain email) — verify per model. NOT TESTED on device.
+- [ ] **Safe Mode blocked** — **CODE DONE / device test pending.** `DISALLOW_SAFE_BOOT` prevents entering Safe Mode entirely (stronger than, and in place of, "lock when they tap it" — a third-party app cannot run in Safe Mode, so blocking entry is the only real control). NOT TESTED on device.
+- [x] **Honest status surfaced** — **PASS.** `getProtectionStatus()` reads the LIVE OS restrictions; the customer screen shows Blocked/— per line, and the whole section only appears under DEVICE_OWNER.
+
+**Hard truth (unchanged):** a hardware/recovery-mode wipe cannot be prevented by ANY app; FRP is the deterrent for that path. None of this works on a non-Device-Owner phone — it requires your QR/afw Device Owner provisioning (`docs/DEVICE_OWNER_PROVISIONING.md`).
 
 ---
 
@@ -135,3 +143,17 @@ prompts, and the WebView session surviving a real app-kill/reboot.
 
 **Not implemented (documented limitation, not faked):** FRP account injection and
 arbitrary Safe Mode / factory-reset prevention beyond the DEVICE_OWNER policies.
+
+---
+
+## Addendum — additional requirements (later pass)
+
+- [x] **Reminder schedule refined** — days −5…−2 at 10:00/18:00, **day-before (−1) hourly**, due day hourly, overdue every 5 min. Unit-tested (16/16).
+- [ ] **Offline SMS LOCK/UNLOCK** — **CODE DONE / device test pending.** `SmsCommandReceiver` honours `LOCK <custid>` / `UNLOCK <custid>` **only** from allowlisted sender numbers (last-10-digit match, so +91/91/bare all work) AND matching the device's customer code. Numbers default to 7003617029 / 7003617074 (configurable via `EXPO_PUBLIC_SMS_ALLOWED_SENDERS`). Device Owner auto-grants `RECEIVE_SMS`. Persists across reboot (LockStateStore + boot receiver). **Security caveat:** sender IDs can be spoofed via gateways and the customer knows their code — the number allowlist is the real gate; an HMAC variant is the stronger upgrade. NOT device-tested.
+- [ ] **Locked screen stays on screen** — **CODE DONE.** Removed the per-poll `lockNow()` re-assert (it blanked the screen); the TelePoint lock screen now stays up, kept foreground by kiosk/lock-task (Device Owner). Device test pending.
+- [x] **No logout / no account switch until EMI paid** — **PASS (code).** ProfileScreen hides Sign-Out + "Log in as another customer" + "Switch app mode" unless status is COMPLETE/SETTLED; shows a locked note instead.
+- [ ] **FRP target account** — **NEEDS THE NUMERIC ID.** Mechanism is done; set `EXPO_PUBLIC_FRP_ACCOUNTS` to the **numeric Gaia id** of biswajit.khanra82@gmail.com (NOT the email — see research doc §2.2). Left empty by default to avoid bricking a device to an unknown account.
+- [x] **Admin panel = collapsed "Device & App Lock" (Bajaj-style)** — **PASS (code).** One button by default; expands to lock/unlock, reminders, Send-reminder, offline SMS command text (copy), and an honest advanced-actions list marked "Requires Device Owner" (never faked). Rendered for retailers too (lock/unlock admin-only).
+- **Research:** `docs/frp-and-sms-provisioning-research.md` — wireless-debugging Device Owner provisioning, FRP account format, SMS channel security (cited).
+
+**Still needing native build + device (unchanged):** the Bajaj advanced actions (camera/USB/Bluetooth/Wi-Fi/airplane/app-hide/reboot/wallpaper/SIM/location) are shown but NOT yet implemented natively — they are the next slice. Everything native remains build-and-device-test pending.

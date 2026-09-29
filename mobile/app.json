@@ -32,7 +32,8 @@
         "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
         "SCHEDULE_EXACT_ALARM",
         "USE_EXACT_ALARM",
-        "WAKE_LOCK"
+        "WAKE_LOCK",
+        "RECEIVE_SMS"
       ]
     },
     "plugins": [

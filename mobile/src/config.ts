@@ -44,6 +44,44 @@ export const APP_VARIANT: 'customer' | 'retailer' | 'combined' =
     (Constants.expoConfig?.extra?.appVariant as string) ||
     'combined') as 'customer' | 'retailer' | 'combined';
 
+/**
+ * Account identifier(s) that may unlock a financed device after a factory reset
+ * (Factory Reset Protection). Configured by the company/retailer — NEVER a
+ * hard-coded personal address in code. Supplied via EXPO_PUBLIC_FRP_ACCOUNTS
+ * (comma-separated) or app.config `extra.frpAccounts`. Empty by default.
+ *
+ * FORMAT CAVEAT (verified — see docs/frp-and-sms-provisioning-research.md §2.2):
+ * the identifier must be the account's NUMERIC Google id ("Gaia" userId), NOT the
+ * plain email. Setting the raw email is unreliable and on some OEMs locks the
+ * device to an UNKNOWN account after reset — do not use the email. For TelePoint's
+ * target account (biswajit.khanra82@gmail.com), obtain its numeric id (People API
+ * people/me → metadata.sources[].id, while signed in as that account) and set
+ * EXPO_PUBLIC_FRP_ACCOUNTS to that number. Only takes effect on Device Owner +
+ * Android 11+ (API 30) devices that implement FactoryResetProtectionPolicy.
+ */
+/**
+ * Authorised phone numbers that may LOCK/UNLOCK a financed device by SMS
+ * (matched on the last 10 digits, so +91 / 91 / bare all work). Configured by
+ * the company/retailer via EXPO_PUBLIC_SMS_ALLOWED_SENDERS (comma-separated) or
+ * app.config `extra.smsAllowedSenders`. Defaults to the two TelePoint numbers.
+ * The device also checks the customer code in the message, but this allowlist is
+ * the real gate — keep these numbers private.
+ */
+export const SMS_ALLOWED_SENDERS: string = (
+  (process.env.EXPO_PUBLIC_SMS_ALLOWED_SENDERS as string) ||
+  (Constants.expoConfig?.extra?.smsAllowedSenders as string) ||
+  '7003617029,7003617074'
+);
+
+export const FRP_PROTECTION_ACCOUNTS: string[] = (
+  (process.env.EXPO_PUBLIC_FRP_ACCOUNTS as string) ||
+  (Constants.expoConfig?.extra?.frpAccounts as string) ||
+  ''
+)
+  .split(',')
+  .map((s) => s.trim())
+  .filter((s) => s.length > 0);
+
 export const STORAGE_KEYS = {
   SESSION: '@telepoint_customer_session',
   TOKEN: '@telepoint_push_token_meta',

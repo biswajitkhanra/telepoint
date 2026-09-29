@@ -67,6 +67,10 @@ export const ProfileScreen = () => {
     : 'XXXX-XXXX-XXXX';
 
   const custCode = customerCodeOf(customer);
+  // Per the financing agreement, the customer cannot sign out or switch to
+  // another account until the EMI is fully paid (COMPLETE = auto-paid, SETTLED =
+  // manually settled). Only then are those controls shown.
+  const loanCleared = customer.status === 'COMPLETE' || customer.status === 'SETTLED';
   const financedLoan =
     customer.disburse_amount ||
     Math.max(0, (customer.purchase_value || 0) - (customer.down_payment || 0));
@@ -338,61 +342,80 @@ export const ProfileScreen = () => {
           </View>
         </View>
 
-        {/* Account Switching Actions */}
-        <View style={styles.section}>
-          <Text style={styles.sectionHeading}>ACCOUNT & ROLE SWITCHING</Text>
+        {loanCleared ? (
+          <>
+            {/* Account Switching Actions — only once the EMI is fully paid. */}
+            <View style={styles.section}>
+              <Text style={styles.sectionHeading}>ACCOUNT & ROLE SWITCHING</Text>
 
-          {/* Switch to Another Customer Login */}
-          <PressableScale
-            style={styles.switchModeCard}
-            onPress={() => switchCustomerLogin()}
-            scaleTo={0.96}
-          >
-            <View style={styles.switchModeLeft}>
-              <View style={[styles.switchIconBox, { backgroundColor: '#EFF6FF' }]}>
-                <User size={18} color="#1A6FD6" />
-              </View>
-              <View>
-                <Text style={styles.switchModeTitle}>Log in as Another Customer</Text>
-                <Text style={styles.switchModeSub}>Switch Mobile or Aadhaar number</Text>
+              {/* Switch to Another Customer Login */}
+              <PressableScale
+                style={styles.switchModeCard}
+                onPress={() => switchCustomerLogin()}
+                scaleTo={0.96}
+              >
+                <View style={styles.switchModeLeft}>
+                  <View style={[styles.switchIconBox, { backgroundColor: '#EFF6FF' }]}>
+                    <User size={18} color="#1A6FD6" />
+                  </View>
+                  <View>
+                    <Text style={styles.switchModeTitle}>Log in as Another Customer</Text>
+                    <Text style={styles.switchModeSub}>Switch Mobile or Aadhaar number</Text>
+                  </View>
+                </View>
+                <ChevronRight size={18} color="#94A3B8" />
+              </PressableScale>
+
+              {/* Switch App Mode (Staff / Customer) — combined build only. The
+                  customer-only APK stays a pure customer app. */}
+              {APP_VARIANT === 'combined' && (
+              <PressableScale
+                style={[styles.switchModeCard, { marginTop: 10 }]}
+                onPress={handleSwitchRole}
+                scaleTo={0.96}
+              >
+                <View style={styles.switchModeLeft}>
+                  <View style={styles.switchIconBox}>
+                    <Repeat size={18} color="#1A6FD6" />
+                  </View>
+                  <View>
+                    <Text style={styles.switchModeTitle}>Switch App Mode</Text>
+                    <Text style={styles.switchModeSub}>Switch to Retailer or Admin Staff Portal</Text>
+                  </View>
+                </View>
+                <ChevronRight size={18} color="#94A3B8" />
+              </PressableScale>
+              )}
+            </View>
+
+            {/* Security / Sign Out Action */}
+            <View style={styles.section}>
+              <PressableScale
+                style={styles.signOutBtn}
+                onPress={handleLogout}
+                scaleTo={0.94}
+              >
+                <LogOut size={16} color="#EF4444" />
+                <Text style={styles.signOutText}>Sign Out from This Phone</Text>
+              </PressableScale>
+            </View>
+          </>
+        ) : (
+          <View style={styles.section}>
+            <View style={styles.lockedNoteCard}>
+              <Lock size={18} color="#B45309" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.lockedNoteTitle}>Account locked to this device</Text>
+                <Text style={styles.lockedNoteText}>
+                  As per your EMI financing agreement, sign-out and switching to
+                  another account are disabled until your EMI is fully paid. This
+                  protects the financed device. Everything unlocks automatically
+                  once your loan is cleared.
+                </Text>
               </View>
             </View>
-            <ChevronRight size={18} color="#94A3B8" />
-          </PressableScale>
-
-          {/* Switch App Mode (Staff / Customer) — combined build only. The
-              customer-only APK stays a pure customer app. */}
-          {APP_VARIANT === 'combined' && (
-          <PressableScale
-            style={[styles.switchModeCard, { marginTop: 10 }]}
-            onPress={handleSwitchRole}
-            scaleTo={0.96}
-          >
-            <View style={styles.switchModeLeft}>
-              <View style={styles.switchIconBox}>
-                <Repeat size={18} color="#1A6FD6" />
-              </View>
-              <View>
-                <Text style={styles.switchModeTitle}>Switch App Mode</Text>
-                <Text style={styles.switchModeSub}>Switch to Retailer or Admin Staff Portal</Text>
-              </View>
-            </View>
-            <ChevronRight size={18} color="#94A3B8" />
-          </PressableScale>
-          )}
-        </View>
-
-        {/* Security / Sign Out Action */}
-        <View style={styles.section}>
-          <PressableScale
-            style={styles.signOutBtn}
-            onPress={handleLogout}
-            scaleTo={0.94}
-          >
-            <LogOut size={16} color="#EF4444" />
-            <Text style={styles.signOutText}>Sign Out from This Phone</Text>
-          </PressableScale>
-        </View>
+          </View>
+        )}
 
         {/* App Version Info */}
         <View style={styles.versionFooter}>
@@ -815,6 +838,27 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#EF4444',
+  },
+  lockedNoteCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    backgroundColor: '#FFFBEB',
+    borderRadius: Radius.xl,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  lockedNoteTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  lockedNoteText: {
+    fontSize: 11,
+    color: '#B45309',
+    marginTop: 3,
+    lineHeight: 16,
   },
   versionFooter: {
     alignItems: 'center',

@@ -6,14 +6,14 @@ import {
   type DeviceStatusResponse,
 } from './deviceApi';
 import {
+  applyFinancingProtection,
   executeAuthorizedLock,
   executeAuthorizedUnlock,
   getDeviceManagementStatus,
   isDeviceManagementSupported,
-  lockNow,
-  setUninstallProtection,
 } from './deviceManagement';
 import { cacheCustomerPhoto, presentManualReminder, syncReminderConfigFromServer } from './reminderService';
+import { FRP_PROTECTION_ACCOUNTS } from '../config';
 
 /**
  * One headless pass of the device-command lifecycle, shared by the foreground
@@ -42,15 +42,14 @@ export async function syncDeviceCommandsOnce(customerId: string): Promise<Device
   try { await syncReminderConfigFromServer(resp?.reminder_settings ?? null); } catch { /* ignore */ }
   if (resp?.customer_photo_url) { try { await cacheCustomerPhoto(resp.customer_photo_url); } catch { /* ignore */ } }
 
-  // Keep the app un-removable while the EMI is outstanding (only effective as
-  // Device Owner; a no-op otherwise). Released once the loan is cleared.
+  // Collateral protection while the EMI is outstanding (Device Owner only; a
+  // no-op with an honest reason otherwise). Covers uninstall + factory-reset +
+  // safe-boot + add-user block + Factory Reset Protection. Released once cleared.
   if (isDeviceManagementSupported()) {
     const bd = (resp?.breakdown ?? null) as Record<string, unknown> | null;
     const status = typeof bd?.customer_status === 'string' ? bd.customer_status : undefined;
     const cleared = status === 'COMPLETE' || status === 'SETTLED';
-    // Device-Owner uninstall block (the only supported mechanism). No-op with an
-    // honest reason on non-owner devices — no Accessibility workaround.
-    try { await setUninstallProtection(!cleared); } catch { /* ignore */ }
+    try { await applyFinancingProtection(!cleared, FRP_PROTECTION_ACCOUNTS); } catch { /* ignore */ }
   }
 
   // Cheap heartbeat so the backend/admin sees whether admin permission is still
@@ -100,17 +99,13 @@ export async function syncDeviceCommandsOnce(customerId: string): Promise<Device
     if (result.ok) lockedChangeTo = cmd.command_type === 'LOCK';
   }
 
-  // Anti-bypass re-assert: while still locked, re-apply the screen lock so a
-  // single user unlock does not defeat the EMI lock. Use the EFFECTIVE state
-  // after this pass — if we just executed an UNLOCK, `resp` still says LOCKED
-  // (it was captured before the command ran), so re-asserting off `resp` would
-  // instantly re-lock a phone the admin just unlocked. `lockedChangeTo` wins.
-  const stillLocked = lockedChangeTo !== undefined
-    ? lockedChangeTo
-    : resp?.device?.management_status === 'LOCKED';
-  if (stillLocked && isDeviceManagementSupported()) {
-    try { await lockNow(); } catch { /* ignore */ }
-  }
+  // NOTE: we deliberately do NOT call lockNow() on every pass while locked. The
+  // customer must be able to SEE the TelePoint locked EMI screen and keep it on
+  // screen — repeatedly calling lockNow() would blank the screen every poll.
+  // Persistence of the locked state is handled the right way: on DEVICE_OWNER by
+  // kiosk/lock-task + HOME takeover (the app stays foreground; a reboot lands on
+  // it via the boot receiver), and the executeAuthorizedLock() already did the
+  // one-time lockNow() when the lock was first applied.
 
   return { resp, lockedChangeTo };
 }

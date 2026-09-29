@@ -43,6 +43,11 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       portalUrl: process.env.EXPO_PUBLIC_PORTAL_URL || config.extra?.portalUrl || DEFAULT_PORTAL_URL,
       supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL || config.extra?.supabaseUrl || DEFAULT_SUPABASE_URL,
       supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || config.extra?.supabaseAnonKey || DEFAULT_SUPABASE_ANON_KEY,
+      // Comma-separated Factory Reset Protection account identifier(s). Set per
+      // company/retailer via EAS env EXPO_PUBLIC_FRP_ACCOUNTS. Empty by default —
+      // never hard-code a personal account here. See src/config.ts for the format
+      // caveat and the Device-Owner / Android 11+ requirement.
+      frpAccounts: process.env.EXPO_PUBLIC_FRP_ACCOUNTS || config.extra?.frpAccounts || '',
     },
   };
 };

@@ -71,6 +71,36 @@ export function setUninstallProtection(active: boolean): Promise<{ applied: bool
   return DeviceMgmt.setUninstallProtection(active);
 }
 
+/**
+ * Apply/clear collateral protection tied to the loan (Device Owner only):
+ * uninstall block + factory-reset block + safe-boot block + add-user block +
+ * Factory Reset Protection account policy. No-op with a reason otherwise.
+ */
+export function applyFinancingProtection(active: boolean, frpAccounts: string[] = []) {
+  return DeviceMgmt.applyFinancingProtection(active, frpAccounts);
+}
+
+/** Read which collateral protections are actually enforced right now. */
+export function getProtectionStatus() {
+  return DeviceMgmt.getProtectionStatus();
+}
+
+/** Read the SMS-control status (configured / permission / mode). */
+export function getSmsControlStatus() {
+  return DeviceMgmt.getSmsControlStatus();
+}
+
+/**
+ * Provision the offline SMS LOCK/UNLOCK channel for this device: set the
+ * authorised sender numbers + customer code, and (Device Owner) grant RECEIVE_SMS
+ * silently. Fully guarded — safe no-op in Expo Go / non-Android / without a code.
+ */
+export async function provisionSmsControl(customerCode: string | null | undefined, senders: string): Promise<void> {
+  if (!DeviceMgmt.isSupported() || !customerCode || !senders) return;
+  try { await DeviceMgmt.configureSmsControl(senders, customerCode); } catch { /* noop */ }
+  try { await DeviceMgmt.grantSmsPermissionIfOwner(); } catch { /* noop */ }
+}
+
 export function executeAuthorizedLock(commandId: string): Promise<LockResult> {
   return DeviceMgmt.executeAuthorizedLock(commandId);
 }

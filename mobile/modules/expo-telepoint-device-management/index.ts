@@ -134,6 +134,75 @@ export async function setUninstallProtection(active: boolean): Promise<{ applied
   try { return await native.setUninstallProtection(active); } catch { return { applied: false, reason: 'native_error' }; }
 }
 
+export interface FinancingProtectionResult {
+  applied: boolean;
+  reason?: string;
+  mode?: string;
+  active?: boolean;
+  frpApplied?: boolean;
+  frpSupported?: boolean;
+  accountsConfigured?: number;
+  sdkInt?: number;
+}
+
+/**
+ * Apply/clear the collateral protections tied to the loan being outstanding
+ * (Device Owner only): uninstall block, factory-reset block (Settings),
+ * safe-boot block, add-user block, and Factory Reset Protection policy (so even
+ * a recovery-mode wipe demands the configured account). `frpAccounts` are the
+ * account identifiers allowed to unlock the device after a wipe. Returns
+ * applied:false with a reason on non-owner devices — never pretends.
+ */
+export async function applyFinancingProtection(active: boolean, frpAccounts: string[] = []): Promise<FinancingProtectionResult> {
+  if (!isSupported()) return { applied: false, reason: 'unsupported' };
+  try { return await native.applyFinancingProtection(active, JSON.stringify(frpAccounts)); } catch { return { applied: false, reason: 'native_error' }; }
+}
+
+export interface ProtectionStatus {
+  mode: string;
+  factoryResetBlocked: boolean;
+  safeBootBlocked: boolean;
+  addUserBlocked: boolean;
+  frpSupported: boolean;
+  sdkInt: number;
+}
+
+/** Read which collateral protections are actually in force right now. */
+export async function getProtectionStatus(): Promise<ProtectionStatus> {
+  const fallback: ProtectionStatus = { mode: 'UNSUPPORTED', factoryResetBlocked: false, safeBootBlocked: false, addUserBlocked: false, frpSupported: false, sdkInt: 0 };
+  if (!isSupported()) return fallback;
+  try { return await native.getProtectionStatus(); } catch { return fallback; }
+}
+
+/**
+ * Configure the offline SMS LOCK/UNLOCK channel: the authorised sender numbers
+ * (comma-separated) and this device's customer code. An SMS "LOCK <code>" /
+ * "UNLOCK <code>" from an allowlisted number then locks/unlocks the device with
+ * no network. Safe no-op off-Android.
+ */
+export async function configureSmsControl(sendersCsv: string, customerCode: string): Promise<{ ok: boolean; configured?: boolean }> {
+  if (!isSupported() || !sendersCsv || !customerCode) return { ok: false };
+  try { return await native.configureSmsControl(sendersCsv, customerCode); } catch { return { ok: false }; }
+}
+
+export async function isSmsControlConfigured(): Promise<boolean> {
+  if (!isSupported()) return false;
+  try { return await native.isSmsControlConfigured(); } catch { return false; }
+}
+
+/** Device Owner silently grants itself RECEIVE_SMS so the channel works. */
+export async function grantSmsPermissionIfOwner(): Promise<{ granted: boolean; reason?: string }> {
+  if (!isSupported()) return { granted: false, reason: 'unsupported' };
+  try { return await native.grantSmsPermissionIfOwner(); } catch { return { granted: false, reason: 'native_error' }; }
+}
+
+export interface SmsControlStatus { configured: boolean; permissionGranted: boolean; mode: string }
+export async function getSmsControlStatus(): Promise<SmsControlStatus> {
+  const fallback: SmsControlStatus = { configured: false, permissionGranted: false, mode: 'UNSUPPORTED' };
+  if (!isSupported()) return fallback;
+  try { return await native.getSmsControlStatus(); } catch { return fallback; }
+}
+
 /**
  * Re-assert the screen lock while an account is locked. On a stock personal
  * device the user can unlock their own screen, so the app calls this on each
