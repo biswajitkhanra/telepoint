@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 import { staffFromRequest, writeDeviceAudit } from '@/lib/deviceServer';
+import { pushToCustomer } from '@/lib/push';
 import { COMMAND_TTL_MS, pendingStatusFor, auditAction } from '@/lib/deviceCommands';
 import type { DeviceCommandType } from '@/lib/types';
 
@@ -122,6 +123,16 @@ export async function POST(req: NextRequest) {
     device_id: device.id,
     command_id: command.id,
     metadata: { reason, emi_amount: emiAmount },
+  });
+
+  // Wake the customer's app with a real push so the command is applied promptly
+  // even if the app is closed. Best-effort — never blocks the response.
+  await pushToCustomer(svc, customerId, {
+    title: 'TelePoint',
+    body: commandType === 'LOCK'
+      ? 'Your device has been locked for an overdue EMI. Please pay your dues to unlock.'
+      : 'Your device has been unlocked.',
+    data: { type: 'device_command', command_type: commandType },
   });
 
   return NextResponse.json({ command_id: command.id, status: command.status, expires_at: command.expires_at });

@@ -91,11 +91,13 @@ export async function registerPushToken(params: {
 }): Promise<{ success: boolean; tokenId?: string }> {
   const url = `${PORTAL_BASE_URL}/api/customer-app-token/register`;
   try {
+    const session_token = await AsyncStorage.getItem(STORAGE_KEYS.CUSTOMER_SESSION_TOKEN).catch(() => null);
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...params,
+        session_token,
         action: 'register',
       }),
     });
@@ -122,11 +124,13 @@ export async function deactivatePushToken(params: {
 }): Promise<void> {
   const url = `${PORTAL_BASE_URL}/api/customer-app-token/register`;
   try {
+    const session_token = await AsyncStorage.getItem(STORAGE_KEYS.CUSTOMER_SESSION_TOKEN).catch(() => null);
     await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...params,
+        session_token,
         action: 'logout',
       }),
     });

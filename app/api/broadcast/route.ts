@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { pushToCustomer, pushToCustomers } from '@/lib/push';
 
 export async function POST(req: NextRequest) {
   const supabase = createClient();
@@ -48,6 +49,17 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await svc.from('broadcast_messages').insert(insertRow).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Push the broadcast to the target customer(s) so it reaches the phone, not
+  // just the in-app list. Best-effort — never blocks the response.
+  const pushBody = String(message).trim().slice(0, 160);
+  if (customerId) {
+    await pushToCustomer(svc, customerId, { title: senderName, body: pushBody, data: { type: 'broadcast' } });
+  } else if (retailerId) {
+    const { data: custs } = await svc.from('customers').select('id').eq('retailer_id', retailerId);
+    await pushToCustomers(svc, (custs ?? []).map((c: { id: string }) => c.id), { title: senderName, body: pushBody, data: { type: 'broadcast' } });
+  }
+
   return NextResponse.json({ success: true, broadcast: data });
 }
 

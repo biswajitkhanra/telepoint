@@ -123,10 +123,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const firstEmi = sortedEmis[0];
 
   // Payment type selection
-  // Options: 'emi' (Next Due EMI), 'fine' (Late Fine Only), 'first_charge' (1st EMI Charge), 'total' (All Dues), 'first_emi' (1st Installment)
-  const [selectedType, setSelectedType] = useState<
+  // Customer-facing payment: only the FULL outstanding total may be paid — the
+  // customer cannot pick an individual EMI, fine or first-charge. selectedType
+  // is fixed to 'total'.
+  const [selectedType] = useState<
     'emi' | 'fine' | 'first_charge' | 'total' | 'first_emi'
-  >(totalFineRemaining > 0 || firstChargeDue > 0 ? 'total' : 'emi');
+  >('total');
 
   const [copied, setCopied] = useState(false);
   const [utr, setUtr] = useState('');
@@ -275,108 +277,15 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
-            {/* Amount Selection Chips */}
-            <Text style={styles.sectionLabel}>SELECT PAYMENT OPTION</Text>
-            <View style={styles.optionsRow}>
-              {/* Option 1: Next Due EMI */}
-              <PressableScale
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setSelectedType('emi');
-                }}
-                style={[styles.optionChip, selectedType === 'emi' && styles.optionChipActive]}
-                scaleTo={0.93}
-              >
-                <Text style={[styles.optionChipTitle, selectedType === 'emi' && styles.optionChipTextActive]}>
-                  {dueEmis.length > 1 ? `EMIs (${dueEmis.length})` : nextUnpaidEmi ? `EMI #${nextUnpaidEmi.emi_no}` : 'Current EMI'}
-                </Text>
-                <Text style={[styles.optionChipAmount, selectedType === 'emi' && styles.optionChipAmountActive]}>
-                  ₹{emiDue.toLocaleString('en-IN')}
-                </Text>
-                {nextUnpaidEmi?.due_date && (
-                  <Text style={styles.optionChipSub}>Due {nextUnpaidEmi.due_date}</Text>
-                )}
-              </PressableScale>
-
-              {/* Option 2: Overdue Fine (if any) */}
-              {totalFineRemaining > 0 && (
-                <PressableScale
-                  onPress={() => {
-                    Haptics.selectionAsync();
-                    setSelectedType('fine');
-                  }}
-                  style={[styles.optionChip, selectedType === 'fine' && styles.optionChipActiveDanger]}
-                  scaleTo={0.93}
-                >
-                  <Text style={[styles.optionChipTitle, selectedType === 'fine' && styles.optionChipTextDanger]}>
-                    Late Fine
-                  </Text>
-                  <Text style={[styles.optionChipAmount, selectedType === 'fine' && styles.optionChipAmountDanger]}>
-                    ₹{totalFineRemaining.toLocaleString('en-IN')}
-                  </Text>
-                  <Text style={styles.optionChipSubDanger}>Overdue penalty</Text>
-                </PressableScale>
-              )}
-
-              {/* Option 3: 1st EMI Charge (if any) */}
-              {firstChargeDue > 0 && (
-                <PressableScale
-                  onPress={() => {
-                    Haptics.selectionAsync();
-                    setSelectedType('first_charge');
-                  }}
-                  style={[styles.optionChip, selectedType === 'first_charge' && styles.optionChipActiveGold]}
-                  scaleTo={0.93}
-                >
-                  <Text style={[styles.optionChipTitle, selectedType === 'first_charge' && styles.optionChipTextGold]}>
-                    1st Charge
-                  </Text>
-                  <Text style={[styles.optionChipAmount, selectedType === 'first_charge' && styles.optionChipAmountGold]}>
-                    ₹{firstChargeDue.toLocaleString('en-IN')}
-                  </Text>
-                  <Text style={styles.optionChipSub}>One-time fee</Text>
-                </PressableScale>
-              )}
-
-              {/* Option 4: Total Outstanding (EMI + Fine + 1st Charge) */}
-              {(totalFineRemaining > 0 || firstChargeDue > 0) && (
-                <PressableScale
-                  onPress={() => {
-                    Haptics.selectionAsync();
-                    setSelectedType('total');
-                  }}
-                  style={[styles.optionChip, selectedType === 'total' && styles.optionChipActivePrimary]}
-                  scaleTo={0.93}
-                >
-                  <Text style={[styles.optionChipTitle, selectedType === 'total' && styles.optionChipTextPrimary]}>
-                    Total Dues
-                  </Text>
-                  <Text style={[styles.optionChipAmount, selectedType === 'total' && styles.optionChipAmountPrimary]}>
-                    ₹{totalOutstanding.toLocaleString('en-IN')}
-                  </Text>
-                  <Text style={styles.optionChipSub}>All Pending</Text>
-                </PressableScale>
-              )}
-
-              {/* Option 5: 1st EMI Installment */}
-              {firstEmi && (
-                <PressableScale
-                  onPress={() => {
-                    Haptics.selectionAsync();
-                    setSelectedType('first_emi');
-                  }}
-                  style={[styles.optionChip, selectedType === 'first_emi' && styles.optionChipActive]}
-                  scaleTo={0.93}
-                >
-                  <Text style={[styles.optionChipTitle, selectedType === 'first_emi' && styles.optionChipTextActive]}>
-                    1st Installment
-                  </Text>
-                  <Text style={[styles.optionChipAmount, selectedType === 'first_emi' && styles.optionChipAmountActive]}>
-                    ₹{(firstEmi.amount || customer.emi_amount).toLocaleString('en-IN')}
-                  </Text>
-                  <Text style={styles.optionChipSub}>Installment #1</Text>
-                </PressableScale>
-              )}
+            {/* Customer pays the FULL outstanding total only — no picking an
+                individual EMI, fine or first-charge from the customer login. */}
+            <Text style={styles.sectionLabel}>AMOUNT TO PAY</Text>
+            <View style={styles.totalDueCard}>
+              <Text style={styles.totalDueLabel}>TOTAL DUE</Text>
+              <Text style={styles.totalDueAmount}>
+                ₹{(totalOutstanding > 0 ? totalOutstanding : customer.emi_amount).toLocaleString('en-IN')}
+              </Text>
+              <Text style={styles.totalDueSub}>Full outstanding — EMI, fine and any charges included</Text>
             </View>
 
             {/* Dynamic QR Code Surface */}
@@ -558,6 +467,19 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: Spacing.lg,
   },
+  totalDueCard: {
+    backgroundColor: '#EFF5FF',
+    borderRadius: 18,
+    paddingVertical: 20,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#1A6FD6',
+    marginBottom: Spacing.lg,
+  },
+  totalDueLabel: { fontSize: 12, fontWeight: '800', color: '#475569', letterSpacing: 1 },
+  totalDueAmount: { fontSize: 36, fontWeight: '900', color: '#0F172A', marginTop: 4 },
+  totalDueSub: { fontSize: 12, color: '#64748B', marginTop: 4, textAlign: 'center' },
   optionChip: {
     flex: 1,
     minWidth: '45%',

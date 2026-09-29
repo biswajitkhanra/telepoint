@@ -191,7 +191,13 @@ export default function CustomerDetailPanel({ customer, paidCount, totalEmis, is
               and when the customer app is not installed. */}
           {isAdmin && (
             <div className="mt-3">
-              <DeviceManagementPanel customerId={customer.id} isAdmin={isAdmin} />
+              <DeviceManagementPanel
+                customerId={customer.id}
+                isAdmin={isAdmin}
+                isLocked={customer.is_locked || false}
+                deviceName={customer.model_no || 'Device'}
+                onToggled={onLockToggled}
+              />
             </div>
           )}
 

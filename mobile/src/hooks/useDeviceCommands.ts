@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import {
   getInstallationId,
   registerDevice,
@@ -120,7 +121,13 @@ export function useDeviceCommands(customerId: string | null | undefined) {
     const sub = AppState.addEventListener('change', (s: AppStateStatus) => {
       if (s === 'active') tick();
     });
-    return () => { clearInterval(interval); sub.remove(); };
+    // A device-command push wakes the app to sync immediately, so a lock/unlock
+    // applies within moments instead of waiting for the next poll.
+    const notifSub = Notifications.addNotificationReceivedListener((n) => {
+      const type = (n.request?.content?.data as { type?: string } | undefined)?.type;
+      if (type === 'device_command') tick();
+    });
+    return () => { clearInterval(interval); sub.remove(); notifSub.remove(); };
   }, [customerId, tick, info.locked]);
 
   return { ...info, refresh: tick };
