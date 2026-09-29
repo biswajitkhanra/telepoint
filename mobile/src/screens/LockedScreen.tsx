@@ -1,11 +1,13 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Linking, ScrollView } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Linking, ScrollView, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Lock, Phone, RefreshCw, Wifi } from 'lucide-react-native';
 import { Colors } from '../constants/colors';
 import { Spacing, Radius } from '../constants/design';
 import { openInternetPanel } from '../services/deviceManagement';
+import { getCachedPhotoPath } from '../services/reminderService';
+import { useAuth } from '../context/AuthContext';
 
 /**
  * Customer-facing locked experience (spec part 20). Shown when the backend has
@@ -29,6 +31,18 @@ export const LockedScreen = ({
 }) => {
   const amount = emiAmount != null ? `₹${Math.round(emiAmount).toLocaleString('en-IN')}` : '—';
 
+  // Customer photo (Section 7): prefer the OFFLINE-cached file so it shows even
+  // with no network; fall back to the live URL from the session.
+  const { customer } = useAuth();
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    getCachedPhotoPath()
+      .then((p) => { if (!cancelled) setPhotoUri(p || customer?.customer_photo_url || null); })
+      .catch(() => { if (!cancelled) setPhotoUri(customer?.customer_photo_url || null); });
+    return () => { cancelled = true; };
+  }, [customer?.customer_photo_url]);
+
   const callRetailer = () => {
     if (!retailerPhone) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
@@ -39,9 +53,18 @@ export const LockedScreen = ({
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-        <View style={styles.lockBadge}>
-          <Lock size={44} color="#fff" />
-        </View>
+        {photoUri ? (
+          <View style={styles.avatarWrap}>
+            <Image source={{ uri: photoUri }} style={styles.avatar} resizeMode="cover" />
+            <View style={styles.avatarLock}>
+              <Lock size={18} color="#fff" />
+            </View>
+          </View>
+        ) : (
+          <View style={styles.lockBadge}>
+            <Lock size={44} color="#fff" />
+          </View>
+        )}
         <Text style={styles.title}>Device Locked</Text>
         <Text style={styles.subtitle}>EMI payment required</Text>
         {customerName ? <Text style={styles.hello}>Account: {customerName}</Text> : null}
@@ -96,6 +119,9 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bgBase },
   body: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.lg, gap: Spacing.base },
   lockBadge: { width: 92, height: 92, borderRadius: 46, backgroundColor: Colors.danger, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.sm },
+  avatarWrap: { width: 100, height: 100, marginBottom: Spacing.sm },
+  avatar: { width: 100, height: 100, borderRadius: 50, borderWidth: 3, borderColor: Colors.danger, backgroundColor: Colors.bgCard },
+  avatarLock: { position: 'absolute', bottom: 0, right: 0, width: 34, height: 34, borderRadius: 17, backgroundColor: Colors.danger, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: Colors.bgBase },
   title: { fontSize: 26, fontWeight: '800', color: Colors.textPrimary },
   subtitle: { fontSize: 15, fontWeight: '600', color: Colors.danger, marginTop: -Spacing.sm },
   hello: { fontSize: 13, color: Colors.textTertiary },
