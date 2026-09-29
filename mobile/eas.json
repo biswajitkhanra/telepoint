@@ -12,6 +12,51 @@
         "buildType": "apk"
       }
     },
+    "customer": {
+      "distribution": "internal",
+      "channel": "production",
+      "environment": "production",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "TELEPOINT_APP_VARIANT": "customer",
+        "EXPO_PUBLIC_PORTAL_URL": "https://telepoint-topaz.vercel.app",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://tjqigwdivmcyikurpepe.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRqcWlnd2Rpdm1jeWlrdXJwZXBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MTUzMDAsImV4cCI6MjA5NTI5MTMwMH0.c9P4e1c1o73ZmZ_wK1uEHUK_y5a3HS04oYCKKSoJScA",
+        "EAS_BUILD_NO_EXPO_GO_WARNING": "true"
+      }
+    },
+    "admin": {
+      "distribution": "internal",
+      "channel": "production",
+      "environment": "production",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "TELEPOINT_APP_VARIANT": "admin",
+        "EXPO_PUBLIC_PORTAL_URL": "https://telepoint-topaz.vercel.app",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://tjqigwdivmcyikurpepe.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRqcWlnd2Rpdm1jeWlrdXJwZXBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MTUzMDAsImV4cCI6MjA5NTI5MTMwMH0.c9P4e1c1o73ZmZ_wK1uEHUK_y5a3HS04oYCKKSoJScA",
+        "EAS_BUILD_NO_EXPO_GO_WARNING": "true"
+      }
+    },
+    "retailer": {
+      "distribution": "internal",
+      "channel": "production",
+      "environment": "production",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "TELEPOINT_APP_VARIANT": "retailer",
+        "EXPO_PUBLIC_PORTAL_URL": "https://telepoint-topaz.vercel.app",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://tjqigwdivmcyikurpepe.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRqcWlnd2Rpdm1jeWlrdXJwZXBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MTUzMDAsImV4cCI6MjA5NTI5MTMwMH0.c9P4e1c1o73ZmZ_wK1uEHUK_y5a3HS04oYCKKSoJScA",
+        "EAS_BUILD_NO_EXPO_GO_WARNING": "true"
+      }
+    },
     "preview": {
       "distribution": "internal",
       "channel": "preview",
@@ -20,6 +65,10 @@
         "buildType": "apk"
       },
       "env": {
+        "TELEPOINT_APP_VARIANT": "customer",
+        "EXPO_PUBLIC_PORTAL_URL": "https://telepoint-topaz.vercel.app",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://tjqigwdivmcyikurpepe.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRqcWlnd2Rpdm1jeWlrdXJwZXBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MTUzMDAsImV4cCI6MjA5NTI5MTMwMH0.c9P4e1c1o73ZmZ_wK1uEHUK_y5a3HS04oYCKKSoJScA",
         "EAS_BUILD_NO_EXPO_GO_WARNING": "true"
       }
     },
@@ -31,6 +80,10 @@
         "buildType": "apk"
       },
       "env": {
+        "TELEPOINT_APP_VARIANT": "customer",
+        "EXPO_PUBLIC_PORTAL_URL": "https://telepoint-topaz.vercel.app",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://tjqigwdivmcyikurpepe.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRqcWlnd2Rpdm1jeWlrdXJwZXBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MTUzMDAsImV4cCI6MjA5NTI5MTMwMH0.c9P4e1c1o73ZmZ_wK1uEHUK_y5a3HS04oYCKKSoJScA",
         "EAS_BUILD_NO_EXPO_GO_WARNING": "true"
       }
     }

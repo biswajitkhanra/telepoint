@@ -37,6 +37,7 @@ import { TelepointLogo } from '../components/TelepointLogo';
 import { MultiLoanCustomer } from '../types';
 import { Colors } from '../constants/colors';
 import { Spacing, Radius, Shadow } from '../constants/design';
+import { APP_VARIANT } from '../config';
 
 export const LoginScreen = () => {
   const insets = useSafeAreaInsets();
@@ -132,7 +133,9 @@ export const LoginScreen = () => {
           <View style={styles.orbTopLeft} pointerEvents="none" />
           <View style={styles.orbBottomRight} pointerEvents="none" />
 
-          {/* Top Switch to Staff Portal Pill */}
+          {/* Top Switch to Staff Portal Pill — combined build only. The
+              customer-only APK never exposes the staff login. */}
+          {APP_VARIANT === 'combined' && (
           <View style={styles.topSwitchRoleContainer}>
             <TouchableOpacity
               activeOpacity={0.8}
@@ -146,6 +149,7 @@ export const LoginScreen = () => {
               <Text style={styles.topRoleSwitchPillText}>Staff or Store Owner? Login here ➔</Text>
             </TouchableOpacity>
           </View>
+          )}
 
           {/* Brand Header */}
           <View style={styles.header}>
@@ -307,7 +311,8 @@ export const LoginScreen = () => {
             </View>
           </View>
 
-          {/* Mode Switcher Option (For Staff / Admins) */}
+          {/* Mode Switcher Option (For Staff / Admins) — combined build only. */}
+          {APP_VARIANT === 'combined' && (
           <TouchableOpacity
             activeOpacity={0.8}
             style={styles.switchStaffBtn}
@@ -321,6 +326,7 @@ export const LoginScreen = () => {
               Are you a Store Retailer or Super Admin? Open Staff Login →
             </Text>
           </TouchableOpacity>
+          )}
 
           {/* Footer note with fixed central helpline */}
           <View style={styles.footerNote}>

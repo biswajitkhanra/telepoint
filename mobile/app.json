@@ -45,10 +45,13 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "aec8f345-520f-41b7-bead-08a1177a2466"
+        "projectId": "a6c55e9c-1b8f-47b2-8faf-6dfc33c11fef"
       },
-      "portalUrl": "https://telepoint-topaz.vercel.app"
+      "portalUrl": "https://telepoint-topaz.vercel.app",
+      "appVariant": "customer",
+      "supabaseUrl": "https://tjqigwdivmcyikurpepe.supabase.co",
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRqcWlnd2Rpdm1jeWlrdXJwZXBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MTUzMDAsImV4cCI6MjA5NTI5MTMwMH0.c9P4e1c1o73ZmZ_wK1uEHUK_y5a3HS04oYCKKSoJScA"
     },
-    "owner": "biswajitkha"
+    "owner": "biswajitkhas-team"
   }
 }

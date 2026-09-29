@@ -7,53 +7,83 @@ import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '../config';
 import { EMIScheduleItem } from '../types';
+import { syncDeviceCommandsOnce } from './deviceSync';
 
 export const EMI_CHECK_TASK = 'TELEPOINT_EMI_DUE_CHECK';
 
-TaskManager.defineTask(EMI_CHECK_TASK, async () => {
+/**
+ * Best-effort device-command delivery from the background-fetch window, so an
+ * authorised LOCK/UNLOCK still reaches the device when the app is not open.
+ * Foreground delivery is handled by useDeviceCommands; this is the closed-app
+ * safety net (subject to Android's background-fetch throttling). Never throws.
+ */
+async function runDeviceCommandSync(): Promise<boolean> {
   try {
     const rawSession = await AsyncStorage.getItem(STORAGE_KEYS.SESSION);
-    if (!rawSession) return BackgroundFetch.BackgroundFetchResult.NoData;
+    if (!rawSession) return false;
+    const customerId = JSON.parse(rawSession)?.customer?.id;
+    if (typeof customerId !== 'string' || !customerId) return false;
+    const { lockedChangeTo } = await syncDeviceCommandsOnce(customerId);
+    return lockedChangeTo !== undefined;
+  } catch {
+    return false;
+  }
+}
 
-    const parsed = JSON.parse(rawSession);
-    const emis: EMIScheduleItem[] = parsed.emis || [];
+/** EMI due-date reminder pass. Returns true if a notification was scheduled. */
+async function runEmiReminder(): Promise<boolean> {
+  const rawSession = await AsyncStorage.getItem(STORAGE_KEYS.SESSION);
+  if (!rawSession) return false;
 
-    // Find next unpaid EMI
-    const unpaid = emis.find(
-      e => e.status === 'pending' || e.status === 'UNPAID' || (e.status !== 'collected' && e.status !== 'APPROVED')
-    );
+  const parsed = JSON.parse(rawSession);
+  const emis: EMIScheduleItem[] = parsed.emis || [];
 
-    if (!unpaid || !unpaid.due_date) return BackgroundFetch.BackgroundFetchResult.NoData;
+  // Find next unpaid EMI
+  const unpaid = emis.find(
+    e => e.status === 'pending' || e.status === 'UNPAID' || (e.status !== 'collected' && e.status !== 'APPROVED')
+  );
 
-    const due = new Date(unpaid.due_date);
-    const now = new Date();
-    const diffTime = due.getTime() - now.getTime();
-    const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  if (!unpaid || !unpaid.due_date) return false;
 
-    if (daysLeft >= 0 && daysLeft <= 5) {
-      const title =
-        daysLeft === 0
-          ? '⚠️ Telepoint EMI Due Today!'
-          : `🔔 Telepoint EMI Due in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`;
+  const due = new Date(unpaid.due_date);
+  const now = new Date();
+  const diffTime = due.getTime() - now.getTime();
+  const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-      const body = `Your installment of ₹${unpaid.amount.toLocaleString(
-        'en-IN'
-      )} is due on ${unpaid.due_date}. Tap to view your schedule.`;
+  if (daysLeft >= 0 && daysLeft <= 5) {
+    const title =
+      daysLeft === 0
+        ? '⚠️ Telepoint EMI Due Today!'
+        : `🔔 Telepoint EMI Due in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`;
 
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title,
-          body,
-          data: { screen: 'EmiSchedule' },
-          sound: 'default',
-        },
-        trigger: null, // fire immediately
-      });
+    const body = `Your installment of ₹${unpaid.amount.toLocaleString(
+      'en-IN'
+    )} is due on ${unpaid.due_date}. Tap to view your schedule.`;
 
-      return BackgroundFetch.BackgroundFetchResult.NewData;
-    }
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title,
+        body,
+        data: { screen: 'EmiSchedule' },
+        sound: 'default',
+      },
+      trigger: null, // fire immediately
+    });
+    return true;
+  }
+  return false;
+}
 
-    return BackgroundFetch.BackgroundFetchResult.NoData;
+TaskManager.defineTask(EMI_CHECK_TASK, async () => {
+  try {
+    // Deliver any authorised device LOCK/UNLOCK first (closed-app safety net),
+    // then run the EMI reminder. Both are independent and best-effort.
+    const didDeviceWork = await runDeviceCommandSync();
+    const didNotify = await runEmiReminder();
+
+    return (didDeviceWork || didNotify)
+      ? BackgroundFetch.BackgroundFetchResult.NewData
+      : BackgroundFetch.BackgroundFetchResult.NoData;
   } catch (err) {
     console.warn('[emiCheckTask] Execution failed:', err);
     return BackgroundFetch.BackgroundFetchResult.Failed;
@@ -65,7 +95,10 @@ export async function registerEMICheckTask() {
     const isRegistered = await TaskManager.isTaskRegisteredAsync(EMI_CHECK_TASK);
     if (!isRegistered) {
       await BackgroundFetch.registerTaskAsync(EMI_CHECK_TASK, {
-        minimumInterval: 60 * 60 * 8, // Every 8 hours
+        // 15 min is Android's practical floor; the OS throttles further based on
+        // usage. Kept short (was 8h) so an authorised device lock/unlock reaches
+        // a closed app within a reasonable window, not hours later.
+        minimumInterval: 15 * 60,
         stopOnTerminate: false,        // Survive app termination
         startOnBoot: true,             // Resume after reboot
       });

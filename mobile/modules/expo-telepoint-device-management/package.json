@@ -1,0 +1,7 @@
+{
+  "name": "expo-telepoint-device-management",
+  "version": "1.0.0",
+  "description": "Consent-based EMI device management bridge (Android DevicePolicyManager) for TelePoint.",
+  "main": "index.ts",
+  "private": true
+}

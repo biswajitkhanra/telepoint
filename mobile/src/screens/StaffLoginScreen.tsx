@@ -36,7 +36,8 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { TelepointLogo } from '../components/TelepointLogo';
 import { PressableScale } from '../components/PressableScale';
-import { PORTAL_BASE_URL } from '../config';
+import { APP_VARIANT, PORTAL_BASE_URL } from '../config';
+import { signInStaff } from '../services/staffSession';
 import { Colors } from '../constants/colors';
 import { Spacing, Radius } from '../constants/design';
 
@@ -84,86 +85,27 @@ export const StaffLoginScreen = () => {
     const cleanUser = username.trim();
 
     try {
-      // Tier 1: Dedicated mobile staff-login endpoint
-      let authenticated = false;
-      let staffName = cleanUser;
-      let retailerId: string | undefined = undefined;
+      // Map the entered username to the TelePoint Supabase Auth email scheme.
+      const u = cleanUser.toLowerCase();
+      const email =
+        activeTab === 'admin'
+          ? (u === 'telepoint' || u === 'admin' ? 'telepoint@admin.local' : `${u}@admin.local`)
+          : `${u}@tele.local`;
 
-      try {
-        const res = await fetch(`${PORTAL_BASE_URL}/api/mobile/staff-login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            role: activeTab,
-            username: cleanUser,
-            password,
-          }),
-        });
-
-        const contentType = res.headers.get('content-type') || '';
-        if (res.ok && contentType.includes('application/json')) {
-          const data = await res.json();
-          if (data.success) {
-            authenticated = true;
-            staffName = data.retailer?.name || data.user?.name || cleanUser;
-            retailerId = data.retailer?.id || data.user?.retailer_id;
-          }
-        }
-      } catch {
-        // Fall through to Tier 2
+      // Verified sign-in against the EXISTING TelePoint Supabase Auth.
+      // SECURITY: the previous hard-coded project key and the "resilient"
+      // no-password fallback (which let anyone in as admin/retailer) have been
+      // removed. A wrong password now fails, as it must.
+      const result = await signInStaff(email, password);
+      if (!result.ok) {
+        throw new Error(result.error || 'Incorrect username or password. Please verify credentials.');
       }
 
-      // Tier 2: Direct Supabase Authentication
-      if (!authenticated) {
-        const email =
-          activeTab === 'admin'
-            ? ({ TELEPOINT: 'telepoint@admin.local', telepoint: 'telepoint@admin.local' }[cleanUser] ??
-              `${cleanUser.toLowerCase()}@admin.local`)
-            : `${cleanUser.toLowerCase()}@tele.local`;
-
-        const SUPABASE_URL = 'https://tjqigwdivmcyikurpepe.supabase.co';
-        const SUPABASE_KEY =
-          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRqcWlnd2Rpdm1jeWlrdXJwZXBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MTUzMDAsImV4cCI6MjA5NTI5MTMwMH0.c9P4e1c1o73ZmZ_wK1uEHUK_y5a3HS04oYCKKSoJScA';
-
-        const authRes = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            apikey: SUPABASE_KEY,
-            Authorization: `Bearer ${SUPABASE_KEY}`,
-          },
-          body: JSON.stringify({ email, password }),
-        }).catch(() => null);
-
-        if (authRes && authRes.ok) {
-          const authData = await authRes.json().catch(() => ({}));
-          if (authData.user) {
-            authenticated = true;
-            staffName = cleanUser;
-          }
-        }
-      }
-
-      // Tier 3: Resilient Staff Access Verification
-      // Ensures store owner or admin is never locked out on device
-      if (!authenticated) {
-        const u = cleanUser.toLowerCase();
-        const isAdminCred = activeTab === 'admin' && (u === 'telepoint' || u === 'admin' || u.includes('admin'));
-        const isRetailerCred = activeTab === 'retailer' && cleanUser.length >= 2;
-
-        if (isAdminCred || isRetailerCred) {
-          authenticated = true;
-          staffName = activeTab === 'admin' ? 'Super Admin' : cleanUser;
-        }
-      }
-
-      if (!authenticated) {
-        throw new Error('Incorrect username or password. Please verify credentials.');
-      }
-
+      // Role is confirmed server-side on every subsequent API call (the device
+      // routes re-check role + ownership); this only sets the local UI mode.
       await loginStaff(activeTab, cleanUser, password, {
-        name: staffName,
-        retailerId,
+        name: cleanUser,
+        retailerId: undefined,
       });
     } catch (err: any) {
       setError(err?.message || 'Authentication failed. Please verify credentials.');
@@ -191,8 +133,10 @@ export const StaffLoginScreen = () => {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Top Quick Back to Customer Bar */}
+          {/* Top Quick Back to Customer Bar — combined build only. The
+              retailer/admin-only APK never offers the customer login. */}
           <View style={styles.topBar}>
+            {APP_VARIANT === 'combined' && (
             <PressableScale
               onPress={handleBackToCustomer}
               style={styles.backToCustomerBtn}
@@ -201,6 +145,7 @@ export const StaffLoginScreen = () => {
               <ArrowLeft size={15} color="#2563EB" />
               <Text style={styles.backToCustomerText}>← Back to Customer Login</Text>
             </PressableScale>
+            )}
 
             <View style={styles.secureTag}>
               <Lock size={12} color="#64748B" />
@@ -367,7 +312,8 @@ export const StaffLoginScreen = () => {
             </PressableScale>
           </View>
 
-          {/* Switch Back to Customer Mode Footer Card */}
+          {/* Switch Back to Customer Mode Footer Card — combined build only. */}
+          {APP_VARIANT === 'combined' && (
           <PressableScale
             onPress={handleBackToCustomer}
             style={styles.customerSwitchCard}
@@ -382,6 +328,7 @@ export const StaffLoginScreen = () => {
             </View>
             <ChevronRight size={16} color="#94A3B8" />
           </PressableScale>
+          )}
 
           <View style={styles.footerNote}>
             <Sparkles size={12} color="#64748B" />

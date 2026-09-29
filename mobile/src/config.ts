@@ -17,6 +17,33 @@ export const PORTAL_BASE_URL =
   Constants.expoConfig?.extra?.portalUrl ||
   'https://telepoint-topaz.vercel.app';
 
+/**
+ * Supabase project URL + ANON (publishable) key. The anon key is safe to ship
+ * in the client — RLS enforces access. The service-role key must NEVER appear
+ * here. Configure via EAS/EXPO_PUBLIC env or app.config `extra`.
+ */
+export const SUPABASE_URL =
+  process.env.EXPO_PUBLIC_SUPABASE_URL ||
+  Constants.expoConfig?.extra?.supabaseUrl ||
+  '';
+
+export const SUPABASE_ANON_KEY =
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
+  Constants.expoConfig?.extra?.supabaseAnonKey ||
+  '';
+
+/**
+ * Which single-purpose build this is:
+ *   'customer' → only the customer login is shown (com.telepoint.customer)
+ *   'retailer' → only the staff (admin/retailer) login is shown (com.telepoint.retailer)
+ *   'combined' → both, via the role-selection screen (dev / one-binary default)
+ * Set by app.config.ts from TELEPOINT_APP_VARIANT.
+ */
+export const APP_VARIANT: 'customer' | 'retailer' | 'combined' =
+  ((process.env.EXPO_PUBLIC_APP_VARIANT as string) ||
+    (Constants.expoConfig?.extra?.appVariant as string) ||
+    'combined') as 'customer' | 'retailer' | 'combined';
+
 export const STORAGE_KEYS = {
   SESSION: '@telepoint_customer_session',
   TOKEN: '@telepoint_push_token_meta',

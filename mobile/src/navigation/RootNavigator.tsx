@@ -15,13 +15,48 @@ import { DashboardScreen } from '../screens/DashboardScreen';
 import { EmiScheduleScreen } from '../screens/EmiScheduleScreen';
 import { PaymentHistoryScreen } from '../screens/PaymentHistoryScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { DeviceManagementScreen } from '../screens/DeviceManagementScreen';
+import { LockedScreen } from '../screens/LockedScreen';
 import { BottomTabBar } from '../components/BottomTabBar';
 import { setupNotificationResponseListener } from '../services/notifications';
 import { registerEMICheckTask } from '../services/emiCheckTask';
+import { useDeviceCommands } from '../hooks/useDeviceCommands';
+import { APP_VARIANT } from '../config';
 import { Colors } from '../constants/colors';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
+
+const CustomerStack = createNativeStackNavigator();
+
+/**
+ * Customer root once logged in. Mounts the device-command listener; when the
+ * backend has CONFIRMED a lock, the locked EMI screen takes over the whole
+ * customer surface. Otherwise the normal tabs + the Device Management screen.
+ */
+function CustomerRoot() {
+  const { customer } = useAuth();
+  const dc = useDeviceCommands(customer?.id);
+
+  if (dc.locked) {
+    return (
+      <LockedScreen
+        emiAmount={dc.emiAmount}
+        retailerName={dc.retailerName}
+        retailerPhone={dc.retailerPhone}
+        customerName={dc.customerName}
+        onRefresh={dc.refresh}
+      />
+    );
+  }
+
+  return (
+    <CustomerStack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+      <CustomerStack.Screen name="MainTabs" component={MainTabs} />
+      <CustomerStack.Screen name="DeviceManagement" component={DeviceManagementScreen} />
+    </CustomerStack.Navigator>
+  );
+}
 
 function MainTabs() {
   return (
@@ -92,18 +127,27 @@ export const RootNavigator = () => {
     );
   }
 
+  // Single-purpose builds: the customer APK only ever shows the customer login;
+  // the retailer/admin APK only ever shows the staff login. The role-selection
+  // screen is used only by the "combined" (dev) build. This is unlike the web,
+  // where one deployment serves every role.
+  const forcedRole: 'customer' | 'staff' | null =
+    APP_VARIANT === 'customer' ? 'customer'
+      : APP_VARIANT === 'retailer' ? 'staff'
+        : deviceRole;
+
   return (
     <NavigationContainer ref={navigationRef}>
       <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
-        {deviceRole === null ? (
-          // First-time launch: ask user if Customer vs Staff (Admin/Retailer)
+        {forcedRole === null ? (
+          // Combined build, first launch: ask Customer vs Staff (Admin/Retailer)
           <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
-        ) : deviceRole === 'staff' ? (
+        ) : forcedRole === 'staff' ? (
           !staffRole ? (
             // Dedicated Staff Login with Admin vs Retailer dual tabs
             <Stack.Screen name="StaffLogin" component={StaffLoginScreen} />
           ) : (
-            // Staff mode: Admin / Retailer webview portal with quick switcher
+            // Staff mode: Admin / Retailer console with quick switcher
             <Stack.Screen name="StaffPortal" component={StaffPortalScreen} />
           )
         ) : !customer ? (
@@ -111,7 +155,7 @@ export const RootNavigator = () => {
           <Stack.Screen name="Login" component={LoginScreen} />
         ) : (
           // Customer mode with active persistent session
-          <Stack.Screen name="MainTabs" component={MainTabs} />
+          <Stack.Screen name="CustomerRoot" component={CustomerRoot} />
         )}
       </Stack.Navigator>
     </NavigationContainer>

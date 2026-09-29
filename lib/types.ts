@@ -213,3 +213,81 @@ export interface CustomerAppToken {
   created_at: string;
   updated_at: string;
 }
+
+// ============================================================
+// DEVICE MANAGEMENT (migration 030)
+// Consent-based EMI device lock. The device is the financed collateral;
+// with the customer's explicit Android device-admin permission, an authorised
+// retailer/admin can request the documented DevicePolicyManager lock state.
+// ============================================================
+
+/** Lifecycle of the managed state, as CONFIRMED by the device (not by intent). */
+export type DeviceManagementStatus =
+  | 'ACTIVE'
+  | 'LOCK_PENDING'
+  | 'LOCKED'
+  | 'UNLOCK_PENDING'
+  | 'ADMIN_PERMISSION_MISSING'
+  | 'OFFLINE';
+
+export interface Device {
+  id: string;
+  customer_id: string;
+  retailer_id: string;
+  /** Secure per-install id (SecureStore UUID) — NOT a hardware identifier. */
+  installation_id: string;
+  device_model?: string | null;
+  device_manufacturer?: string | null;
+  android_version?: string | null;
+  app_version?: string | null;
+  management_status: DeviceManagementStatus;
+  admin_enabled: boolean;
+  consent_granted_at?: string | null;
+  last_seen_at?: string | null;
+  registered_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type DeviceCommandType = 'LOCK' | 'UNLOCK';
+export type DeviceCommandStatus =
+  | 'PENDING'
+  | 'RECEIVED'
+  | 'EXECUTED'
+  | 'FAILED'
+  | 'EXPIRED'
+  | 'CANCELLED';
+
+export interface DeviceCommand {
+  id: string;
+  device_id: string;
+  customer_id: string;
+  retailer_id: string;
+  command_type: DeviceCommandType;
+  reason?: string | null;
+  /** Snapshot of the amount due when the command was issued (locked screen). */
+  emi_amount?: number | null;
+  status: DeviceCommandStatus;
+  issued_by?: string | null;
+  issued_by_role?: 'super_admin' | 'retailer' | null;
+  expires_at: string;
+  received_at?: string | null;
+  executed_at?: string | null;
+  failure_reason?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Audit action strings recorded to audit_log for device-management events. */
+export type DeviceAuditAction =
+  | 'DEVICE_REGISTERED'
+  | 'DEVICE_ADMIN_ENABLED'
+  | 'LOCK_REQUESTED'
+  | 'LOCK_RECEIVED'
+  | 'LOCK_EXECUTED'
+  | 'LOCK_FAILED'
+  | 'UNLOCK_REQUESTED'
+  | 'UNLOCK_RECEIVED'
+  | 'UNLOCK_EXECUTED'
+  | 'UNLOCK_FAILED'
+  | 'PAYMENT_CONFIRMED';

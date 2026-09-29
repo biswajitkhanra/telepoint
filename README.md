@@ -128,3 +128,187 @@ This repository is actively shaped around a full EMI management and collection p
 ---
 
 Built with ❤️ for a premium fintech workflow experience.
+
+---
+
+## 📱 Android + Consent-Based EMI Device Management
+
+TelePoint finances phones on EMI; the device is the collateral. With the
+customer's **explicit** consent and the Android device-admin permission they
+grant themselves, an authorised retailer/admin can request the financed device
+to enter its **lock** state when the account is overdue. It uses only
+documented Android APIs (`DevicePolicyManager` / `DeviceAdminReceiver`) — no
+root, no accessibility abuse, no hidden APIs, no permission bypass, and no fake
+system UI. Payment resolution unlocks it.
+
+### Architecture (server-authoritative)
+
+```
+Retailer/Admin app ──Bearer──▶ /api/device/command  (authorise: role + ownership + registered device)
+                                        │  writes device_commands (PENDING) + audit_log
+                                        ▼
+Customer app ──poll /api/device/commands──▶ validate (owner + device + expiry + idempotency)
+                                        ▼
+        expo-telepoint-device-management (native) ── DevicePolicyManager.lockNow()
+                                        ▼
+        /api/device/command/ack ──▶ device.management_status = LOCKED  (only on the device's word)
+```
+
+The backend distinguishes **LOCK REQUESTED** (`PENDING`) from **CONFIRMED
+LOCKED** (`EXECUTED` + `management_status = LOCKED`). A retailer never sees
+"locked" from a button press alone.
+
+### Management modes (capability-aware)
+
+Lock capability depends on the device's Android management mode, surfaced in the
+app and honestly limited:
+
+| Mode | Lock supported |
+|---|---|
+| `DEVICE_ADMIN` (customer granted device admin) | Yes — `lockNow()` |
+| `DEVICE_OWNER` (fully managed / provisioned) | Yes |
+| `PROFILE_OWNER` (work profile) | No (cannot lock the whole personal device) |
+| `UNMANAGED` | No (guide the customer to grant the permission) |
+
+Where a mode does not support an operation, the app says so and points to the
+required enrolment instead of attempting a bypass.
+
+### Database
+
+Apply the migration in the Supabase SQL editor (matches the existing manual
+migration workflow):
+
+```
+migrations/030_device_management.sql
+```
+
+It adds `devices` and `device_commands` (with RLS, indexes, and a partial unique
+index preventing duplicate in-flight commands), and hardens the `audit_log`
+insert policy (previously world-writable via the anon key).
+
+### Build (Expo dev build / EAS — Expo Go is NOT sufficient)
+
+The native module lives at `mobile/modules/expo-telepoint-device-management`
+(auto-linked). Expo Go cannot provide device management — use a development or
+EAS build.
+
+```bash
+cd mobile
+npm install
+# provide Supabase config (anon key is publishable; service-role key must NEVER be here)
+export EXPO_PUBLIC_SUPABASE_URL="https://<project>.supabase.co"
+export EXPO_PUBLIC_SUPABASE_ANON_KEY="<anon-key>"
+export EXPO_PUBLIC_PORTAL_URL="https://<your-portal>"
+npx expo prebuild
+npx expo run:android           # or: eas build --platform android --profile preview
+```
+
+Two Android experiences share the codebase (existing role selection is reused).
+To ship separate installs:
+
+```bash
+TELEPOINT_APP_VARIANT=customer  npx expo run:android   # com.telepoint.customer (default)
+TELEPOINT_APP_VARIANT=retailer  npx expo run:android   # com.telepoint.retailer
+```
+
+### Customer flow
+
+Login (existing Aadhaar/mobile auth, session persisted) → EMI dashboard →
+Profile → **Device Management** → read consent → *"I understand and continue"* →
+Android grants the permission (system dialog) → device registered
+(`customer + loan + retailer` resolved server-side; a SecureStore installation
+id, not a hardware id). When the backend confirms a lock, the app shows its own
+branded **Device Locked** screen with the live amount due and the retailer's
+name/phone (both from the backend, never hard-coded) and a **Call Retailer**
+button that opens the dialer.
+
+### Retailer flow
+
+Sign in (real Supabase Auth — the previous hard-coded key and no-password
+fallback were removed) → open a customer → request **LOCK** / **UNLOCK**. The
+server verifies role, retailer↔customer ownership, and a registered device
+before creating the command and writing the audit log.
+
+### Security notes
+
+- Identity, role, ownership, EMI amount and device status are resolved
+  server-side; the client is untrusted.
+- The Supabase **service-role key is never in the app**; only the publishable
+  anon key ships. Edge/authorisation logic runs in the Next.js API routes with
+  the service client.
+- Commands expire (`expires_at`, 15 min) and are idempotent by UUID + terminal
+  status; a command never executes twice, and expired commands never execute.
+- RLS: customers read only their own records; retailers only their own
+  customers/devices/commands; command creation flows only through the authorised
+  server route.
+
+### Verification status
+
+- `node --test` — 43/43 pass (incl. 10 new command-validation tests).
+- `tsc --noEmit` (web and mobile) — 0 errors.
+- On-device lock execution requires a physical Android device / emulator and is
+  **not** exercised in CI here; test it on a development build per the steps
+  above.
+
+### Lock policy (updated)
+
+- **Consent at purchase.** The customer agrees to EMI device management as part
+  of the financing agreement. The device is auto-registered on first app run
+  with that consent recorded — no separate in-app consent step is required. The
+  Android device-admin **permission** is still granted explicitly by the
+  customer in the OS dialog (never bypassed); until it is granted, a lock
+  request simply reports `admin_inactive`.
+- **Lockable only until the EMI is cleared.** Admin/retailer can lock with a
+  single button press (no extra details needed) at any time while the loan is
+  `RUNNING` or `NPA`. Once the loan is fully cleared (`COMPLETE`/`SETTLED`), the
+  server refuses new LOCK commands — the collateral is released. UNLOCK is
+  always permitted.
+
+### Making the app un-removable until EMI is paid (Device Owner)
+
+The goal "the customer cannot uninstall/disable the app until the EMI is fully
+paid" is only achievable on Android when the phone is enrolled as **Device
+Owner** (fully managed). Only then can the app block its own uninstall
+(`setUninstallBlocked`) and prevent the customer from removing management. On a
+normal device-admin phone Android **guarantees** the user can uninstall or
+revoke admin — no app can prevent that without root/exploits (which this project
+does not use).
+
+Practical setup: enroll the financed phone as Device Owner at the store during
+purchase (factory-reset provisioning, e.g. the `afw#setup` / QR flow, or
+`adb shell dpm set-device-owner com.telepoint.customer/.TelepointDeviceAdminReceiver`
+for testing). Once enrolled:
+
+- While the loan is `RUNNING`/`NPA`, the app keeps `setUninstallBlocked(true)` —
+  it cannot be removed, and stays lockable.
+- When the loan becomes `COMPLETE`/`SETTLED`, the app releases the block
+  automatically — the customer regains full control.
+- The app **collects no personal data** — only device model / OS version / a
+  random install id — it simply stays installed and lockable until the EMI is
+  cleared.
+- If the customer tries to remove management, Android shows a message asking
+  them to contact their retailer.
+
+Lock/unlock is **admin-only** and works from **both** the web portal (admin
+customer detail → Device Management panel, which auto-checks device-admin
+status) and an authenticated admin on mobile. The device never auto-locks on its
+own; an admin triggers it, and the newest admin action (lock or unlock) always
+supersedes any in-flight command.
+
+### Single-purpose builds (unlike the web)
+
+The web serves every role from one deployment. The two Android apps are
+single-purpose, driven by `TELEPOINT_APP_VARIANT` (via `app.config.ts` →
+`extra.appVariant`, read in `mobile/src/config.ts`):
+
+- **Customer app** (`TELEPOINT_APP_VARIANT=customer`, `com.telepoint.customer`):
+  shows **only** the customer login. No role picker, no staff login — the
+  "switch to staff" entries are hidden.
+- **Retailer/Admin app** (`TELEPOINT_APP_VARIANT=retailer`, `com.telepoint.retailer`):
+  shows **only** the staff (admin/retailer) login. The "back to customer"
+  entries are hidden.
+- **Combined** (default, dev): keeps the role-selection screen so one binary can
+  do both.
+
+Both apps talk to the same TelePoint backend and reuse the same EMI, payment,
+retailer and device logic as the web — only the entry point differs.
