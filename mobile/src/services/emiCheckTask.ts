@@ -8,6 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '../config';
 import { EMIScheduleItem } from '../types';
 import { syncDeviceCommandsOnce } from './deviceSync';
+import { computeEmiDue, reminderCopy } from '../utils/emiReminder';
 
 export const EMI_CHECK_TASK = 'TELEPOINT_EMI_DUE_CHECK';
 
@@ -30,7 +31,15 @@ async function runDeviceCommandSync(): Promise<boolean> {
   }
 }
 
-/** EMI due-date reminder pass. Returns true if a notification was scheduled. */
+const NOTIF_DAILY_KEY = '@telepoint_emi_notif_daily'; // { date, count }
+
+/**
+ * EMI due-date reminder pass (fires even when the app is CLOSED, via the
+ * background-fetch window). Bilingual (English + Bengali). Rate-limited per
+ * calendar day so it does not spam: up to 5/day when due today or overdue,
+ * 1/day when the EMI is due within the next 5 days. Returns true if a
+ * notification was scheduled.
+ */
 async function runEmiReminder(): Promise<boolean> {
   const rawSession = await AsyncStorage.getItem(STORAGE_KEYS.SESSION);
   if (!rawSession) return false;
@@ -38,40 +47,35 @@ async function runEmiReminder(): Promise<boolean> {
   const parsed = JSON.parse(rawSession);
   const emis: EMIScheduleItem[] = parsed.emis || [];
 
-  // Find next unpaid EMI
-  const unpaid = emis.find(
-    e => e.status === 'pending' || e.status === 'UNPAID' || (e.status !== 'collected' && e.status !== 'APPROVED')
-  );
+  const info = computeEmiDue(emis);
+  if (!info.shouldRemind) return false;
 
-  if (!unpaid || !unpaid.due_date) return false;
+  // Per-day cap.
+  const today = new Date().toISOString().slice(0, 10);
+  let count = 0;
+  try {
+    const raw = await AsyncStorage.getItem(NOTIF_DAILY_KEY);
+    const p = raw ? JSON.parse(raw) : null;
+    count = p && p.date === today ? Number(p.count) || 0 : 0;
+  } catch { /* storage unavailable */ }
+  const max = info.dueToday || info.overdue ? 5 : 1;
+  if (count >= max) return false;
 
-  const due = new Date(unpaid.due_date);
-  const now = new Date();
-  const diffTime = due.getTime() - now.getTime();
-  const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  const copy = reminderCopy(info);
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: copy.title,
+      body: `${copy.body}\n${copy.bodyBn}`,
+      data: { screen: 'EmiSchedule', type: 'emi_reminder' },
+      sound: 'default',
+    },
+    // ~immediate, on the HIGH-importance channel so it shows as a heads-up
+    // banner on the screen even when the app is not open.
+    trigger: { seconds: 1, channelId: 'emi-reminders' } as Notifications.NotificationTriggerInput,
+  });
 
-  if (daysLeft >= 0 && daysLeft <= 5) {
-    const title =
-      daysLeft === 0
-        ? '⚠️ Telepoint EMI Due Today!'
-        : `🔔 Telepoint EMI Due in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`;
-
-    const body = `Your installment of ₹${unpaid.amount.toLocaleString(
-      'en-IN'
-    )} is due on ${unpaid.due_date}. Tap to view your schedule.`;
-
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title,
-        body,
-        data: { screen: 'EmiSchedule' },
-        sound: 'default',
-      },
-      trigger: null, // fire immediately
-    });
-    return true;
-  }
-  return false;
+  try { await AsyncStorage.setItem(NOTIF_DAILY_KEY, JSON.stringify({ date: today, count: count + 1 })); } catch { /* ignore */ }
+  return true;
 }
 
 TaskManager.defineTask(EMI_CHECK_TASK, async () => {

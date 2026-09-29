@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { ShieldCheck, Smartphone, Lock, ChevronLeft, Info } from 'lucide-react-native';
+import { ShieldCheck, Smartphone, Lock, ChevronLeft, Info, BatteryCharging } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import { Colors } from '../constants/colors';
 import { Spacing, Radius } from '../constants/design';
@@ -15,6 +15,8 @@ import {
   isDeviceManagementSupported,
   requestDeviceAdmin,
   openDeviceAdminSettings,
+  isIgnoringBatteryOptimizations,
+  requestIgnoreBatteryOptimizations,
   type DeviceManagementStatus,
 } from '../services/deviceManagement';
 
@@ -30,12 +32,14 @@ export const DeviceManagementScreen = ({ navigation }: { navigation?: { goBack: 
   const [status, setStatus] = useState<DeviceManagementStatus | null>(null);
   const [model, setModel] = useState<string>(customer?.model_no || '');
   const [busy, setBusy] = useState(false);
+  const [batteryOk, setBatteryOk] = useState(true);
 
   const refresh = useCallback(async () => {
     if (!supported) return;
     try {
       const [st, info] = await Promise.all([getDeviceManagementStatus(), getDeviceInfo()]);
       setStatus(st);
+      isIgnoringBatteryOptimizations().then(setBatteryOk).catch(() => {});
       if (info.model) setModel(`${info.manufacturer} ${info.model}`.trim());
       // Keep the backend device row in sync with the real admin state.
       if (customer?.id) {
@@ -82,6 +86,12 @@ export const DeviceManagementScreen = ({ navigation }: { navigation?: { goBack: 
     }
   };
 
+  const onAllowBattery = async () => {
+    await requestIgnoreBatteryOptimizations();
+    // Re-check shortly after (the user may still be in the OS dialog).
+    setTimeout(() => { isIgnoringBatteryOptimizations().then(setBatteryOk).catch(() => {}); }, 800);
+  };
+
   const mode = status?.mode ?? 'UNSUPPORTED';
   const desc = describeMode(mode);
 
@@ -124,9 +134,27 @@ export const DeviceManagementScreen = ({ navigation }: { navigation?: { goBack: 
           <Row icon={<Smartphone size={18} color={Colors.textSecondary} />} label="Device" value={model || 'This device'} />
           <Row icon={<Info size={18} color={Colors.textSecondary} />} label="Management mode" value={desc.label} />
           <Row icon={<Lock size={18} color={Colors.textSecondary} />} label="Lock supported" value={desc.canLock ? 'Yes' : 'No'} />
-          <Row icon={<ShieldCheck size={18} color={Colors.textSecondary} />} label="Permission" value={status?.adminActive ? 'Enabled' : 'Not enabled'} last />
+          <Row icon={<ShieldCheck size={18} color={Colors.textSecondary} />} label="Permission" value={status?.adminActive ? 'Enabled' : 'Not enabled'} />
+          <Row icon={<BatteryCharging size={18} color={Colors.textSecondary} />} label="Battery" value={batteryOk ? 'Unrestricted' : 'Restricted'} last />
           <Text style={styles.modeDetail}>{desc.detail}</Text>
         </View>
+
+        {supported && !batteryOk && (
+          <View style={[styles.card, styles.warnCard]}>
+            <View style={styles.warnHead}>
+              <BatteryCharging size={18} color={Colors.warning} />
+              <Text style={styles.warnTitle}>Allow unrestricted battery</Text>
+            </View>
+            <Text style={styles.warnText}>
+              For the EMI lock and reminders to work reliably in the background,
+              this app needs unrestricted battery usage. Tap below and choose
+              &ldquo;Allow / Don&rsquo;t optimize&rdquo;.
+            </Text>
+            <TouchableOpacity style={[styles.primaryBtn, { marginTop: Spacing.sm }]} onPress={onAllowBattery} activeOpacity={0.85}>
+              <Text style={styles.primaryBtnText}>Allow unrestricted battery</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {!supported && (
           <View style={[styles.card, styles.warnCard]}>
@@ -176,6 +204,8 @@ const styles = StyleSheet.create({
   rowValue: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary, maxWidth: '55%', textAlign: 'right' },
   modeDetail: { fontSize: 13, color: Colors.textTertiary, marginTop: Spacing.sm, lineHeight: 19 },
   warnCard: { backgroundColor: Colors.warningLight, borderColor: Colors.warning },
+  warnHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.xs },
+  warnTitle: { fontSize: 15, fontWeight: '800', color: '#92400E' },
   warnText: { fontSize: 13, color: '#92400E', lineHeight: 19 },
   primaryBtn: { backgroundColor: Colors.primary, borderRadius: Radius.md, paddingVertical: 16, alignItems: 'center', marginTop: Spacing.sm },
   primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },

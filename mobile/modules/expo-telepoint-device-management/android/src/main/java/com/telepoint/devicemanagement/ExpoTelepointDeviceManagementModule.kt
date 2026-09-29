@@ -249,6 +249,47 @@ class ExpoTelepointDeviceManagementModule : Module() {
         mapOf("applied" to false, "mode" to mode, "reason" to "exception")
       }
     }
+
+    // Whether the app is already exempt from battery optimization. Unrestricted
+    // battery lets the background command delivery + EMI reminders keep running
+    // when the app is closed, instead of being throttled/killed by Doze.
+    AsyncFunction("isIgnoringBatteryOptimizations") {
+      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return@AsyncFunction true
+      val pm = context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+      pm.isIgnoringBatteryOptimizations(context.packageName)
+    }
+
+    // Open the OS dialog asking the user to allow unrestricted battery for this
+    // app. Requires an explicit user tap in the system UI — this cannot grant it
+    // silently. Falls back to the battery-optimization settings list.
+    AsyncFunction("requestIgnoreBatteryOptimizations") {
+      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+        return@AsyncFunction mapOf("requested" to false, "reason" to "not_needed")
+      }
+      val pkg = context.packageName
+      val pm = context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+      if (pm.isIgnoringBatteryOptimizations(pkg)) {
+        return@AsyncFunction mapOf("requested" to false, "alreadyGranted" to true)
+      }
+      try {
+        val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+          data = android.net.Uri.parse("package:$pkg")
+          addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+        mapOf("requested" to true)
+      } catch (e: Exception) {
+        try {
+          context.startActivity(
+            Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+              .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+          )
+          mapOf("requested" to true, "fallback" to true)
+        } catch (e2: Exception) {
+          mapOf("requested" to false, "reason" to "unavailable")
+        }
+      }
+    }
   }
 
   private fun currentMode(): String {

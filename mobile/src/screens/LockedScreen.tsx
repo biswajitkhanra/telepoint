@@ -66,6 +66,11 @@ export const LockedScreen = ({
           </TouchableOpacity>
         </View>
 
+        <View style={styles.dueBanner}>
+          <Text style={styles.dueBannerText}>EMI Due — Please Pay Today to Unlock</Text>
+          <Text style={styles.dueBannerTextBn}>ইএমআই বকেয়া — আনলক করতে আজই পরিশোধ করুন</Text>
+        </View>
+
         <Text style={styles.note}>
           This device is financed on EMI. It will be unlocked once your payment is
           confirmed by the store. Pay at the store or online to resolve.
@@ -97,6 +102,9 @@ const styles = StyleSheet.create({
   callBtn: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, backgroundColor: Colors.success, paddingVertical: 14, paddingHorizontal: Spacing.xl, borderRadius: Radius.md, marginTop: Spacing.xs },
   callBtnDisabled: { backgroundColor: Colors.textTertiary },
   callBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  dueBanner: { width: '100%', backgroundColor: Colors.dangerLight ?? '#FEF2F2', borderRadius: Radius.md, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.base, alignItems: 'center', gap: 2, borderWidth: 1, borderColor: Colors.danger },
+  dueBannerText: { fontSize: 14, fontWeight: '800', color: Colors.danger, textAlign: 'center' },
+  dueBannerTextBn: { fontSize: 14, fontWeight: '700', color: Colors.danger, textAlign: 'center' },
   note: { fontSize: 13, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20, paddingHorizontal: Spacing.sm },
   refresh: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingVertical: Spacing.sm },
   refreshText: { fontSize: 14, color: Colors.textSecondary, fontWeight: '600' },

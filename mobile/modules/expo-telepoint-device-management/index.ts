@@ -56,6 +56,22 @@ export async function isDeviceOwner(): Promise<boolean> {
   try { return await native.isDeviceOwner(); } catch { return false; }
 }
 
+/** True when the app is already exempt from battery optimization (Doze). */
+export async function isIgnoringBatteryOptimizations(): Promise<boolean> {
+  if (!isSupported()) return true;
+  try { return await native.isIgnoringBatteryOptimizations(); } catch { return true; }
+}
+
+/**
+ * Open the OS dialog asking the user to allow unrestricted battery for this app,
+ * so background lock delivery + EMI reminders keep running when the app is
+ * closed. Requires an explicit user tap; cannot be granted silently.
+ */
+export async function requestIgnoreBatteryOptimizations(): Promise<{ requested: boolean; alreadyGranted?: boolean; reason?: string }> {
+  if (!isSupported()) return { requested: false, reason: 'unsupported' };
+  try { return await native.requestIgnoreBatteryOptimizations(); } catch { return { requested: false, reason: 'native_error' }; }
+}
+
 /**
  * Opens the Android system "activate device admin" dialog. Requires an explicit
  * user tap in the OS UI — this method cannot grant the permission itself.

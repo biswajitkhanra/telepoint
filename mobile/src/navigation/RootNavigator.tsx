@@ -8,8 +8,8 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { RoleSelectionScreen } from '../screens/RoleSelectionScreen';
-import { StaffLoginScreen } from '../screens/StaffLoginScreen';
-import { StaffPortalScreen } from '../screens/StaffPortalScreen';
+import { WebPortalScreen } from '../screens/WebPortalScreen';
+import { EmiDueReminder } from '../components/EmiDueReminder';
 import { LoginScreen } from '../screens/LoginScreen';
 import { DashboardScreen } from '../screens/DashboardScreen';
 import { EmiScheduleScreen } from '../screens/EmiScheduleScreen';
@@ -35,7 +35,7 @@ const CustomerStack = createNativeStackNavigator();
  * customer surface. Otherwise the normal tabs + the Device Management screen.
  */
 function CustomerRoot() {
-  const { customer } = useAuth();
+  const { customer, emis } = useAuth();
   const dc = useDeviceCommands(customer?.id);
 
   if (dc.locked) {
@@ -51,10 +51,15 @@ function CustomerRoot() {
   }
 
   return (
-    <CustomerStack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
-      <CustomerStack.Screen name="MainTabs" component={MainTabs} />
-      <CustomerStack.Screen name="DeviceManagement" component={DeviceManagementScreen} />
-    </CustomerStack.Navigator>
+    <>
+      <CustomerStack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+        <CustomerStack.Screen name="MainTabs" component={MainTabs} />
+        <CustomerStack.Screen name="DeviceManagement" component={DeviceManagementScreen} />
+      </CustomerStack.Navigator>
+      {/* Bilingual EMI-due popup: 10s if due within 5 days; 5×/day if due today
+          or overdue, until paid. App-closed reminders are local notifications. */}
+      <EmiDueReminder emis={emis} />
+    </>
   );
 }
 
@@ -99,7 +104,7 @@ function MainTabs() {
 }
 
 export const RootNavigator = () => {
-  const { customer, deviceRole, staffRole, isLoading } = useAuth();
+  const { customer, deviceRole, isLoading } = useAuth();
   const navigationRef = useRef<NavigationContainerRef<any>>(null);
 
   // Background EMI check scheduler & notification tap listener
@@ -143,13 +148,10 @@ export const RootNavigator = () => {
           // Combined build, first launch: ask Customer vs Staff (Admin/Retailer)
           <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
         ) : forcedRole === 'staff' ? (
-          !staffRole ? (
-            // Dedicated Staff Login with Admin vs Retailer dual tabs
-            <Stack.Screen name="StaffLogin" component={StaffLoginScreen} />
-          ) : (
-            // Staff mode: Admin / Retailer console with quick switcher
-            <Stack.Screen name="StaffPortal" component={StaffPortalScreen} />
-          )
+          // Staff (admin/retailer) surface IS the web portal, loaded in a
+          // WebView — identical to the web, every feature, no data-drift. Sign-in
+          // happens on the web login page inside the WebView.
+          <Stack.Screen name="WebPortal" component={WebPortalScreen} />
         ) : !customer ? (
           // Customer mode without active session
           <Stack.Screen name="Login" component={LoginScreen} />

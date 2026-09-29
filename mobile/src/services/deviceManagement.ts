@@ -28,6 +28,16 @@ export function isDeviceOwner(): Promise<boolean> {
   return DeviceMgmt.isDeviceOwner();
 }
 
+/** True when the app is exempt from battery optimization (Doze). */
+export function isIgnoringBatteryOptimizations(): Promise<boolean> {
+  return DeviceMgmt.isIgnoringBatteryOptimizations();
+}
+
+/** Open the OS "allow unrestricted battery" dialog (explicit user tap). */
+export function requestIgnoreBatteryOptimizations() {
+  return DeviceMgmt.requestIgnoreBatteryOptimizations();
+}
+
 export function requestDeviceAdmin(): Promise<void> {
   return DeviceMgmt.requestDeviceAdmin();
 }
