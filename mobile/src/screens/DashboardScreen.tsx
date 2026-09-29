@@ -47,6 +47,7 @@ import { PressableScale } from '../components/PressableScale';
 import { BroadcastItem, EMIScheduleItem } from '../types';
 import { Colors } from '../constants/colors';
 import { Spacing, Radius } from '../constants/design';
+import { APP_VARIANT } from '../config';
 import { getPerEmiFineBreakdown } from '../utils/fineCalc';
 import { firstChargeRemaining } from '../utils/firstCharge';
 import { toISTDateString, diffDaysIST } from '../utils/ist';
@@ -653,16 +654,21 @@ export const DashboardScreen = ({ navigation }: { navigation: any }) => {
               <Text style={styles.menuItemText}>Log in as Another Customer</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setAccountMenuVisible(false);
-                switchRole('staff');
-              }}
-            >
-              <Zap size={16} color="#4F46E5" />
-              <Text style={styles.menuItemText}>Switch to Staff Mode (Retailer/Admin)</Text>
-            </TouchableOpacity>
+            {/* Staff-mode switch is available ONLY in the combined (dev) build.
+                The customer-only APK is a pure customer app with no path to the
+                retailer/admin login. */}
+            {APP_VARIANT === 'combined' && (
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setAccountMenuVisible(false);
+                  switchRole('staff');
+                }}
+              >
+                <Zap size={16} color="#4F46E5" />
+                <Text style={styles.menuItemText}>Switch to Staff Mode (Retailer/Admin)</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </TouchableOpacity>
       </Modal>

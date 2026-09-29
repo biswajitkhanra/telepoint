@@ -21,7 +21,7 @@ import { LogOut, Smartphone } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import { TelepointLogo } from '../components/TelepointLogo';
 import { PressableScale } from '../components/PressableScale';
-import { PORTAL_BASE_URL } from '../config';
+import { APP_VARIANT, PORTAL_BASE_URL } from '../config';
 import { Spacing, Radius, Shadow } from '../constants/design';
 import { RetailerConsoleView } from './RetailerConsoleView';
 import { AdminConsoleView } from './AdminConsoleView';
@@ -106,14 +106,18 @@ export const StaffPortalScreen = () => {
             <Text style={styles.switchAccountText}>Switch</Text>
           </PressableScale>
 
-          <PressableScale
-            onPress={handleSwitchToCustomer}
-            style={styles.customerModeBtn}
-            scaleTo={0.92}
-          >
-            <Smartphone size={13} color="#059669" />
-            <Text style={styles.customerModeText}>Customer</Text>
-          </PressableScale>
+          {/* Customer-mode switch is available ONLY in the combined (dev) build.
+              The retailer/admin-only APK never offers the customer login. */}
+          {APP_VARIANT === 'combined' && (
+            <PressableScale
+              onPress={handleSwitchToCustomer}
+              style={styles.customerModeBtn}
+              scaleTo={0.92}
+            >
+              <Smartphone size={13} color="#059669" />
+              <Text style={styles.customerModeText}>Customer</Text>
+            </PressableScale>
+          )}
         </View>
       </View>
 
