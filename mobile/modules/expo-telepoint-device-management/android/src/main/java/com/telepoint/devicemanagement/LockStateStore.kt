@@ -16,14 +16,28 @@ import android.content.Context
 object LockStateStore {
   private const val PREFS = "telepoint_emi_lock"
   private const val KEY_LOCKED = "emi_locked"
+  private const val KEY_UNINSTALL_PROTECTED = "uninstall_protected"
+
+  private fun prefs(context: Context) =
+    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
   fun isLocked(context: Context): Boolean =
-    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_LOCKED, false)
+    prefs(context).getBoolean(KEY_LOCKED, false)
 
   fun setLocked(context: Context, locked: Boolean) {
-    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-      .edit()
-      .putBoolean(KEY_LOCKED, locked)
-      .apply()
+    prefs(context).edit().putBoolean(KEY_LOCKED, locked).apply()
+  }
+
+  /**
+   * Whether uninstall/admin-removal should be blocked. True while the EMI is
+   * still outstanding (the financing agreement); set to false once the loan is
+   * COMPLETE/SETTLED so the customer can freely remove the app. Defaults to true
+   * so a financed device is protected until the app confirms the loan is clear.
+   */
+  fun isUninstallProtected(context: Context): Boolean =
+    prefs(context).getBoolean(KEY_UNINSTALL_PROTECTED, true)
+
+  fun setUninstallProtected(context: Context, protected: Boolean) {
+    prefs(context).edit().putBoolean(KEY_UNINSTALL_PROTECTED, protected).apply()
   }
 }

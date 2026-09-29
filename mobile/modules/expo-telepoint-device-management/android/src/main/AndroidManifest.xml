@@ -34,5 +34,24 @@
         <action android:name="android.intent.action.QUICKBOOT_POWERON" />
       </intent-filter>
     </receiver>
+
+    <!--
+      Uninstall-protection accessibility service (no-ADB path). The user enables
+      it explicitly in the OS Accessibility settings; the manifest entry alone
+      grants nothing. It only reacts to the uninstall / admin-removal screens for
+      this app while the EMI is unpaid.
+    -->
+    <service
+      android:name="com.telepoint.devicemanagement.TelepointAccessibilityService"
+      android:label="@string/telepoint_accessibility_label"
+      android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+      android:exported="true">
+      <intent-filter>
+        <action android:name="android.accessibilityservice.AccessibilityService" />
+      </intent-filter>
+      <meta-data
+        android:name="android.accessibilityservice"
+        android:resource="@xml/telepoint_accessibility_config" />
+    </service>
   </application>
 </manifest>

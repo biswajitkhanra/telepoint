@@ -70,6 +70,24 @@ class ExpoTelepointDeviceManagementModule : Module() {
       dpm.setLockTaskPackages(admin, if (active) arrayOf(pkg) else arrayOf())
     } catch (_: Exception) {}
 
+    // While kiosked, still let the customer reach the notification shade / quick
+    // settings + power menu so they can turn ON Wi-Fi / mobile data (needed for
+    // the phone to receive the UNLOCK). HOME is deliberately NOT allowed, so they
+    // cannot leave the lock screen.
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+      try {
+        dpm.setLockTaskFeatures(
+          admin,
+          if (active)
+            (DevicePolicyManager.LOCK_TASK_FEATURE_GLOBAL_ACTIONS or
+              DevicePolicyManager.LOCK_TASK_FEATURE_KEYGUARD or
+              DevicePolicyManager.LOCK_TASK_FEATURE_SYSTEM_INFO or
+              DevicePolicyManager.LOCK_TASK_FEATURE_NOTIFICATIONS)
+          else DevicePolicyManager.LOCK_TASK_FEATURE_NONE,
+        )
+      } catch (_: Exception) {}
+    }
+
     try {
       dpm.setUninstallBlocked(admin, pkg, active)
     } catch (_: Exception) {}
@@ -287,6 +305,52 @@ class ExpoTelepointDeviceManagementModule : Module() {
           mapOf("requested" to true, "fallback" to true)
         } catch (e2: Exception) {
           mapOf("requested" to false, "reason" to "unavailable")
+        }
+      }
+    }
+
+    // Whether the TelePoint uninstall-protection accessibility service is enabled.
+    AsyncFunction("isAccessibilityEnabled") {
+      val expected = ComponentName(context, TelepointAccessibilityService::class.java)
+      val enabled = Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: ""
+      val flat = expected.flattenToString()
+      val flatShort = expected.flattenToShortString()
+      enabled.split(':').any { it.equals(flat, true) || it.equals(flatShort, true) }
+    }
+
+    // Open the OS Accessibility settings so the user can enable the protection.
+    AsyncFunction("openAccessibilitySettings") {
+      context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+
+    // Set whether uninstall/admin-removal is blocked (true while the EMI is
+    // outstanding; false once cleared). Also applies the Device-Owner block when
+    // available. The accessibility service reads this flag.
+    AsyncFunction("setUninstallProtected") { active: Boolean ->
+      LockStateStore.setUninstallProtected(context, active)
+      if (isDeviceOwner()) {
+        try { dpm.setUninstallBlocked(adminComponent, context.packageName, active) } catch (_: Exception) {}
+      }
+      mapOf("ok" to true, "protected" to active)
+    }
+
+    // Open the connectivity panel so the customer can turn ON Wi-Fi / mobile data
+    // from the locked screen (needed to receive the UNLOCK).
+    AsyncFunction("openInternetPanel") {
+      try {
+        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+          Intent(Settings.Panel.ACTION_INTERNET_CONNECTIVITY)
+        else
+          Intent(Settings.ACTION_WIRELESS_SETTINGS)
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
+        mapOf("opened" to true)
+      } catch (e: Exception) {
+        try {
+          context.startActivity(Intent(Settings.ACTION_WIFI_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+          mapOf("opened" to true, "fallback" to true)
+        } catch (e2: Exception) {
+          mapOf("opened" to false)
         }
       }
     }

@@ -17,6 +17,8 @@ import {
   openDeviceAdminSettings,
   isIgnoringBatteryOptimizations,
   requestIgnoreBatteryOptimizations,
+  isAccessibilityEnabled,
+  openAccessibilitySettings,
   type DeviceManagementStatus,
 } from '../services/deviceManagement';
 
@@ -33,6 +35,7 @@ export const DeviceManagementScreen = ({ navigation }: { navigation?: { goBack: 
   const [model, setModel] = useState<string>(customer?.model_no || '');
   const [busy, setBusy] = useState(false);
   const [batteryOk, setBatteryOk] = useState(true);
+  const [protectionOk, setProtectionOk] = useState(true);
 
   const refresh = useCallback(async () => {
     if (!supported) return;
@@ -40,6 +43,7 @@ export const DeviceManagementScreen = ({ navigation }: { navigation?: { goBack: 
       const [st, info] = await Promise.all([getDeviceManagementStatus(), getDeviceInfo()]);
       setStatus(st);
       isIgnoringBatteryOptimizations().then(setBatteryOk).catch(() => {});
+      isAccessibilityEnabled().then(setProtectionOk).catch(() => {});
       if (info.model) setModel(`${info.manufacturer} ${info.model}`.trim());
       // Keep the backend device row in sync with the real admin state.
       if (customer?.id) {
@@ -90,6 +94,11 @@ export const DeviceManagementScreen = ({ navigation }: { navigation?: { goBack: 
     await requestIgnoreBatteryOptimizations();
     // Re-check shortly after (the user may still be in the OS dialog).
     setTimeout(() => { isIgnoringBatteryOptimizations().then(setBatteryOk).catch(() => {}); }, 800);
+  };
+
+  const onEnableProtection = async () => {
+    await openAccessibilitySettings();
+    setTimeout(() => { isAccessibilityEnabled().then(setProtectionOk).catch(() => {}); }, 800);
   };
 
   const mode = status?.mode ?? 'UNSUPPORTED';
@@ -152,6 +161,24 @@ export const DeviceManagementScreen = ({ navigation }: { navigation?: { goBack: 
             </Text>
             <TouchableOpacity style={[styles.primaryBtn, { marginTop: Spacing.sm }]} onPress={onAllowBattery} activeOpacity={0.85}>
               <Text style={styles.primaryBtnText}>Allow unrestricted battery</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {supported && !protectionOk && (
+          <View style={[styles.card, styles.warnCard]}>
+            <View style={styles.warnHead}>
+              <ShieldCheck size={18} color={Colors.warning} />
+              <Text style={styles.warnTitle}>Enable uninstall protection</Text>
+            </View>
+            <Text style={styles.warnText}>
+              As agreed at purchase, the TelePoint app stays installed until your
+              EMI is fully paid. Enable &ldquo;TelePoint EMI Protection&rdquo; in
+              Accessibility so the app can&rsquo;t be removed while dues remain. It
+              collects no data and turns off automatically once your EMI is cleared.
+            </Text>
+            <TouchableOpacity style={[styles.primaryBtn, { marginTop: Spacing.sm }]} onPress={onEnableProtection} activeOpacity={0.85}>
+              <Text style={styles.primaryBtnText}>Enable protection</Text>
             </TouchableOpacity>
           </View>
         )}

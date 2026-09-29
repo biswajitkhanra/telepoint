@@ -1,4 +1,44 @@
-# TelePoint — Hard EMI Lock (Device Owner) Provisioning
+# TelePoint — EMI Lock & Uninstall Protection
+
+## No-ADB path (what your store staff actually do)
+
+Your staff cannot use ADB, and that's fine. On a **fresh / factory-reset phone,
+before adding any Google account**, they:
+
+1. Install the TelePoint **customer** APK.
+2. Open the app → **Device Management** and grant, with the customer present:
+   - **Device admin** (enables the EMI screen lock), and
+   - **TelePoint EMI Protection** in Accessibility (blocks uninstall while the
+     EMI is unpaid), and
+   - **Allow unrestricted battery** (keeps it working in the background).
+
+That combination gives a working financing lock **without ADB or Device Owner**:
+
+- **Uninstall is blocked while the EMI is unpaid.** A device-admin app can't be
+  uninstalled until admin is turned off, and the accessibility service bounces
+  the uninstall / admin-removal screens for this app back until the loan is
+  paid. Once the loan is COMPLETE/SETTLED the app clears the flag and removal is
+  allowed.
+- **Lock** shows the branded EMI screen and re-asserts on each check.
+- Because Android won't let a plain app *force* the screen to stay unlocked, the
+  customer can still use their PIN on this path (a "soft" lock). For a fully
+  un-exitable kiosk that even a PIN can't leave, use the **Device Owner** path
+  below (QR at setup — still no ADB).
+
+The lock screen has a **"Turn on Wi-Fi / Data"** button so the customer can
+restore connectivity and receive the unlock.
+
+---
+
+## Full kiosk (Device Owner) — strongest, still no ADB (QR at setup)
+
+For the permanent, can't-exit-with-PIN lock, enrol the fresh phone as Device
+Owner during the setup wizard by scanning a provisioning **QR** (Method B
+below). No ADB needed; it does require hosting the APK once.
+
+---
+
+# Hard EMI Lock (Device Owner) Provisioning
 
 This is how a financed phone gets the **real, Bajaj/Flipkart-style lock**: the
 device stays locked and the customer **cannot** unlock it until the EMI is paid,

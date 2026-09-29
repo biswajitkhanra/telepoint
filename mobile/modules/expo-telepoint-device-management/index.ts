@@ -62,6 +62,33 @@ export async function isIgnoringBatteryOptimizations(): Promise<boolean> {
   try { return await native.isIgnoringBatteryOptimizations(); } catch { return true; }
 }
 
+/** True when the TelePoint uninstall-protection accessibility service is enabled. */
+export async function isAccessibilityEnabled(): Promise<boolean> {
+  if (!isSupported()) return false;
+  try { return await native.isAccessibilityEnabled(); } catch { return false; }
+}
+
+/** Open the OS Accessibility settings so the user can enable uninstall protection. */
+export async function openAccessibilitySettings(): Promise<void> {
+  if (!isSupported()) return;
+  try { await native.openAccessibilitySettings(); } catch { /* noop */ }
+}
+
+/**
+ * Set whether the app may be uninstalled. Pass false while the EMI is
+ * outstanding (blocks removal) and true once the loan is cleared.
+ */
+export async function setUninstallProtected(active: boolean): Promise<{ ok: boolean; protected?: boolean }> {
+  if (!isSupported()) return { ok: false };
+  try { return await native.setUninstallProtected(active); } catch { return { ok: false }; }
+}
+
+/** Open the connectivity panel so the customer can turn on Wi-Fi / mobile data. */
+export async function openInternetPanel(): Promise<{ opened: boolean }> {
+  if (!isSupported()) return { opened: false };
+  try { return await native.openInternetPanel(); } catch { return { opened: false }; }
+}
+
 /**
  * Open the OS dialog asking the user to allow unrestricted battery for this app,
  * so background lock delivery + EMI reminders keep running when the app is

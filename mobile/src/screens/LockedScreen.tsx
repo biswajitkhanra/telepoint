@@ -2,9 +2,10 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { Lock, Phone, RefreshCw } from 'lucide-react-native';
+import { Lock, Phone, RefreshCw, Wifi } from 'lucide-react-native';
 import { Colors } from '../constants/colors';
 import { Spacing, Radius } from '../constants/design';
+import { openInternetPanel } from '../services/deviceManagement';
 
 /**
  * Customer-facing locked experience (spec part 20). Shown when the backend has
@@ -76,10 +77,16 @@ export const LockedScreen = ({
           confirmed by the store. Pay at the store or online to resolve.
         </Text>
 
-        <TouchableOpacity style={styles.refresh} onPress={onRefresh} activeOpacity={0.7}>
-          <RefreshCw size={16} color={Colors.textSecondary} />
-          <Text style={styles.refreshText}>Check status again</Text>
-        </TouchableOpacity>
+        <View style={styles.actionRow}>
+          <TouchableOpacity style={styles.actionBtn} onPress={() => openInternetPanel()} activeOpacity={0.7}>
+            <Wifi size={16} color={Colors.textSecondary} />
+            <Text style={styles.refreshText}>Turn on Wi-Fi / Data</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionBtn} onPress={onRefresh} activeOpacity={0.7}>
+            <RefreshCw size={16} color={Colors.textSecondary} />
+            <Text style={styles.refreshText}>Check status</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -106,6 +113,7 @@ const styles = StyleSheet.create({
   dueBannerText: { fontSize: 14, fontWeight: '800', color: Colors.danger, textAlign: 'center' },
   dueBannerTextBn: { fontSize: 14, fontWeight: '700', color: Colors.danger, textAlign: 'center' },
   note: { fontSize: 13, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20, paddingHorizontal: Spacing.sm },
-  refresh: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingVertical: Spacing.sm },
+  actionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.base, flexWrap: 'wrap' },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm },
   refreshText: { fontSize: 14, color: Colors.textSecondary, fontWeight: '600' },
 });
