@@ -66,30 +66,35 @@ export default function DeviceManagementPanel({
   };
 
   return (
-    <div className="rounded-xl border border-slate-200 p-3 bg-white flex items-center justify-between gap-3">
-      <div className="flex items-center gap-2 min-w-0">
-        <Smartphone size={18} className="text-slate-500 shrink-0" />
+    <div className="rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 flex items-center justify-between gap-3">
+      <div className="flex items-center gap-2.5 min-w-0">
+        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${locked ? 'bg-red-50' : 'bg-emerald-50'}`}>
+          <Smartphone size={16} className={locked ? 'text-red-600' : 'text-emerald-600'} />
+        </div>
         <div className="min-w-0">
-          <div className="font-semibold text-slate-800 truncate">{deviceName || 'Device'}</div>
-          <div className={`text-xs font-bold ${locked ? 'text-red-600' : 'text-emerald-600'}`}>
-            {locked ? 'Locked' : 'Not locked'}
+          <div className="text-sm font-semibold text-slate-800 truncate leading-tight">{deviceName || 'Device'}</div>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <span className={`w-1.5 h-1.5 rounded-full ${locked ? 'bg-red-500' : 'bg-emerald-500'}`} />
+            <span className={`text-xs font-medium ${locked ? 'text-red-600' : 'text-emerald-600'}`}>
+              {locked ? 'Locked' : 'Not locked'}
+            </span>
           </div>
         </div>
       </div>
-      <div className="flex gap-2 shrink-0">
+      <div className="flex items-center gap-1.5 shrink-0">
         <button
           onClick={() => toggle(true)}
           disabled={busy || locked}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 text-white px-3 py-2 text-sm font-semibold disabled:opacity-50"
+          className="inline-flex items-center gap-1 rounded-md bg-red-600 hover:bg-red-700 text-white px-2.5 py-1.5 text-xs font-semibold disabled:opacity-40 transition-colors"
         >
-          <Lock size={15} /> Lock
+          <Lock size={13} /> Lock
         </button>
         <button
           onClick={() => toggle(false)}
           disabled={busy || !locked}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 text-white px-3 py-2 text-sm font-semibold disabled:opacity-50"
+          className="inline-flex items-center gap-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1.5 text-xs font-semibold disabled:opacity-40 transition-colors"
         >
-          <Unlock size={15} /> Unlock
+          <Unlock size={13} /> Unlock
         </button>
       </div>
     </div>
