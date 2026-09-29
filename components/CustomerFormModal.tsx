@@ -367,8 +367,16 @@ export default function CustomerFormModal({
             {/* ══════════════ INFO TAB ══════════════ */}
             {tab === 'info' && (
               <>
-                {/* OCR quick-fill — scan phone box / IMEI / Aadhaar to auto-fill. */}
+                {/* OCR quick-fill — scan each document; cross-checks required fields. */}
                 <OcrScanPanel
+                  values={{
+                    customer_name: form.customer_name,
+                    father_name: form.father_name,
+                    mobile: form.mobile,
+                    aadhaar: form.aadhaar,
+                    model_no: form.model_no,
+                    imei: form.imei,
+                  }}
                   onExtract={(f) => {
                     (Object.keys(f) as (keyof FormData)[]).forEach((k) => {
                       const v = f[k as keyof typeof f];
