@@ -40,6 +40,11 @@ CREATE TABLE IF NOT EXISTS devices (
                        )),
   -- Whether the customer has granted the Android device-admin permission.
   admin_enabled      BOOLEAN NOT NULL DEFAULT FALSE,
+  -- The device's Android management mode, reported by the app. DEVICE_OWNER is
+  -- the only mode that supports the hard financing lock (kiosk, can't be exited
+  -- or uninstalled by the customer); DEVICE_ADMIN is a soft screen lock only.
+  -- Lets the admin panel show whether a given phone is truly hard-lock-enrolled.
+  management_mode    TEXT DEFAULT 'UNMANAGED',
   -- Whether the customer accepted the in-app device-management consent screen.
   consent_granted_at TIMESTAMPTZ,
   last_seen_at       TIMESTAMPTZ,
@@ -55,6 +60,11 @@ CREATE INDEX IF NOT EXISTS idx_devices_retailer_id  ON devices(retailer_id);
 CREATE INDEX IF NOT EXISTS idx_devices_status       ON devices(management_status);
 CREATE INDEX IF NOT EXISTS idx_devices_last_seen    ON devices(last_seen_at);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_devices_installation ON devices(installation_id);
+
+-- Idempotent add for environments where `devices` already existed from an
+-- earlier partial run of this migration (CREATE TABLE IF NOT EXISTS is a no-op
+-- then, so the new column would be skipped).
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS management_mode TEXT DEFAULT 'UNMANAGED';
 
 -- ============================================================
 -- SECTION 2: DEVICE_COMMANDS — server-authorised LOCK / UNLOCK intents

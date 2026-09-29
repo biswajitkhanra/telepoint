@@ -19,5 +19,20 @@
         <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
       </intent-filter>
     </receiver>
+
+    <!--
+      Re-applies the EMI lock after a reboot when the account is still locked,
+      so a restart cannot defeat the financing lock. Fires only on boot; the
+      RECEIVE_BOOT_COMPLETED permission is declared by the app (app.json).
+    -->
+    <receiver
+      android:name="com.telepoint.devicemanagement.TelepointBootReceiver"
+      android:exported="true">
+      <intent-filter>
+        <action android:name="android.intent.action.BOOT_COMPLETED" />
+        <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+        <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+      </intent-filter>
+    </receiver>
   </application>
 </manifest>

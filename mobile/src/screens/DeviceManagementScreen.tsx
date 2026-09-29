@@ -48,6 +48,7 @@ export const DeviceManagementScreen = ({ navigation }: { navigation?: { goBack: 
           androidVersion: info.androidVersion,
           appVersion: '1.0.0',
           adminEnabled: st.adminActive,
+          managementMode: st.mode,
         });
       }
     } catch { /* ignore */ }

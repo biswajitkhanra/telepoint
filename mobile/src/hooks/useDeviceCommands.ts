@@ -80,6 +80,7 @@ export function useDeviceCommands(customerId: string | null | undefined) {
             appVersion: '1.0.0',
             consent: true,
             adminEnabled: st.adminActive,
+            managementMode: st.mode,
           });
         } catch { registered.current = false; /* retry next tick */ }
       }
@@ -95,6 +96,18 @@ export function useDeviceCommands(customerId: string | null | undefined) {
       busy.current = false;
     }
   }, [customerId, applyStatus]);
+
+  // On launch, enforce the last server-confirmed lock immediately from the
+  // persisted native flag, before the first network poll returns — so a locked
+  // financed device never flashes the normal UI while offline or starting up.
+  useEffect(() => {
+    if (!customerId || !isDeviceManagementSupported()) return;
+    let cancelled = false;
+    getDeviceManagementStatus()
+      .then((st) => { if (!cancelled && st.enforcedLocked) setInfo((prev) => ({ ...prev, locked: true })); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [customerId]);
 
   useEffect(() => {
     if (!customerId) return;

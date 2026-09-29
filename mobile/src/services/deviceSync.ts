@@ -58,7 +58,7 @@ export async function syncDeviceCommandsOnce(customerId: string): Promise<Device
   if (isDeviceManagementSupported()) {
     try {
       const st = await getDeviceManagementStatus();
-      await sendHeartbeat(customerId, installationId, { adminEnabled: st.adminActive });
+      await sendHeartbeat(customerId, installationId, { adminEnabled: st.adminActive, managementMode: st.mode });
     } catch { /* ignore */ }
   }
 

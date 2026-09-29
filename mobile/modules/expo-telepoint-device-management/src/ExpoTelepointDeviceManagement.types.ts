@@ -29,6 +29,14 @@ export interface DeviceManagementStatus {
   state: DeviceManagementState;
   /** True when lockNow() can be invoked in the current mode. */
   canLock: boolean;
+  /**
+   * True only in DEVICE_OWNER mode: the hard, financing-grade lock the customer
+   * cannot exit (kiosk + reboot persistence). In DEVICE_ADMIN mode this is
+   * false — only a soft screen lock is possible, which the user can unlock.
+   */
+  canEnforce?: boolean;
+  /** The last server-confirmed enforced-lock state, persisted on the device. */
+  enforcedLocked?: boolean;
 }
 
 export interface DeviceInfo {

@@ -15,6 +15,7 @@ interface DeviceRow {
   id: string;
   management_status: string;
   admin_enabled: boolean;
+  management_mode?: string | null;
   consent_granted_at?: string | null;
   registered_at: string;
   last_seen_at?: string | null;
@@ -110,6 +111,7 @@ export default function DeviceManagementPanel({ customerId, isAdmin }: { custome
 
   const locked = device.management_status === 'LOCKED';
   const pending = device.management_status.endsWith('PENDING');
+  const isDeviceOwner = device.management_mode === 'DEVICE_OWNER';
 
   return (
     <div className="rounded-xl border border-slate-200 p-4 bg-white space-y-3">
@@ -132,12 +134,26 @@ export default function DeviceManagementPanel({ customerId, isAdmin }: { custome
         <div>Status: <b className={statusTone(device.management_status)}>{device.management_status}</b></div>
         {emiDue != null && <div>EMI Due: <b>₹{Math.round(emiDue).toLocaleString('en-IN')}</b></div>}
         {device.last_seen_at && <div className="text-slate-400">Seen: {new Date(device.last_seen_at).toLocaleString('en-IN')}</div>}
+        <div className="col-span-2 flex items-center gap-1.5">
+          {isDeviceOwner
+            ? <><ShieldCheck size={16} className="text-emerald-600" /><span>Lock type: <b className="text-emerald-700">Hard lock (Device Owner)</b> — customer cannot unlock</span></>
+            : <><ShieldAlert size={16} className="text-amber-600" /><span>Lock type: <b className="text-amber-700">Soft lock</b> — customer can unlock with their PIN</span></>}
+        </div>
       </div>
 
       {!device.admin_enabled && (
         <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
           The customer has not granted (or has manually removed) the Android device-admin
           permission. A lock will not take effect until it is granted on the device.
+        </p>
+      )}
+
+      {device.admin_enabled && !isDeviceOwner && (
+        <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+          This device is a <b>soft lock</b> only: it will lock the screen and show the EMI
+          screen, but the customer can unlock with their own PIN. For the permanent
+          &ldquo;locked until EMI paid&rdquo; lock, the phone must be enrolled as
+          <b> Device Owner</b> at the store on a fresh/reset device (see the setup guide).
         </p>
       )}
 

@@ -23,6 +23,11 @@ export function isDeviceAdminEnabled(): Promise<boolean> {
   return DeviceMgmt.isDeviceAdminEnabled();
 }
 
+/** True when this app is provisioned as Device Owner (hard-lock capable). */
+export function isDeviceOwner(): Promise<boolean> {
+  return DeviceMgmt.isDeviceOwner();
+}
+
 export function requestDeviceAdmin(): Promise<void> {
   return DeviceMgmt.requestDeviceAdmin();
 }

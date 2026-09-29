@@ -42,6 +42,9 @@ export async function POST(req: NextRequest) {
 
   const consent = body.consent === true;
   const adminEnabled = body.admin_enabled === true;
+  const ALLOWED_MODES = ['UNMANAGED', 'DEVICE_ADMIN', 'PROFILE_OWNER', 'DEVICE_OWNER', 'UNSUPPORTED'];
+  const managementMode = typeof body.management_mode === 'string' && ALLOWED_MODES.includes(body.management_mode)
+    ? body.management_mode : undefined;
   const nowIso = new Date().toISOString();
 
   const patch = {
@@ -55,6 +58,7 @@ export async function POST(req: NextRequest) {
     admin_enabled: adminEnabled,
     last_seen_at: nowIso,
     updated_at: nowIso,
+    ...(managementMode ? { management_mode: managementMode } : {}),
     ...(consent ? { consent_granted_at: nowIso } : {}),
   };
 

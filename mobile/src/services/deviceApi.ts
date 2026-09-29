@@ -66,6 +66,7 @@ export interface RegisterDeviceInput {
   appVersion?: string;
   consent?: boolean;
   adminEnabled?: boolean;
+  managementMode?: string;
 }
 
 export async function registerDevice(i: RegisterDeviceInput) {
@@ -77,6 +78,7 @@ export async function registerDevice(i: RegisterDeviceInput) {
     app_version: i.appVersion,
     consent: i.consent ?? false,
     admin_enabled: i.adminEnabled ?? false,
+    management_mode: i.managementMode,
   });
 }
 
@@ -126,12 +128,13 @@ export async function ackCommand(
 export async function sendHeartbeat(
   customerId: string,
   installationId: string,
-  info: { appVersion?: string; androidVersion?: string; adminEnabled?: boolean },
+  info: { appVersion?: string; androidVersion?: string; adminEnabled?: boolean; managementMode?: string },
 ) {
   return post<{ ok: boolean }>('/api/device/heartbeat', customerId, {
     installation_id: installationId,
     app_version: info.appVersion,
     android_version: info.androidVersion,
     admin_enabled: info.adminEnabled,
+    management_mode: info.managementMode,
   });
 }

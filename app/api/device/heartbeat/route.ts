@@ -27,6 +27,10 @@ export async function POST(req: NextRequest) {
   if (typeof body.app_version === 'string') patch.app_version = body.app_version.slice(0, 40);
   if (typeof body.android_version === 'string') patch.android_version = body.android_version.slice(0, 40);
   if (typeof body.admin_enabled === 'boolean') patch.admin_enabled = body.admin_enabled;
+  const ALLOWED_MODES = ['UNMANAGED', 'DEVICE_ADMIN', 'PROFILE_OWNER', 'DEVICE_OWNER', 'UNSUPPORTED'];
+  if (typeof body.management_mode === 'string' && ALLOWED_MODES.includes(body.management_mode)) {
+    patch.management_mode = body.management_mode;
+  }
 
   const { data: device } = await svc.from('devices')
     .update(patch).eq('customer_id', customerId).eq('installation_id', installationId)

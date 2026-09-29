@@ -47,6 +47,16 @@ export async function isDeviceAdminEnabled(): Promise<boolean> {
 }
 
 /**
+ * True when this app is the Device Owner — the only mode in which the true
+ * financing lock (kiosk, can't be exited or uninstalled by the customer) is
+ * possible. Set once at the store on a fresh/reset device (see README).
+ */
+export async function isDeviceOwner(): Promise<boolean> {
+  if (!isSupported()) return false;
+  try { return await native.isDeviceOwner(); } catch { return false; }
+}
+
+/**
  * Opens the Android system "activate device admin" dialog. Requires an explicit
  * user tap in the OS UI — this method cannot grant the permission itself.
  */
