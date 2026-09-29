@@ -12,11 +12,18 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
  * SUPABASE_URL + ANON key (publishable) are injected into `extra` from env so
  * the app no longer hard-codes them. The service-role key is never referenced.
  */
-const VARIANT = (process.env.TELEPOINT_APP_VARIANT || 'customer').toLowerCase();
+const rawVariant = (process.env.TELEPOINT_APP_VARIANT || 'customer').toLowerCase();
+const VARIANT = rawVariant === 'admin' ? 'admin' : rawVariant === 'retailer' ? 'retailer' : 'customer';
 
-const VARIANTS: Record<string, { name: string; package: string; scheme: string }> = {
-  customer: { name: 'TelePoint', package: 'com.telepoint.customer', scheme: 'telepoint' },
-  retailer: { name: 'TelePoint Retailer', package: 'com.telepoint.retailer', scheme: 'telepointretailer' },
+const DEFAULT_PORTAL_URL = 'https://telepoint-topaz.vercel.app';
+const DEFAULT_SUPABASE_URL = 'https://tjqigwdivmcyikurpepe.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRqcWlnd2Rpdm1jeWlrdXJwZXBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MTUzMDAsImV4cCI6MjA5NTI5MTMwMH0.c9P4e1c1o73ZmZ_wK1uEHUK_y5a3HS04oYCKKSoJScA';
+
+const VARIANTS: Record<string, { name: string; package: string; scheme: string; appVariant: 'customer' | 'retailer' }> = {
+  customer: { name: 'TelePoint', package: 'com.telepoint.customer', scheme: 'telepoint', appVariant: 'customer' },
+  retailer: { name: 'TelePoint Retailer', package: 'com.telepoint.retailer', scheme: 'telepointretailer', appVariant: 'retailer' },
+  admin: { name: 'TelePoint Admin', package: 'com.telepoint.retailer', scheme: 'telepointretailer', appVariant: 'retailer' },
 };
 
 export default ({ config }: ConfigContext): ExpoConfig => {
@@ -32,10 +39,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     extra: {
       ...config.extra,
-      appVariant: VARIANT,
-      portalUrl: process.env.EXPO_PUBLIC_PORTAL_URL || config.extra?.portalUrl,
-      supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL || config.extra?.supabaseUrl || '',
-      supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || config.extra?.supabaseAnonKey || '',
+      appVariant: v.appVariant,
+      portalUrl: process.env.EXPO_PUBLIC_PORTAL_URL || config.extra?.portalUrl || DEFAULT_PORTAL_URL,
+      supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL || config.extra?.supabaseUrl || DEFAULT_SUPABASE_URL,
+      supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || config.extra?.supabaseAnonKey || DEFAULT_SUPABASE_ANON_KEY,
     },
   };
 };
