@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef} from 'react';
+import OcrScanPanel from './OcrScanPanel';
 import { motion } from 'framer-motion';
 import { Customer, Retailer } from '@/lib/types';
 import { createClient } from '@/lib/supabase/client';
@@ -366,6 +367,16 @@ export default function CustomerFormModal({
             {/* ══════════════ INFO TAB ══════════════ */}
             {tab === 'info' && (
               <>
+                {/* OCR quick-fill — scan phone box / IMEI / Aadhaar to auto-fill. */}
+                <OcrScanPanel
+                  onExtract={(f) => {
+                    (Object.keys(f) as (keyof FormData)[]).forEach((k) => {
+                      const v = f[k as keyof typeof f];
+                      if (v) set(k, String(v));
+                    });
+                  }}
+                />
+
                 {/* Retailer */}
                 <section>
                   <p className="form-section">Retailer</p>
