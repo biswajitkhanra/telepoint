@@ -88,26 +88,12 @@ export default function DeviceManagementPanel({ customerId, isAdmin }: { custome
 
   if (!isAdmin) return null;
 
-  if (loading) {
-    return <div className="text-sm text-slate-500 py-3">Checking device…</div>;
-  }
+  if (loading) return null;
 
-  // App not installed / no registered device -> do not auto-trigger anything.
-  if (!device) {
-    return (
-      <div className="rounded-xl border border-slate-200 p-4 bg-slate-50">
-        <div className="flex items-center gap-2 text-slate-600">
-          <Smartphone size={18} />
-          <span className="font-semibold">Customer app not installed</span>
-        </div>
-        <p className="text-sm text-slate-500 mt-1">
-          No registered device for this customer. Device management is unavailable until the
-          customer installs the TelePoint app and it registers the device.
-        </p>
-        {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
-      </div>
-    );
-  }
+  // No registered device yet -> render nothing. The panel appears only once the
+  // customer's app has registered a device; we do not surface any "app not
+  // installed" notice in the portal.
+  if (!device) return null;
 
   const locked = device.management_status === 'LOCKED';
   const pending = device.management_status.endsWith('PENDING');
