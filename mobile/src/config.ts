@@ -54,6 +54,11 @@ export const STORAGE_KEYS = {
   STAFF_USER: '@telepoint_staff_user',
   // Signed proof of the Aadhaar/mobile login; sent with customer_id lookups.
   CUSTOMER_SESSION_TOKEN: '@telepoint_customer_session_token',
+  // Locally-cached reminder configuration (synced from reminder_settings) that
+  // drives the OFFLINE reminder engine. See services/reminderService.ts.
+  REMINDER_CONFIG: '@telepoint_reminder_config',
+  // { url, path } of the locally-cached customer photo for offline reminders.
+  REMINDER_PHOTO_META: '@telepoint_reminder_photo_meta',
 };
 
 export const THEME = {

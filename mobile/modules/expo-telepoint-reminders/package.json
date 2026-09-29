@@ -1,0 +1,7 @@
+{
+  "name": "expo-telepoint-reminders",
+  "version": "1.0.0",
+  "description": "Offline exact-alarm EMI reminder engine (AlarmManager + TextToSpeech + boot rescheduling) for TelePoint.",
+  "main": "index.ts",
+  "private": true
+}

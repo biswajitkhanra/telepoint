@@ -5,7 +5,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "expo-telepoint-device-management": ["modules/expo-telepoint-device-management/index.ts"]
+      "expo-telepoint-device-management": ["modules/expo-telepoint-device-management/index.ts"],
+      "expo-telepoint-reminders": ["modules/expo-telepoint-reminders/index.ts"]
     }
   }
 }

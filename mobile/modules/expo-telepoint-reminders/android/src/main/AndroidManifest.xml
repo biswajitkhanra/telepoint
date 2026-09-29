@@ -1,0 +1,36 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!--
+    Offline EMI reminder engine. Permissions (SCHEDULE_EXACT_ALARM /
+    USE_EXACT_ALARM / POST_NOTIFICATIONS / RECEIVE_BOOT_COMPLETED / VIBRATE /
+    WAKE_LOCK) are declared at the app level (mobile/app.json) so the manifest
+    merger unions them into every variant. Here we only register the components.
+  -->
+  <application>
+    <!--
+      Fires each scheduled reminder. Internal only (exported=false): it is
+      triggered exclusively by our own AlarmManager PendingIntents, never by
+      other apps. It posts the branded notification and, on the due day (or when
+      explicitly configured for overdue), speaks the reminder via TextToSpeech.
+    -->
+    <receiver
+      android:name="com.telepoint.reminders.ReminderReceiver"
+      android:exported="false" />
+
+    <!--
+      Re-schedules the persisted reminder plan after a reboot or a clock/timezone
+      change, so reminders keep firing without the app being opened, and so a
+      timezone change re-aligns the 10:00 / 18:00 / hourly / 5-min slots.
+    -->
+    <receiver
+      android:name="com.telepoint.reminders.ReminderBootReceiver"
+      android:exported="true">
+      <intent-filter>
+        <action android:name="android.intent.action.BOOT_COMPLETED" />
+        <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+        <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+        <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+        <action android:name="android.intent.action.TIME_SET" />
+      </intent-filter>
+    </receiver>
+  </application>
+</manifest>

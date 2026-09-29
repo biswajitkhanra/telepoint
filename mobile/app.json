@@ -29,7 +29,10 @@
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
         "POST_NOTIFICATIONS",
-        "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
+        "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+        "SCHEDULE_EXACT_ALARM",
+        "USE_EXACT_ALARM",
+        "WAKE_LOCK"
       ]
     },
     "plugins": [

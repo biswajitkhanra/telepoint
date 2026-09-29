@@ -5,6 +5,19 @@ import { Customer, EMIScheduleItem, DueBreakdown, BroadcastItem, MultiLoanCustom
 import { STORAGE_KEYS } from '../config';
 import { loginCustomer, registerPushToken, deactivatePushToken } from '../services/api';
 import { registerForPushNotificationsAsync } from '../services/notifications';
+import { cacheCustomerPhoto, syncReminders, cancelAllReminders } from '../services/reminderService';
+
+/**
+ * After the local session/EMIs are persisted, cache the customer photo (once)
+ * and (re)apply the OFFLINE reminder schedule. Fire-and-forget and fully guarded
+ * — a failure here never affects login. Photo is cached BEFORE the sync so the
+ * scheduled reminders can show it offline.
+ */
+function bootstrapReminders(photoUrl?: string | null) {
+  cacheCustomerPhoto(photoUrl)
+    .then(() => syncReminders())
+    .catch(() => { /* engine unavailable (Expo Go / non-Android) — safe no-op */ });
+}
 
 export interface StaffUserInfo {
   username: string;
@@ -94,6 +107,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (Array.isArray(parsed.allLoans)) {
               setAllLoans(parsed.allLoans);
             }
+
+            // Apply the offline reminder schedule immediately from cached data
+            // (works even if the network refresh below fails).
+            bootstrapReminders(parsed.customer.customer_photo_url);
 
             // Silently refresh in background and discover any additional loans
             refreshCustomer(parsed.customer.id, parsed.customer.mobile);
@@ -204,6 +221,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             allLoans: updatedLoans,
           })
         );
+
+        // Re-apply the offline reminder schedule with the freshest EMIs.
+        bootstrapReminders(res.customer.customer_photo_url);
       }
     } catch (e) {
       // Offline or network error: retain cached session to enforce persistent login until data cleared
@@ -257,6 +277,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         })
       );
 
+      // Cache the customer photo + apply the offline reminder schedule.
+      bootstrapReminders(res.customer.customer_photo_url);
+
       // Register push token
       try {
         const token = await registerForPushNotificationsAsync();
@@ -302,6 +325,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }).catch(() => {});
       }
       await AsyncStorage.multiRemove([STORAGE_KEYS.SESSION, STORAGE_KEYS.TOKEN, STORAGE_KEYS.ACTIVE_LOAN, STORAGE_KEYS.CUSTOMER_SESSION_TOKEN]);
+      cancelAllReminders().catch(() => {}); // stop all local reminders on sign-out
       setCustomer(null);
       setEmis([]);
       setBreakdown(null);
@@ -325,6 +349,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }).catch(() => {});
       }
       await AsyncStorage.multiRemove([STORAGE_KEYS.SESSION, STORAGE_KEYS.TOKEN, STORAGE_KEYS.ACTIVE_LOAN, STORAGE_KEYS.CUSTOMER_SESSION_TOKEN]);
+      cancelAllReminders().catch(() => {}); // stop all local reminders on sign-out
       setCustomer(null);
       setEmis([]);
       setBreakdown(null);
