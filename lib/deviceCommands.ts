@@ -15,8 +15,22 @@ import type {
  * terminal. Idempotency is keyed on the command UUID + terminal status.
  */
 
-/** How long a freshly issued command stays actionable before it EXPIRES. */
-export const COMMAND_TTL_MS = 15 * 60 * 1000; // 15 minutes
+/**
+ * How long a freshly issued command stays actionable before it EXPIRES.
+ *
+ * A LOCK/UNLOCK must survive until the customer's app next comes online — the
+ * app polls on foreground and on a background-fetch window, which can be hours
+ * away if the phone is asleep or the app is closed. A 15-minute window let a
+ * lock expire undelivered, so the admin's click did nothing. Default is 3 days;
+ * a newer command always supersedes (cancels) any in-flight one, so a long
+ * window is safe. Override with DEVICE_COMMAND_TTL_MINUTES (1..43200).
+ */
+const DEFAULT_TTL_MINUTES = 3 * 24 * 60; // 3 days
+function resolveTtlMinutes(): number {
+  const raw = Number(process.env.DEVICE_COMMAND_TTL_MINUTES);
+  return Number.isFinite(raw) && raw >= 1 && raw <= 43200 ? raw : DEFAULT_TTL_MINUTES;
+}
+export const COMMAND_TTL_MS = resolveTtlMinutes() * 60 * 1000;
 
 export const TERMINAL_STATUSES: ReadonlySet<DeviceCommand['status']> = new Set([
   'EXECUTED',

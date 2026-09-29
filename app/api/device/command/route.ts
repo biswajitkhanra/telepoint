@@ -102,6 +102,18 @@ export async function POST(req: NextRequest) {
 
   await svc.from('devices').update({ management_status: pendingStatusFor(commandType), updated_at: new Date().toISOString() }).eq('id', device.id);
 
+  // Unify the two lock surfaces. The web app has long shown a `customers.is_locked`
+  // status pill (PhoneLockBadge) that admins toggled by hand — a marker that did
+  // nothing to the phone. Now that the admin's lock/unlock issues a REAL device
+  // command, keep that same flag in sync so every existing screen (admin list,
+  // detail panel, exports) reflects the actual intent immediately, while the
+  // device's CONFIRMED state still flows through management_status. Best-effort:
+  // a failure here must not undo the authorised command.
+  await svc.from('customers')
+    .update({ is_locked: commandType === 'LOCK', lock_provider: 'TelePoint Device' })
+    .eq('id', customerId)
+    .then(() => {}, () => {});
+
   await writeDeviceAudit(svc, {
     actor_user_id: staffUserId,
     actor_role: role,

@@ -29,12 +29,46 @@ export default function PhoneLockBadge({ customerId, isLocked, lockProvider, isA
 
   async function toggle() {
     setLoading(true);
-    const s = createClient();
     const nv = !locked;
-    const { error } = await s.from('customers').update({ is_locked: nv }).eq('id', customerId);
-    setLoading(false); setConfirm(false);
-    if (error) toast.error(error.message);
-    else { setLocked(nv); toast.success(nv ? '🔴 Locked' : '🟢 Unlocked'); onToggled?.(nv); }
+    try {
+      // Admin: issue the REAL device command. The server authorises it, records
+      // an audit entry, tells the customer's phone to lock/unlock via Android's
+      // DevicePolicyManager, and syncs `is_locked` itself — so this one click
+      // both locks the phone and updates the status pill everywhere.
+      if (isAdmin) {
+        const res = await fetch('/api/device/command', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ customer_id: customerId, command_type: nv ? 'LOCK' : 'UNLOCK' }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+          setLocked(nv);
+          toast.success(nv ? '🔒 Lock sent to the customer’s phone' : '🔓 Unlock sent to the customer’s phone');
+          onToggled?.(nv);
+          return;
+        }
+        // 400 = no registered device (app not installed). Fall back to marking
+        // the record only. Any other error (e.g. 409 EMI cleared) is surfaced.
+        if (res.status !== 400) {
+          toast.error(data.error || 'Could not reach the phone');
+          return;
+        }
+      }
+
+      // Retailer, or admin with no registered device: status marker only. This
+      // updates the business "locked" state in records; it does not contact a
+      // phone (none is registered / retailers cannot issue device commands).
+      const s = createClient();
+      const { error } = await s.from('customers').update({ is_locked: nv }).eq('id', customerId);
+      if (error) { toast.error(error.message); return; }
+      setLocked(nv);
+      toast.success(nv ? '🔴 Marked Locked (app not installed — records only)' : '🟢 Marked Active');
+      onToggled?.(nv);
+    } finally {
+      setLoading(false);
+      setConfirm(false);
+    }
   }
 
   const showBadge = variant === 'full' || variant === 'badge';
