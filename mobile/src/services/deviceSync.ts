@@ -78,9 +78,15 @@ export async function syncDeviceCommandsOnce(customerId: string): Promise<Device
     if (result.ok) lockedChangeTo = cmd.command_type === 'LOCK';
   }
 
-  // Anti-bypass re-assert: while the backend still says LOCKED, re-apply the
-  // screen lock so a single user unlock does not defeat the EMI lock.
-  if (resp?.device?.management_status === 'LOCKED' && isDeviceManagementSupported()) {
+  // Anti-bypass re-assert: while still locked, re-apply the screen lock so a
+  // single user unlock does not defeat the EMI lock. Use the EFFECTIVE state
+  // after this pass — if we just executed an UNLOCK, `resp` still says LOCKED
+  // (it was captured before the command ran), so re-asserting off `resp` would
+  // instantly re-lock a phone the admin just unlocked. `lockedChangeTo` wins.
+  const stillLocked = lockedChangeTo !== undefined
+    ? lockedChangeTo
+    : resp?.device?.management_status === 'LOCKED';
+  if (stillLocked && isDeviceManagementSupported()) {
     try { await lockNow(); } catch { /* ignore */ }
   }
 
