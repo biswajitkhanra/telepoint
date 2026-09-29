@@ -228,7 +228,12 @@ export type DeviceManagementStatus =
   | 'LOCKED'
   | 'UNLOCK_PENDING'
   | 'ADMIN_PERMISSION_MISSING'
-  | 'OFFLINE';
+  | 'OFFLINE'
+  // The device admin/owner was removed while a loan is still live (reported by
+  // the app so the portal can act); or the Android version/mode cannot enforce
+  // management at all. Added in migration 032.
+  | 'MANAGEMENT_LOST'
+  | 'UNSUPPORTED';
 
 export interface Device {
   id: string;
@@ -249,7 +254,10 @@ export interface Device {
   updated_at: string;
 }
 
-export type DeviceCommandType = 'LOCK' | 'UNLOCK';
+// LOCK/UNLOCK move the device lock state; EMI_REMINDER is the server-driven
+// MANUAL "Send EMI Reminder" (Section 18) — separate from the automatic LOCAL
+// reminder engine, which never creates a command. Added in migration 032.
+export type DeviceCommandType = 'LOCK' | 'UNLOCK' | 'EMI_REMINDER';
 export type DeviceCommandStatus =
   | 'PENDING'
   | 'RECEIVED'
@@ -267,6 +275,9 @@ export interface DeviceCommand {
   reason?: string | null;
   /** Snapshot of the amount due when the command was issued (locked screen). */
   emi_amount?: number | null;
+  /** EMI_REMINDER only: whether to speak the reminder, and in which language. */
+  voice?: boolean | null;
+  language?: 'bn' | 'hi' | null;
   status: DeviceCommandStatus;
   issued_by?: string | null;
   issued_by_role?: 'super_admin' | 'retailer' | null;
@@ -274,6 +285,20 @@ export interface DeviceCommand {
   received_at?: string | null;
   executed_at?: string | null;
   failure_reason?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Per-customer/loan reminder configuration (migration 032, reminder_settings). */
+export interface ReminderSettings {
+  customer_id: string;
+  reminder_enabled: boolean;
+  overdue_reminder_enabled: boolean;
+  voice_enabled: boolean;
+  voice_language: 'bn' | 'hi';
+  voice_on_overdue: boolean;
+  schedule_version: number;
+  updated_by?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -290,4 +315,8 @@ export type DeviceAuditAction =
   | 'UNLOCK_RECEIVED'
   | 'UNLOCK_EXECUTED'
   | 'UNLOCK_FAILED'
-  | 'PAYMENT_CONFIRMED';
+  | 'PAYMENT_CONFIRMED'
+  // Reminder-related events (migration 032).
+  | 'EMI_REMINDER_SENT'
+  | 'REMINDER_CONFIG_CHANGED'
+  | 'MANAGEMENT_LOST';
