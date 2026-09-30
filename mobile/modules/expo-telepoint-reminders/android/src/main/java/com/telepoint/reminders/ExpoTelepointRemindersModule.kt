@@ -38,7 +38,7 @@ class ExpoTelepointRemindersModule : Module() {
     // Opens the OS "Alarms & reminders" screen (Android 12+) so the user can
     // allow exact alarms. Cannot grant it silently.
     AsyncFunction("requestExactAlarmPermission") {
-      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return@AsyncFunction
+      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return@AsyncFunction Unit
       try {
         val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
           data = Uri.parse("package:${context.packageName}")

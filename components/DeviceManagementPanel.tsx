@@ -5,6 +5,7 @@ import {
   Lock, Unlock, Smartphone, ChevronDown, ChevronUp, ShieldCheck, ShieldAlert, RefreshCw,
   Bell, Volume2, VolumeX, Send, MessageSquare, Copy, Camera, Wifi, Bluetooth, Usb, Plane,
   MapPin, Power, EyeOff, Image as ImageIcon, PhoneOff, CreditCard, Sliders, Trash2, Settings2, Link2, KeyRound,
+  Info, Store, ExternalLink, Clock, Activity,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import toast from 'react-hot-toast';
@@ -486,27 +487,44 @@ export default function DeviceManagementPanel({
             </div>
           )}
 
-          {/* App info & history */}
-          <button onClick={() => setOpenHistory((o) => !o)} className="w-full px-3 py-1.5 border-t border-slate-100 flex items-center justify-between text-xs font-medium text-slate-500 hover:bg-slate-50">
-            <span>App info &amp; history</span>
-            {openHistory ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          {/* App info & history is only available in the admin portal. */}
+          {isAdmin && <>
+          <button type="button" aria-expanded={openHistory} aria-controls={`app-info-${customerId}`} onClick={() => setOpenHistory((o) => !o)} className="w-full min-h-11 px-3 py-2 border-t border-slate-100 flex items-center justify-between gap-2 text-xs font-medium text-slate-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600">
+            <span className="inline-flex items-center gap-2"><Info size={14} aria-hidden="true" />App info &amp; history</span>
+            {openHistory ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
           </button>
           {openHistory && (
-            <div className="px-3 py-2.5 border-t border-slate-100 space-y-2">
+            <div id={`app-info-${customerId}`} className="px-3 py-3 border-t border-slate-100 space-y-3">
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold text-slate-800">Android apps</h4>
+                <p className="text-xs text-slate-600">Version 1.0.0. Open Expo to check build progress and download when ready.</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <a href="https://expo.dev/accounts/biswajitkhas-team/projects/telepoint/builds/c3031e96-4ca3-4159-95a5-d58facb1519e" target="_blank" rel="noopener noreferrer" className="flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 p-3 text-xs font-semibold text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600">
+                    <Smartphone size={16} className="shrink-0" aria-hidden="true" />
+                    <span className="flex-1">Customer app build</span>
+                    <ExternalLink size={14} className="shrink-0" aria-hidden="true" /><span className="sr-only"> (opens in a new tab)</span>
+                  </a>
+                  <a href="https://expo.dev/accounts/biswajitkhas-team/projects/telepoint/builds/81e19605-161d-4beb-8422-04ab160cc3a3" target="_blank" rel="noopener noreferrer" className="flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 p-3 text-xs font-semibold text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600">
+                    <Store size={16} className="shrink-0" aria-hidden="true" />
+                    <span className="flex-1">Retailer app build</span>
+                    <ExternalLink size={14} className="shrink-0" aria-hidden="true" /><span className="sr-only"> (opens in a new tab)</span>
+                  </a>
+                </div>
+              </div>
               {installed ? (
-                <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-slate-600">
-                  <div>Android: <b className="text-slate-800">{device?.android_version || '—'}</b></div>
-                  <div className="flex items-center gap-1">{device?.admin_enabled ? <><ShieldCheck size={13} className="text-emerald-600" />Perm: <b className="text-emerald-700">ON</b></> : <><ShieldAlert size={13} className="text-amber-600" />Perm: <b className="text-amber-700">OFF</b></>}</div>
-                  <div>Mode: <b className="text-slate-800">{device?.management_mode || '—'}</b></div>
-                  <div>State: <b className="text-slate-800">{device?.management_status || '—'}</b></div>
-                  {device?.last_seen_at && <div className="col-span-2">Seen: <b className="text-slate-800">{new Date(device.last_seen_at).toLocaleString('en-IN')}</b></div>}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600">
+                  <div className="flex items-center gap-2"><Smartphone size={14} className="shrink-0" aria-hidden="true" />Android: <b className="text-slate-800">{device?.android_version || '—'}</b></div>
+                  <div className="flex items-center gap-2">{device?.admin_enabled ? <><ShieldCheck size={14} className="shrink-0 text-emerald-600" aria-hidden="true" />Admin permission: <b className="text-emerald-700">On</b></> : <><ShieldAlert size={14} className="shrink-0 text-amber-600" aria-hidden="true" />Admin permission: <b className="text-amber-700">Off</b></>}</div>
+                  <div className="flex items-center gap-2"><Settings2 size={14} className="shrink-0" aria-hidden="true" />Mode: <b className="break-all text-slate-800">{device?.management_mode || '—'}</b></div>
+                  <div className="flex items-center gap-2"><Activity size={14} className="shrink-0" aria-hidden="true" />State: <b className="break-all text-slate-800">{device?.management_status || '—'}</b></div>
+                  {device?.last_seen_at && <div className="flex items-center gap-2 sm:col-span-2"><Clock size={14} className="shrink-0" aria-hidden="true" />Last seen: <b className="text-slate-800">{new Date(device.last_seen_at).toLocaleString('en-IN')}</b></div>}
                 </div>
               ) : <p className="text-xs text-slate-500">The TelePoint app has not registered on this phone yet.</p>}
               {commands.length > 0 && (
                 <ul className="space-y-0.5 max-h-40 overflow-auto pt-1.5 border-t border-slate-100">
                   {commands.map((c) => (
                     <li key={c.id} className="text-xs text-slate-600 flex justify-between gap-2">
-                      <span>{c.command_type}{c.command_type === 'EMI_REMINDER' && c.voice ? ' 🔊' : ''} · <b>{c.status}</b>{c.failure_reason ? ` (${c.failure_reason})` : ''}</span>
+                      <span>{c.command_type}{c.command_type === 'EMI_REMINDER' && c.voice && <><Volume2 size={13} className="inline-block ml-1" aria-hidden="true" /><span className="sr-only"> with voice</span></>} · <b>{c.status}</b>{c.failure_reason ? ` (${c.failure_reason})` : ''}</span>
                       <span className="text-slate-400">{new Date(c.created_at).toLocaleDateString('en-IN')}</span>
                     </li>
                   ))}
@@ -514,6 +532,7 @@ export default function DeviceManagementPanel({
               )}
             </div>
           )}
+          </>}
         </div>
       )}
     </div>

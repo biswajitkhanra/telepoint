@@ -34,6 +34,8 @@
     "expo-status-bar": "~1.12.1",
     "expo-system-ui": "~3.0.7",
     "expo-task-manager": "~11.8.2",
+    "expo-telepoint-device-management": "file:./modules/expo-telepoint-device-management",
+    "expo-telepoint-reminders": "file:./modules/expo-telepoint-reminders",
     "expo-updates": "~0.25.27",
     "lucide-react-native": "^0.454.0",
     "react": "18.2.0",
