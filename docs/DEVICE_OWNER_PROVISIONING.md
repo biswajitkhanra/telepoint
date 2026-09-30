@@ -1,40 +1,41 @@
 # TelePoint — EMI Lock & Uninstall Protection
 
-## No-ADB path (what your store staff actually do)
+## NO-COMPUTER path (what your store staff actually do) — QR at setup
 
-Your staff cannot use ADB, and that's fine. On a **fresh / factory-reset phone,
-before adding any Google account**, they:
+> The old "Accessibility uninstall-protection" no-ADB path has been **removed**
+> (Android forbids Accessibility for device management, and it was only a soft
+> lock). The real, no-computer method is **Device Owner via a provisioning QR**.
+> Device Owner is the only mode that gives the full Bajaj-style lock (can't exit
+> with a PIN, can't uninstall, factory-reset/safe-boot blocked, FRP, survives
+> reboot) — and it is set with **no PC touching the phone**.
 
-1. Install the TelePoint **customer** APK.
-2. Open the app → **Device Management** and grant, with the customer present:
-   - **Device admin** (enables the EMI screen lock), and
-   - **TelePoint EMI Protection** in Accessibility (blocks uninstall while the
-     EMI is unpaid), and
-   - **Allow unrestricted battery** (keeps it working in the background).
+**One-time setup (admin):**
+1. Host the customer APK at a public `https://` URL.
+2. Get the signing cert SHA-256 (`eas credentials` → Android → SHA-256 fingerprint).
+3. Generate the QR — **no computer needed**: open the admin portal → **/admin/provision**,
+   paste the APK URL + SHA-256 (+ optional store Wi-Fi), tap **Generate QR**.
+   (CLI alternative: `docs/device-owner-qr/generate-qr.mjs`.)
 
-That combination gives a working financing lock **without ADB or Device Owner**:
+**Per phone (store staff, no PC):**
+1. **Factory-reset** the phone. Do **not** add any Google account.
+2. At the first setup-wizard screen, **tap the same spot 6 times** → the QR scanner opens.
+3. **Scan the QR.** The phone joins Wi-Fi, downloads TelePoint, and enrols it as
+   **Device Owner** automatically.
+4. Hand over the phone. From then on the admin/retailer portal (and the two
+   authorised SMS numbers) control it; everything releases automatically when the
+   EMI is fully paid.
 
-- **Uninstall is blocked while the EMI is unpaid.** A device-admin app can't be
-  uninstalled until admin is turned off, and the accessibility service bounces
-  the uninstall / admin-removal screens for this app back until the loan is
-  paid. Once the loan is COMPLETE/SETTLED the app clears the flag and removal is
-  allowed.
-- **Lock** shows the branded EMI screen and re-asserts on each check.
-- Because Android won't let a plain app *force* the screen to stay unlocked, the
-  customer can still use their PIN on this path (a "soft" lock). For a fully
-  un-exitable kiosk that even a PIN can't leave, use the **Device Owner** path
-  below (QR at setup — still no ADB).
-
-The lock screen has a **"Turn on Wi-Fi / Data"** button so the customer can
-restore connectivity and receive the unlock.
+No ADB, no cable, no PC touches the phone. The only computer step is generating
+the QR once — and even that runs in the browser on any phone/tablet.
 
 ---
 
-## Full kiosk (Device Owner) — strongest, still no ADB (QR at setup)
+## Fallback — ADB over Wireless debugging (needs a PC, single device)
 
-For the permanent, can't-exit-with-PIN lock, enrol the fresh phone as Device
-Owner during the setup wizard by scanning a provisioning **QR** (Method B
-below). No ADB needed; it does require hosting the APK once.
+If you must provision one device from a PC (e.g. dev/testing), run
+`scripts/provision-device-owner.ps1` (Windows PowerShell). It automates the
+wireless-debugging pair → connect → set-device-owner → verify flow. This still
+requires a PC, so QR above is preferred for the store.
 
 ---
 
