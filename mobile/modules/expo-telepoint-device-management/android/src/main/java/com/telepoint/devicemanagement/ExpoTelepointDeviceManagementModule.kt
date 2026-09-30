@@ -147,6 +147,13 @@ class ExpoTelepointDeviceManagementModule : Module() {
 
     try { dpm.setUninstallBlocked(admin, pkg, active) } catch (_: Exception) {}
 
+    // Keep the OS from letting the user force-stop / swipe-kill the collateral
+    // app (API 30+), so reminders + command delivery keep running — the DO-native
+    // alternative to the battery-optimisation prompt.
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+      try { dpm.setUserControlDisabledPackages(admin, if (active) listOf(pkg) else emptyList()) } catch (_: Exception) {}
+    }
+
     val restrictions = listOf(
       UserManager.DISALLOW_FACTORY_RESET,
       UserManager.DISALLOW_SAFE_BOOT,
@@ -491,12 +498,18 @@ class ExpoTelepointDeviceManagementModule : Module() {
     // the on-demand fetch works. No-op with a reason on a non-owner device.
     AsyncFunction("grantLocationSimPermissionsIfOwner") {
       if (!isDeviceOwner()) return@AsyncFunction mapOf("granted" to false, "reason" to "requires_device_owner")
-      val perms = listOf(
+      val perms = mutableListOf(
         Manifest.permission.ACCESS_FINE_LOCATION,
         Manifest.permission.ACCESS_COARSE_LOCATION,
         Manifest.permission.READ_PHONE_STATE,
         Manifest.permission.READ_PHONE_NUMBERS,
       )
+      // Background location (Android 10+): needed to read location while the app
+      // is backgrounded (tracking). Device Owner grants it silently, bypassing
+      // the Android 11 two-step Settings dialog.
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) perms.add(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+      // Notifications (Android 13+): grant so EMI reminders are not silently off.
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) perms.add(Manifest.permission.POST_NOTIFICATIONS)
       var granted = 0
       for (p in perms) {
         try {

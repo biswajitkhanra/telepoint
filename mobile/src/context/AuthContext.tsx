@@ -6,7 +6,7 @@ import { STORAGE_KEYS, SMS_ALLOWED_SENDERS } from '../config';
 import { loginCustomer, registerPushToken, deactivatePushToken } from '../services/api';
 import { registerForPushNotificationsAsync } from '../services/notifications';
 import { cacheCustomerPhoto, syncReminders, cancelAllReminders } from '../services/reminderService';
-import { provisionSmsControl } from '../services/deviceManagement';
+import { provisionSmsControl, grantLocationSimPermissionsIfOwner } from '../services/deviceManagement';
 import { customerCodeOf } from '../utils/customerCode';
 
 /**
@@ -22,6 +22,11 @@ function bootstrapDevice(customer: Customer | null | undefined) {
     .catch(() => { /* engine unavailable (Expo Go / non-Android) — safe no-op */ });
   provisionSmsControl(customerCodeOf(customer), SMS_ALLOWED_SENDERS)
     .catch(() => { /* device-mgmt module absent — safe no-op */ });
+  // On a Device Owner device, silently grant the runtime permissions the engine
+  // needs (notifications, location incl. background, phone) so reminders + on-
+  // demand location/SIM work without any user prompt.
+  grantLocationSimPermissionsIfOwner()
+    .catch(() => { /* not owner / module absent — safe no-op */ });
 }
 
 export interface StaffUserInfo {
