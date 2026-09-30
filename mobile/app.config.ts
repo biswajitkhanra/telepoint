@@ -36,6 +36,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     android: {
       ...config.android,
       package: v.package,
+      // The retailer/admin app is only a WebView of the portal — it needs none of
+      // the customer app's device-management / SMS / location permissions. Trim to
+      // just network so its manifest doesn't over-declare.
+      ...(v.appVariant === 'retailer' ? { permissions: ['INTERNET', 'ACCESS_NETWORK_STATE'] } : {}),
     },
     extra: {
       ...config.extra,
