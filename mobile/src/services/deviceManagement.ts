@@ -142,6 +142,15 @@ export function configureSimSentinel(alertNumbersCsv: string) {
 export function setSimBaseline(force = false) {
   return DeviceMgmt.setSimBaseline(force);
 }
+export function setTotpSecret(secret: string) {
+  return DeviceMgmt.setTotpSecret(secret);
+}
+export function hasTotpSecret() {
+  return DeviceMgmt.hasTotpSecret();
+}
+export function verifyTotpUnlock(code: string) {
+  return DeviceMgmt.verifyTotpUnlock(code);
+}
 
 /**
  * Provision the offline SMS LOCK/UNLOCK channel for this device: set the

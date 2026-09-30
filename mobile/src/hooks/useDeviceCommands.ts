@@ -10,6 +10,7 @@ import {
   getDeviceInfo,
   getDeviceManagementStatus,
   isDeviceManagementSupported,
+  setTotpSecret,
 } from '../services/deviceManagement';
 import { syncDeviceCommandsOnce } from '../services/deviceSync';
 
@@ -75,7 +76,7 @@ export function useDeviceCommands(customerId: string | null | undefined) {
         try {
           const installationId = await getInstallationId();
           const [info, st] = await Promise.all([getDeviceInfo(), getDeviceManagementStatus()]);
-          await registerDevice({
+          const reg = await registerDevice({
             customerId,
             installationId,
             deviceModel: info.model,
@@ -86,6 +87,9 @@ export function useDeviceCommands(customerId: string | null | undefined) {
             adminEnabled: st.adminActive,
             managementMode: st.mode,
           });
+          // Store the TOTP offline-unlock secret so the device can verify unlock
+          // codes with no internet.
+          if (reg?.totp_secret) { try { await setTotpSecret(reg.totp_secret); } catch { /* ignore */ } }
         } catch { registered.current = false; /* retry next tick */ }
       }
 
@@ -130,5 +134,9 @@ export function useDeviceCommands(customerId: string | null | undefined) {
     return () => { clearInterval(interval); sub.remove(); notifSub.remove(); };
   }, [customerId, tick, info.locked]);
 
-  return { ...info, refresh: tick };
+  const forceUnlock = useCallback(() => {
+    setInfo((prev) => ({ ...prev, locked: false }));
+  }, []);
+
+  return { ...info, refresh: tick, forceUnlock };
 }

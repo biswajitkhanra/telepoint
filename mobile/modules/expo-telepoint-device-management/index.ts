@@ -307,6 +307,21 @@ export async function setSimBaseline(force = false): Promise<{ ok: boolean; alre
   try { return await native.setSimBaseline(force); } catch { return { ok: false }; }
 }
 
+// --- TOTP offline unlock ----------------------------------------------------
+export async function setTotpSecret(secret: string): Promise<{ ok: boolean; configured?: boolean }> {
+  if (!isSupported() || !secret) return { ok: false };
+  try { return await native.setTotpSecret(secret); } catch { return { ok: false }; }
+}
+export async function hasTotpSecret(): Promise<boolean> {
+  if (!isSupported()) return false;
+  try { return await native.hasTotpSecret(); } catch { return false; }
+}
+/** Verify an offline unlock code; on success the device unlocks locally. */
+export async function verifyTotpUnlock(code: string): Promise<{ ok: boolean }> {
+  if (!isSupported() || !code) return { ok: false };
+  try { return await native.verifyTotpUnlock(code); } catch { return { ok: false }; }
+}
+
 /**
  * Re-assert the screen lock while an account is locked. On a stock personal
  * device the user can unlock their own screen, so the app calls this on each

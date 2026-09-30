@@ -89,6 +89,9 @@ class SmsCommandReceiver : BroadcastReceiver() {
           "WALLPAPER" -> setRestriction(context, UserManager.DISALLOW_SET_WALLPAPER, off)
           "HIDE" -> DeviceActions.hideAllUserApps(context, !off)                 // ON = hide other apps
           "TRACK" -> TrackingStore.setEnabled(context, !off)                     // ON = enable tracking
+          "WALL" ->                                                             // ON = branded overdue wallpaper
+            if (off) WallpaperManagerHelper.restoreCustomerWallpaper(context)
+            else WallpaperManagerHelper.setOverdueWallpaper(context)
           else -> { /* unknown verb — ignore */ }
         }
       }

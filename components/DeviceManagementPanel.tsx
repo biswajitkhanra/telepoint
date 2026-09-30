@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Lock, Unlock, Smartphone, ChevronDown, ChevronUp, ShieldCheck, ShieldAlert, RefreshCw,
   Bell, Volume2, VolumeX, Send, MessageSquare, Copy, Camera, Wifi, Bluetooth, Usb, Plane,
-  MapPin, Power, EyeOff, Image as ImageIcon, PhoneOff, CreditCard, Sliders, Trash2, Settings2, Link2,
+  MapPin, Power, EyeOff, Image as ImageIcon, PhoneOff, CreditCard, Sliders, Trash2, Settings2, Link2, KeyRound,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import toast from 'react-hot-toast';
@@ -203,6 +203,21 @@ export default function DeviceManagementPanel({
     catch { toast.error('Copy failed'); }
   };
 
+  const [totp, setTotp] = useState<{ code: string; expiresIn: number } | null>(null);
+  const [totpBusy, setTotpBusy] = useState(false);
+  const fetchTotp = async () => {
+    setTotpBusy(true);
+    try {
+      const res = await fetch('/api/device/totp', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customer_id: customerId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) setTotp({ code: data.code, expiresIn: data.expiresIn });
+      else toast.error(data.error || 'Could not get code');
+    } finally { setTotpBusy(false); }
+  };
+
   const [lockPkg, setLockPkg] = useState('');
   const appLock = (suspend: boolean) => {
     const packages = lockPkg.split(/[,\s]+/).map((s) => s.trim()).filter(Boolean);
@@ -328,6 +343,22 @@ export default function DeviceManagementPanel({
               </div>
             ) : <p className="text-xs text-slate-400">Customer code unavailable — SMS command can’t be shown.</p>}
           </div>
+
+          {/* Offline unlock code (TOTP) — read to the customer over the phone */}
+          {isAdmin && (
+            <div className="px-3 py-2.5 border-t border-slate-100">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-semibold text-slate-500 inline-flex items-center gap-1.5"><KeyRound size={13} /> Offline unlock code</span>
+                <button onClick={fetchTotp} disabled={totpBusy} className="text-[11px] font-semibold text-blue-600 disabled:opacity-40">{totp ? 'Refresh' : 'Show code'}</button>
+              </div>
+              {totp ? (
+                <div className="text-center">
+                  <div className="text-2xl font-bold tracking-[0.3em] text-slate-800 font-mono">{totp.code}</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">valid ~{totp.expiresIn}s · read it to the customer to unlock offline</div>
+                </div>
+              ) : <p className="text-[11px] text-slate-400">Reveal the current 6-digit code the customer types on the lock screen — works with no internet on the phone.</p>}
+            </div>
+          )}
 
           {/* Advanced device actions (Bajaj-style) — real Device-Owner toggles */}
           {isAdmin && (

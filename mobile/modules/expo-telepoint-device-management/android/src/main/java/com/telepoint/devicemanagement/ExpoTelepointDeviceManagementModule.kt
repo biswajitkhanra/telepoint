@@ -639,6 +639,24 @@ class ExpoTelepointDeviceManagementModule : Module() {
       } catch (e: Exception) { mapOf("applied" to false, "reason" to "exception") }
     }
 
+    // --- TOTP offline unlock ------------------------------------------------
+    // Store the per-device shared secret (provisioned at enrolment).
+    AsyncFunction("setTotpSecret") { secret: String ->
+      Totp.setSecret(context, secret)
+      mapOf("ok" to true, "configured" to Totp.hasSecret(context))
+    }
+    AsyncFunction("hasTotpSecret") { Totp.hasSecret(context) }
+
+    // Verify an offline unlock code. On success, release the lock WITHOUT the
+    // internet (exit kiosk on Device Owner, clear the lock flag, restore
+    // wallpaper). The server remains authoritative when connectivity returns.
+    AsyncFunction("verifyTotpUnlock") { code: String ->
+      if (!Totp.verify(context, code)) return@AsyncFunction mapOf("ok" to false)
+      if (currentMode() == "DEVICE_OWNER") { stopKiosk(); applyLockPolicies(false) }
+      DeviceActions.releaseLock(context)
+      mapOf("ok" to true)
+    }
+
     // Whether the app is already exempt from battery optimization. Unrestricted
     // battery lets the background command delivery + EMI reminders keep running
     // when the app is closed, instead of being throttled/killed by Doze.

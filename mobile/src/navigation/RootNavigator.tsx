@@ -46,6 +46,7 @@ function CustomerRoot() {
         retailerPhone={dc.retailerPhone}
         customerName={dc.customerName}
         onRefresh={dc.refresh}
+        onUnlocked={dc.forceUnlock}
       />
     );
   }

@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Linking, ScrollView, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking, ScrollView, Image, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { Lock, Phone, RefreshCw, Wifi } from 'lucide-react-native';
+import { Lock, Phone, RefreshCw, Wifi, KeyRound } from 'lucide-react-native';
 import { Colors } from '../constants/colors';
 import { Spacing, Radius } from '../constants/design';
-import { openInternetPanel } from '../services/deviceManagement';
+import { openInternetPanel, verifyTotpUnlock } from '../services/deviceManagement';
 import { getCachedPhotoPath } from '../services/reminderService';
 import { useAuth } from '../context/AuthContext';
 
@@ -22,13 +22,36 @@ export const LockedScreen = ({
   retailerPhone,
   customerName,
   onRefresh,
+  onUnlocked,
 }: {
   emiAmount: number | null;
   retailerName: string | null;
   retailerPhone: string | null;
   customerName: string | null;
   onRefresh?: () => void;
+  onUnlocked?: () => void;
 }) => {
+  const [unlockCode, setUnlockCode] = useState('');
+  const [verifying, setVerifying] = useState(false);
+  const [unlockError, setUnlockError] = useState<string | null>(null);
+
+  const submitUnlockCode = async () => {
+    const code = unlockCode.trim();
+    if (code.length !== 6) { setUnlockError('Enter the 6-digit code from your store'); return; }
+    setVerifying(true);
+    setUnlockError(null);
+    try {
+      const res = await verifyTotpUnlock(code);
+      if (res.ok) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        onUnlocked?.();
+      } else {
+        setUnlockError('Incorrect or expired code. Ask the store for a fresh code.');
+      }
+    } finally {
+      setVerifying(false);
+    }
+  };
   const amount = emiAmount != null ? `₹${Math.round(emiAmount).toLocaleString('en-IN')}` : '—';
 
   // Customer photo (Section 7): prefer the OFFLINE-cached file so it shows even
@@ -90,6 +113,30 @@ export const LockedScreen = ({
           </TouchableOpacity>
         </View>
 
+        {/* Offline unlock: enter the 6-digit code the store gives you. Works
+            with no internet (verified on the device). */}
+        <View style={styles.card}>
+          <View style={styles.unlockHeader}>
+            <KeyRound size={16} color={Colors.textSecondary} />
+            <Text style={styles.cardLabel}>Unlock with code</Text>
+          </View>
+          <Text style={styles.unlockHint}>Ask your store for the 6-digit unlock code and enter it below. Works offline.</Text>
+          <TextInput
+            style={styles.codeInput}
+            value={unlockCode}
+            onChangeText={(t) => setUnlockCode(t.replace(/[^0-9]/g, '').slice(0, 6))}
+            placeholder="● ● ● ● ● ●"
+            placeholderTextColor={Colors.textTertiary}
+            keyboardType="number-pad"
+            maxLength={6}
+            editable={!verifying}
+          />
+          {unlockError ? <Text style={styles.unlockErr}>{unlockError}</Text> : null}
+          <TouchableOpacity style={[styles.unlockBtn, verifying && { opacity: 0.6 }]} onPress={submitUnlockCode} disabled={verifying} activeOpacity={0.85}>
+            <Text style={styles.unlockBtnText}>{verifying ? 'Verifying…' : 'Unlock'}</Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.dueBanner}>
           <Text style={styles.dueBannerText}>EMI Due — Please Pay Today to Unlock</Text>
           <Text style={styles.dueBannerTextBn}>ইএমআই বকেয়া — আনলক করতে আজই পরিশোধ করুন</Text>
@@ -130,6 +177,12 @@ const styles = StyleSheet.create({
   amount: { fontSize: 40, fontWeight: '900', color: Colors.textPrimary, marginTop: Spacing.xs },
   card: { width: '100%', backgroundColor: Colors.bgCard, borderRadius: Radius.lg, padding: Spacing.lg, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', gap: Spacing.xs },
   cardLabel: { fontSize: 12, color: Colors.textTertiary, textTransform: 'uppercase', letterSpacing: 1 },
+  unlockHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginBottom: Spacing.xs },
+  unlockHint: { fontSize: 12, color: Colors.textSecondary, textAlign: 'center', lineHeight: 17, marginBottom: Spacing.sm },
+  codeInput: { alignSelf: 'stretch', backgroundColor: Colors.bgBase, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.border, paddingVertical: 12, paddingHorizontal: 16, fontSize: 22, fontWeight: '800', letterSpacing: 6, textAlign: 'center', color: Colors.textPrimary },
+  unlockErr: { fontSize: 12, color: Colors.danger, marginTop: Spacing.xs, textAlign: 'center' },
+  unlockBtn: { alignSelf: 'stretch', backgroundColor: Colors.primary, borderRadius: Radius.md, paddingVertical: 13, alignItems: 'center', marginTop: Spacing.sm },
+  unlockBtnText: { color: '#fff', fontSize: 15, fontWeight: '800' },
   retailerName: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
   retailerPhone: { fontSize: 15, color: Colors.textSecondary, marginBottom: Spacing.sm },
   callBtn: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, backgroundColor: Colors.success, paddingVertical: 14, paddingHorizontal: Spacing.xl, borderRadius: Radius.md, marginTop: Spacing.xs },

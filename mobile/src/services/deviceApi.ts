@@ -70,7 +70,7 @@ export interface RegisterDeviceInput {
 }
 
 export async function registerDevice(i: RegisterDeviceInput) {
-  return post<{ device: unknown }>('/api/device/register', i.customerId, {
+  return post<{ device: unknown; totp_secret?: string }>('/api/device/register', i.customerId, {
     installation_id: i.installationId,
     device_model: i.deviceModel,
     device_manufacturer: i.deviceManufacturer,

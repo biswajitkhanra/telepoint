@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 import { customerFromSession, isUuid, writeDeviceAudit } from '@/lib/deviceServer';
 import { clientIp, rateLimit } from '@/lib/rateLimit';
+import { generateSecretBase32 } from '@/lib/totp';
 
 /**
  * POST /api/device/register — the customer app registers (or refreshes) its
@@ -65,11 +66,19 @@ export async function POST(req: NextRequest) {
   const { data: device, error } = await svc
     .from('devices')
     .upsert(patch, { onConflict: 'customer_id,installation_id' })
-    .select('id, customer_id, retailer_id, installation_id, device_model, device_manufacturer, android_version, app_version, management_status, admin_enabled, consent_granted_at, last_seen_at, registered_at')
+    .select('id, customer_id, retailer_id, installation_id, device_model, device_manufacturer, android_version, app_version, management_status, admin_enabled, consent_granted_at, last_seen_at, registered_at, totp_secret')
     .single();
 
   if (error || !device) {
     return NextResponse.json({ error: 'Could not register device' }, { status: 500 });
+  }
+
+  // Ensure a TOTP offline-unlock secret exists for this device, then hand it to
+  // the app so it can verify unlock codes with no internet.
+  let totpSecret: string | null = (device as { totp_secret?: string | null }).totp_secret ?? null;
+  if (!totpSecret) {
+    totpSecret = generateSecretBase32();
+    await svc.from('devices').update({ totp_secret: totpSecret }).eq('id', device.id);
   }
 
   await writeDeviceAudit(svc, { action: 'DEVICE_REGISTERED', customer_id: customerId, device_id: device.id, metadata: { model: patch.device_model, consent } });
@@ -77,5 +86,7 @@ export async function POST(req: NextRequest) {
     await writeDeviceAudit(svc, { action: 'DEVICE_ADMIN_ENABLED', customer_id: customerId, device_id: device.id });
   }
 
-  return NextResponse.json({ device });
+  const { totp_secret, ...deviceOut } = device as Record<string, unknown>;
+  void totp_secret;
+  return NextResponse.json({ device: deviceOut, totp_secret: totpSecret });
 }
