@@ -156,4 +156,14 @@ arbitrary Safe Mode / factory-reset prevention beyond the DEVICE_OWNER policies.
 - [x] **Admin panel = collapsed "Device & App Lock" (Bajaj-style)** — **PASS (code).** One button by default; expands to lock/unlock, reminders, Send-reminder, offline SMS command text (copy), and an honest advanced-actions list marked "Requires Device Owner" (never faked). Rendered for retailers too (lock/unlock admin-only).
 - **Research:** `docs/frp-and-sms-provisioning-research.md` — wireless-debugging Device Owner provisioning, FRP account format, SMS channel security (cited).
 
-**Still needing native build + device (unchanged):** the Bajaj advanced actions (camera/USB/Bluetooth/Wi-Fi/airplane/app-hide/reboot/wallpaper/SIM/location) are shown but NOT yet implemented natively — they are the next slice. Everything native remains build-and-device-test pending.
+### Advanced device actions (Bajaj-style) — now IMPLEMENTED (code)
+Wired end-to-end (portal → `DEVICE_ACTION` command → device executes → acks →
+reports live state via heartbeat → panel shows real toggle state). Migration 034.
+
+- [ ] **Camera Lock** — CODE DONE. `setCameraDisabled` (works under Device Admin or Owner). Device test pending.
+- [ ] **Bluetooth / Wi-Fi-config / USB-file-transfer / Airplane / Outgoing-call / Wallpaper-change Lock** — CODE DONE. `addUserRestriction(DISALLOW_*)`, Device Owner only. Device test pending.
+- [ ] **Reboot** — CODE DONE. `DevicePolicyManager.reboot`, Device Owner, API 24+. Device test pending.
+- [x] **Honest state** — PASS. Panel toggles reflect `device.policies` (reported from the OS); disabled + "Requires Device Owner" when not owner; never faked.
+- **Not wired to a button yet:** App Hide (native primitive exists, needs a target package), and live Location + SIM-info reporting (needs location permission + a reporting loop) — these remain the next slice.
+
+**Everything native still requires an EAS build + a Device-Owner phone to verify** — nothing device-tested here.
