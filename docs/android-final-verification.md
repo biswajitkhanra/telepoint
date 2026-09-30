@@ -164,6 +164,10 @@ reports live state via heartbeat → panel shows real toggle state). Migration 0
 - [ ] **Bluetooth / Wi-Fi-config / USB-file-transfer / Airplane / Outgoing-call / Wallpaper-change Lock** — CODE DONE. `addUserRestriction(DISALLOW_*)`, Device Owner only. Device test pending.
 - [ ] **Reboot** — CODE DONE. `DevicePolicyManager.reboot`, Device Owner, API 24+. Device test pending.
 - [x] **Honest state** — PASS. Panel toggles reflect `device.policies` (reported from the OS); disabled + "Requires Device Owner" when not owner; never faked.
-- **Not wired to a button yet:** App Hide (native primitive exists, needs a target package), and live Location + SIM-info reporting (needs location permission + a reporting loop) — these remain the next slice.
+- [ ] **Wi-Fi power ON/OFF** — CODE DONE. `WifiManager.setWifiEnabled` — a REAL toggle allowed for Device Owner on all versions (normal app only ≤ Android 9). Distinct from the Wi-Fi config lock. Device test pending.
+- [ ] **Airplane power ON/OFF** — ATTEMPT ONLY (honest). `setGlobalSetting(AIRPLANE_MODE_ON)` — modern Android blocks this even for DO, so it reports failure rather than faking; labelled "(often unsupported)". The reliable control is the Airplane Mode Lock.
+- [ ] **Device Location** — CODE DONE. Best last-known fix (GPS/network/passive), DO auto-grants location perm, reported via heartbeat; panel shows lat/lng + map link + Fetch. Device test pending.
+- [ ] **SIM Information** — CODE DONE. `SubscriptionManager` carrier/number/slot, DO auto-grants phone perms, reported via heartbeat; panel shows SIMs + Fetch. Device test pending.
+- **Not wired yet:** App Hide button (native primitive exists, needs a target-package choice).
 
 **Everything native still requires an EAS build + a Device-Owner phone to verify** — nothing device-tested here.
