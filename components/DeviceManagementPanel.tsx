@@ -273,16 +273,16 @@ export default function DeviceManagementPanel({
             </div>
           )}
 
-          {/* Lock / Unlock (admin) */}
+          {/* Primary Lock / Unlock (admin) */}
           {isAdmin && (
-            <div className="px-3 py-2.5 border-t border-slate-100 flex items-center gap-2">
+            <div className="px-3 py-3 border-t border-slate-100 flex items-center gap-2.5">
               <button onClick={() => toggle(true)} disabled={busy || lv.locked || lv.pending}
-                className="flex-1 inline-flex items-center justify-center gap-1 rounded-md bg-red-600 hover:bg-red-700 text-white px-2.5 py-2 text-xs font-semibold disabled:opacity-40">
-                <Lock size={13} /> Lock
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 hover:bg-red-700 text-white py-2.5 text-sm font-bold shadow-sm disabled:opacity-40 transition-colors">
+                <Lock size={15} /> Lock Device
               </button>
               <button onClick={() => toggle(false)} disabled={busy || (lv.label === 'Not locked') || lv.pending}
-                className="flex-1 inline-flex items-center justify-center gap-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-2 text-xs font-semibold disabled:opacity-40">
-                <Unlock size={13} /> Unlock
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 text-sm font-bold shadow-sm disabled:opacity-40 transition-colors">
+                <Unlock size={15} /> Unlock Device
               </button>
             </div>
           )}
@@ -512,20 +512,6 @@ export default function DeviceManagementPanel({
                   ))}
                 </ul>
               )}
-            </div>
-          )}
-
-          {/* Sticky bottom Lock / Unlock bar (admin) — always reachable. */}
-          {isAdmin && (
-            <div className="sticky bottom-0 z-10 bg-white/95 backdrop-blur border-t border-slate-200 p-2 flex gap-2">
-              <button onClick={() => toggle(true)} disabled={busy || lv.locked || lv.pending}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white py-2.5 text-sm font-bold disabled:opacity-40">
-                <Lock size={15} /> Lock Device
-              </button>
-              <button onClick={() => toggle(false)} disabled={busy || lv.label === 'Not locked' || lv.pending}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 text-sm font-bold disabled:opacity-40">
-                <Unlock size={15} /> Unlock Device
-              </button>
             </div>
           )}
         </div>
