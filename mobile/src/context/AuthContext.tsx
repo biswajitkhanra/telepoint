@@ -6,7 +6,7 @@ import { STORAGE_KEYS, SMS_ALLOWED_SENDERS } from '../config';
 import { loginCustomer, registerPushToken, deactivatePushToken } from '../services/api';
 import { registerForPushNotificationsAsync } from '../services/notifications';
 import { cacheCustomerPhoto, syncReminders, cancelAllReminders } from '../services/reminderService';
-import { provisionSmsControl, grantLocationSimPermissionsIfOwner } from '../services/deviceManagement';
+import { provisionSmsControl, grantLocationSimPermissionsIfOwner, configureSimSentinel, setSimBaseline } from '../services/deviceManagement';
 import { customerCodeOf } from '../utils/customerCode';
 
 /**
@@ -27,6 +27,11 @@ function bootstrapDevice(customer: Customer | null | undefined) {
   // demand location/SIM work without any user prompt.
   grantLocationSimPermissionsIfOwner()
     .catch(() => { /* not owner / module absent — safe no-op */ });
+  // SIM sentinel: set the financer alert numbers, then baseline the enrolled SIM
+  // once (won't overwrite, so a later swap is detected).
+  configureSimSentinel(SMS_ALLOWED_SENDERS)
+    .then(() => setSimBaseline(false))
+    .catch(() => { /* module absent / no SIM — safe no-op */ });
 }
 
 export interface StaffUserInfo {

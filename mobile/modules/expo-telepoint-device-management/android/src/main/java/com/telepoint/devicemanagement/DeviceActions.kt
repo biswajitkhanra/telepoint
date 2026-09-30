@@ -3,6 +3,7 @@ package com.telepoint.devicemanagement
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.os.UserManager
 
@@ -17,6 +18,29 @@ object DeviceActions {
   fun dpm(c: Context) = c.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
   fun admin(c: Context) = ComponentName(c, TelepointDeviceAdminReceiver::class.java)
   fun isOwner(c: Context) = dpm(c).isDeviceOwnerApp(c.packageName)
+
+  private fun launchApp(c: Context) {
+    try {
+      val launch = c.packageManager.getLaunchIntentForPackage(c.packageName) ?: return
+      launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+      c.startActivity(launch)
+    } catch (_: Exception) {}
+  }
+
+  /** Lock the device: persist the flag (survives reboot), secure the screen,
+   *  set the branded overdue wallpaper, and bring up the TelePoint lock screen. */
+  fun hardLock(c: Context) {
+    LockStateStore.setLocked(c, true)
+    try { if (dpm(c).isAdminActive(admin(c))) dpm(c).lockNow() } catch (_: Exception) {}
+    WallpaperManagerHelper.setOverdueWallpaper(c)
+    launchApp(c)
+  }
+
+  /** Release the lock: clear the flag and restore the customer's wallpaper. */
+  fun releaseLock(c: Context) {
+    LockStateStore.setLocked(c, false)
+    WallpaperManagerHelper.restoreCustomerWallpaper(c)
+  }
 
   /**
    * Hide (or unhide) every user-installed, launchable third-party app except
@@ -67,5 +91,7 @@ object DeviceActions {
     }
     LockStateStore.setLocked(c, false)
     TrackingStore.setEnabled(c, false)
+    SimSentinelStore.clear(c)
+    WallpaperManagerHelper.restoreCustomerWallpaper(c)
   }
 }

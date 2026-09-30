@@ -158,6 +158,8 @@ class ExpoTelepointDeviceManagementModule : Module() {
       UserManager.DISALLOW_FACTORY_RESET,
       UserManager.DISALLOW_SAFE_BOOT,
       UserManager.DISALLOW_ADD_USER,
+      // Stop the customer changing the clock to defeat the reminder / lock timing.
+      UserManager.DISALLOW_CONFIG_DATE_TIME,
     )
     for (r in restrictions) {
       try { if (active) dpm.addUserRestriction(admin, r) else dpm.clearUserRestriction(admin, r) } catch (_: Exception) {}
@@ -174,6 +176,14 @@ class ExpoTelepointDeviceManagementModule : Module() {
         // Pass the policy to enable; null to clear when released.
         dpm.setFactoryResetProtectionPolicy(admin, if (active) policy else null)
         frpApplied = true
+        // Best-effort nudge for GMS to sync the FRP state. Third-party apps
+        // usually cannot deliver this protected broadcast, so it is guarded and
+        // NOT relied upon — setFactoryResetProtectionPolicy is the real mechanism.
+        try {
+          context.sendBroadcast(
+            Intent("com.google.android.gms.auth.FRP_CONFIG_CHANGED").setPackage("com.google.android.gms")
+          )
+        } catch (_: Exception) {}
       } catch (_: Exception) { frpApplied = false }
     }
 
@@ -293,6 +303,7 @@ class ExpoTelepointDeviceManagementModule : Module() {
       }
       try {
         LockStateStore.setLocked(context, true)
+        WallpaperManagerHelper.setOverdueWallpaper(context)
         if (mode == "DEVICE_OWNER") {
           applyLockPolicies(true)
           startKioskIfPermitted()
@@ -315,6 +326,7 @@ class ExpoTelepointDeviceManagementModule : Module() {
       }
       val mode = currentMode()
       LockStateStore.setLocked(context, false)
+      WallpaperManagerHelper.restoreCustomerWallpaper(context)
       if (mode == "DEVICE_OWNER") {
         stopKiosk()
         applyLockPolicies(false)
@@ -378,12 +390,9 @@ class ExpoTelepointDeviceManagementModule : Module() {
     AsyncFunction("grantSmsPermissionIfOwner") {
       if (!isDeviceOwner()) return@AsyncFunction mapOf("granted" to false, "reason" to "requires_device_owner")
       try {
-        dpm.setPermissionGrantState(
-          adminComponent,
-          context.packageName,
-          android.Manifest.permission.RECEIVE_SMS,
-          DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED,
-        )
+        for (p in listOf(Manifest.permission.RECEIVE_SMS, Manifest.permission.SEND_SMS)) {
+          dpm.setPermissionGrantState(adminComponent, context.packageName, p, DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED)
+        }
         mapOf("granted" to true)
       } catch (e: Exception) {
         mapOf("granted" to false, "reason" to "exception")
@@ -598,6 +607,38 @@ class ExpoTelepointDeviceManagementModule : Module() {
       mapOf("ok" to true, "mode" to mode)
     }
 
+    // --- SIM sentinel provisioning ------------------------------------------
+    AsyncFunction("configureSimSentinel") { alertNumbersCsv: String ->
+      SimSentinelStore.setAlertNumbers(context, alertNumbersCsv)
+      mapOf("ok" to true)
+    }
+    // Baseline the enrolled SIM ONCE (won't overwrite, so a later swap is still
+    // detected). Pass force=true to re-baseline after a legitimate SIM change.
+    AsyncFunction("setSimBaseline") { force: Boolean ->
+      if (!force && !SimSentinelStore.getBaseline(context).isNullOrBlank()) {
+        return@AsyncFunction mapOf("ok" to true, "already" to true)
+      }
+      val sig = currentSimSignature() ?: return@AsyncFunction mapOf("ok" to false, "reason" to "no_sim_or_permission")
+      SimSentinelStore.setBaseline(context, sig)
+      mapOf("ok" to true, "signature" to sig)
+    }
+
+    // --- OEM autostart (MIUI/Vivo/Oppo/…) -----------------------------------
+    AsyncFunction("openOemAutostartSettings") {
+      mapOf("opened" to OemPermissionHelper.openOemAutostartSettings(context))
+    }
+
+    // --- Per-app lock (Device Owner suspend; no Accessibility) --------------
+    AsyncFunction("setAppsSuspended") { packagesJson: String, suspended: Boolean ->
+      if (currentMode() != "DEVICE_OWNER") return@AsyncFunction mapOf("applied" to false, "reason" to "requires_device_owner")
+      val pkgs = parseFrpAccounts(packagesJson) // reuse JSON-array/CSV parser
+      if (pkgs.isEmpty()) return@AsyncFunction mapOf("applied" to false, "reason" to "no_packages")
+      try {
+        val failed = dpm.setPackagesSuspended(adminComponent, pkgs.toTypedArray(), suspended)
+        mapOf("applied" to true, "suspended" to suspended, "failed" to failed.toList())
+      } catch (e: Exception) { mapOf("applied" to false, "reason" to "exception") }
+    }
+
     // Whether the app is already exempt from battery optimization. Unrestricted
     // battery lets the background command delivery + EMI reminders keep running
     // when the app is closed, instead of being throttled/killed by Doze.
@@ -669,5 +710,17 @@ class ExpoTelepointDeviceManagementModule : Module() {
       dpm.isAdminActive(adminComponent) -> "DEVICE_ADMIN"
       else -> "UNMANAGED"
     }
+  }
+
+  /** Signature of the SIM in slot 0 (ICCID if readable, else sub+carrier). */
+  private fun currentSimSignature(): String? {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP_MR1) return null
+    if (context.checkSelfPermission(Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) return null
+    val sm = context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as SubscriptionManager
+    val list = try { sm.activeSubscriptionInfoList } catch (_: Exception) { null } ?: return null
+    if (list.isEmpty()) return null
+    val sub = list.firstOrNull { it.simSlotIndex == 0 } ?: list.first()
+    val icc = try { sub.iccId ?: "" } catch (_: Exception) { "" }
+    return if (icc.isNotBlank()) "icc:$icc" else "sub:${sub.subscriptionId}:${sub.carrierName ?: ""}"
   }
 }

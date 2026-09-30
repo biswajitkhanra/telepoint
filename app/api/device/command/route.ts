@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     : null;
 
   // Advanced device-action payload (validated).
-  const ACTION_KEYS = new Set(['CAMERA', 'BLUETOOTH', 'WIFI', 'USB', 'AIRPLANE', 'OUTGOING_CALLS', 'WALLPAPER', 'REBOOT', 'APP_HIDE', 'WIFI_POWER', 'AIRPLANE_POWER', 'LOCATION', 'SIM_INFO', 'TRACKING']);
+  const ACTION_KEYS = new Set(['CAMERA', 'BLUETOOTH', 'WIFI', 'USB', 'AIRPLANE', 'OUTGOING_CALLS', 'WALLPAPER', 'REBOOT', 'APP_HIDE', 'WIFI_POWER', 'AIRPLANE_POWER', 'LOCATION', 'SIM_INFO', 'TRACKING', 'RELEASE', 'OEM_AUTOSTART', 'APP_LOCK']);
   let payload: Record<string, unknown> | null = null;
   let actionKey = '';
   if (isAction) {
@@ -65,6 +65,9 @@ export async function POST(req: NextRequest) {
     }
     payload = { action: actionKey, enabled: p.enabled === true };
     if (actionKey === 'APP_HIDE' && typeof p.package === 'string') payload.package = p.package.slice(0, 200);
+    if (actionKey === 'APP_LOCK' && Array.isArray(p.packages)) {
+      payload.packages = (p.packages as unknown[]).filter((x) => typeof x === 'string').slice(0, 50);
+    }
   }
 
   const svc = createServiceClient();

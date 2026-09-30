@@ -271,7 +271,9 @@ export type DeviceActionKey =
   | 'CAMERA' | 'BLUETOOTH' | 'WIFI' | 'USB' | 'AIRPLANE' | 'OUTGOING_CALLS' | 'WALLPAPER'
   | 'REBOOT' | 'APP_HIDE'
   // Power toggles + telemetry fetches + tracking.
-  | 'WIFI_POWER' | 'AIRPLANE_POWER' | 'LOCATION' | 'SIM_INFO' | 'TRACKING';
+  | 'WIFI_POWER' | 'AIRPLANE_POWER' | 'LOCATION' | 'SIM_INFO' | 'TRACKING'
+  // Full release, OEM autostart opener, per-app lock (suspend).
+  | 'RELEASE' | 'OEM_AUTOSTART' | 'APP_LOCK';
 
 export interface DeviceActionPayload {
   action: DeviceActionKey;
@@ -279,6 +281,8 @@ export interface DeviceActionPayload {
   enabled?: boolean;
   /** For APP_HIDE: the target package. */
   package?: string;
+  /** For APP_LOCK: the target packages to suspend/unsuspend. */
+  packages?: string[];
 }
 
 /** Live policy snapshot the device reports (devices.policies, migration 034). */

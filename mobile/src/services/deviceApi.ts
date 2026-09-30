@@ -92,7 +92,7 @@ export interface PollCommand {
   emi_amount?: number | null;
   voice?: boolean | null;
   language?: 'bn' | 'hi' | null;
-  payload?: { action?: string; enabled?: boolean; package?: string } | null;
+  payload?: { action?: string; enabled?: boolean; package?: string; packages?: string[] } | null;
   status: string;
   expires_at: string;
 }

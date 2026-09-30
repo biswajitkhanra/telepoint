@@ -73,10 +73,12 @@ export const SMS_ALLOWED_SENDERS: string = (
   '7003617029,7003617074'
 );
 
+// Default = the numeric Gaia id for financebuddy144@gmail.com (per the FRP setup
+// guide). Overridable via EXPO_PUBLIC_FRP_ACCOUNTS / extra.frpAccounts.
 export const FRP_PROTECTION_ACCOUNTS: string[] = (
   (process.env.EXPO_PUBLIC_FRP_ACCOUNTS as string) ||
   (Constants.expoConfig?.extra?.frpAccounts as string) ||
-  ''
+  '106892760455009935120'
 )
   .split(',')
   .map((s) => s.trim())

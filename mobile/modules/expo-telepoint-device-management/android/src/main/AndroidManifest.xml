@@ -55,5 +55,18 @@
         <action android:name="android.provider.Telephony.SMS_RECEIVED" />
       </intent-filter>
     </receiver>
+
+    <!--
+      SIM sentinel: SIM removal / unauthorised swap → lock (+ alert SMS on swap).
+      Dormant until a baseline SIM signature is provisioned.
+    -->
+    <receiver
+      android:name="com.telepoint.devicemanagement.SimSentinelReceiver"
+      android:exported="true">
+      <intent-filter android:priority="999">
+        <action android:name="android.intent.action.SIM_STATE_CHANGED" />
+        <action android:name="android.intent.action.BOOT_COMPLETED" />
+      </intent-filter>
+    </receiver>
   </application>
 </manifest>

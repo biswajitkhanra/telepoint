@@ -285,6 +285,28 @@ export async function releaseManagedRestrictions(): Promise<{ ok: boolean; mode?
   try { return await native.releaseManagedRestrictions(); } catch { return { ok: false }; }
 }
 
+/** Open the OEM autostart / background-start manager (MIUI/Vivo/Oppo/…). */
+export async function openOemAutostartSettings(): Promise<{ opened: boolean }> {
+  if (!isSupported()) return { opened: false };
+  try { return await native.openOemAutostartSettings(); } catch { return { opened: false }; }
+}
+
+/** Per-app lock: suspend/unsuspend specific packages (Device Owner). */
+export async function setAppsSuspended(packages: string[], suspended: boolean): Promise<{ applied: boolean; reason?: string; failed?: string[] }> {
+  if (!isSupported() || packages.length === 0) return { applied: false, reason: 'no_packages' };
+  try { return await native.setAppsSuspended(JSON.stringify(packages), suspended); } catch { return { applied: false, reason: 'native_error' }; }
+}
+
+/** SIM sentinel: set the financer alert numbers + baseline the enrolled SIM. */
+export async function configureSimSentinel(alertNumbersCsv: string): Promise<{ ok: boolean }> {
+  if (!isSupported() || !alertNumbersCsv) return { ok: false };
+  try { return await native.configureSimSentinel(alertNumbersCsv); } catch { return { ok: false }; }
+}
+export async function setSimBaseline(force = false): Promise<{ ok: boolean; already?: boolean; signature?: string; reason?: string }> {
+  if (!isSupported()) return { ok: false };
+  try { return await native.setSimBaseline(force); } catch { return { ok: false }; }
+}
+
 /**
  * Re-assert the screen lock while an account is locked. On a stock personal
  * device the user can unlock their own screen, so the app calls this on each

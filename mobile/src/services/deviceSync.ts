@@ -17,10 +17,12 @@ import {
   hideAllUserApps,
   isDeviceManagementSupported,
   isTrackingEnabled,
+  openOemAutostartSettings,
   rebootDevice,
   releaseManagedRestrictions,
   setAirplaneMode,
   setApplicationHidden,
+  setAppsSuspended,
   setDevicePolicy,
   setTrackingEnabled,
   setWifiEnabled,
@@ -126,6 +128,16 @@ export async function syncDeviceCommandsOnce(customerId: string): Promise<Device
       } else if (action === 'TRACKING') {
         const r = await setTrackingEnabled(cmd.payload?.enabled === true);
         ok = r.ok;
+      } else if (action === 'RELEASE') {
+        const r = await releaseManagedRestrictions();
+        ok = r.ok;
+      } else if (action === 'OEM_AUTOSTART') {
+        const r = await openOemAutostartSettings();
+        ok = r.opened;
+      } else if (action === 'APP_LOCK') {
+        const pkgs = cmd.payload?.packages ?? [];
+        const r = await setAppsSuspended(pkgs, cmd.payload?.enabled !== false);
+        ok = r.applied; reason = r.reason;
       } else if (action === 'WIFI_POWER') {
         const r = await setWifiEnabled(cmd.payload?.enabled === true);
         ok = r.ok; reason = r.reason;

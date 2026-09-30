@@ -41,6 +41,8 @@
         "READ_PHONE_NUMBERS",
         "CHANGE_WIFI_STATE",
         "ACCESS_WIFI_STATE",
+        "SET_WALLPAPER",
+        "SEND_SMS",
         "INTERNET",
         "ACCESS_NETWORK_STATE"
       ]

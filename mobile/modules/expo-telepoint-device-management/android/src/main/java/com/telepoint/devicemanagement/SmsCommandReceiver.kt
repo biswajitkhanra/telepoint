@@ -1,14 +1,21 @@
 package com.telepoint.devicemanagement
 
+import android.Manifest
 import android.app.admin.DevicePolicyManager
 import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.location.LocationManager
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.UserManager
 import android.provider.Telephony
+import android.telephony.SmsManager
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * Offline device control over SMS for the financed device.
@@ -53,10 +60,10 @@ class SmsCommandReceiver : BroadcastReceiver() {
     if (senderKey.length != 10 || senderKey !in allowed) return
 
     val body = messages.joinToString("") { it.messageBody ?: "" }.trim()
-    try { handle(context, body, code) } catch (_: Exception) { /* ignore malformed */ }
+    try { handle(context, body, code, sender) } catch (_: Exception) { /* ignore malformed */ }
   }
 
-  private fun handle(context: Context, body: String, code: String) {
+  private fun handle(context: Context, body: String, code: String, sender: String) {
     val parts = body.split(Regex("\\s+")).filter { it.isNotBlank() }
     if (parts.size < 2) return
     // Customer code is always the LAST token and must match this device.
@@ -67,6 +74,7 @@ class SmsCommandReceiver : BroadcastReceiver() {
       "LOCK" -> if (parts.size == 2) applyLock(context, true)
       "UNLOCK" -> if (parts.size == 2) applyLock(context, false)
       "REBOOT" -> if (parts.size == 2) reboot(context)
+      "LOC" -> if (parts.size == 2) replyLocation(context, sender, code)
       else -> {
         if (parts.size != 3) return
         val onoff = parts[1].uppercase()
@@ -92,20 +100,7 @@ class SmsCommandReceiver : BroadcastReceiver() {
   private fun isOwner(c: Context) = dpm(c).isDeviceOwnerApp(c.packageName)
 
   private fun applyLock(context: Context, locked: Boolean) {
-    val d = dpm(context); val a = admin(context)
-    if (locked) {
-      LockStateStore.setLocked(context, true)
-      try { if (d.isAdminActive(a)) d.lockNow() } catch (_: Exception) {}
-      try {
-        val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
-        if (launch != null) {
-          launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-          context.startActivity(launch)
-        }
-      } catch (_: Exception) {}
-    } else {
-      LockStateStore.setLocked(context, false)
-    }
+    if (locked) DeviceActions.hardLock(context) else DeviceActions.releaseLock(context)
   }
 
   private fun setCamera(context: Context, disabled: Boolean) {
@@ -132,5 +127,31 @@ class SmsCommandReceiver : BroadcastReceiver() {
   private fun reboot(context: Context) {
     if (!isOwner(context) || Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return
     try { dpm(context).reboot(admin(context)) } catch (_: Exception) {}
+  }
+
+  /** `LOC <custid>` → text the last-known location (+ maps link) back to sender. */
+  private fun replyLocation(context: Context, sender: String, code: String) {
+    if (context.checkSelfPermission(Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) return
+    val fine = context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    val coarse = context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    val loc = if (!fine && !coarse) null else try {
+      val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+      lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+        ?: lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+    } catch (_: SecurityException) { null } catch (_: Exception) { null }
+
+    val msg = if (loc != null) {
+      val lat = String.format(Locale.US, "%.5f", loc.latitude)
+      val lng = String.format(Locale.US, "%.5f", loc.longitude)
+      val t = SimpleDateFormat("dd-MM HH:mm", Locale.getDefault()).format(Date(loc.time))
+      "TelePoint LOC [$code]: $lat,$lng ($t) https://maps.google.com/?q=$lat,$lng"
+    } else {
+      "TelePoint LOC [$code]: location unavailable (indoors / GPS off)."
+    }
+    try {
+      val sms = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) context.getSystemService(SmsManager::class.java)
+        else @Suppress("DEPRECATION") SmsManager.getDefault()
+      sms?.sendTextMessage(sender, null, msg, null, null)
+    } catch (_: Exception) {}
   }
 }

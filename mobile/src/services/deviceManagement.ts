@@ -130,6 +130,18 @@ export function isTrackingEnabled() {
 export function releaseManagedRestrictions() {
   return DeviceMgmt.releaseManagedRestrictions();
 }
+export function openOemAutostartSettings() {
+  return DeviceMgmt.openOemAutostartSettings();
+}
+export function setAppsSuspended(packages: string[], suspended: boolean) {
+  return DeviceMgmt.setAppsSuspended(packages, suspended);
+}
+export function configureSimSentinel(alertNumbersCsv: string) {
+  return DeviceMgmt.configureSimSentinel(alertNumbersCsv);
+}
+export function setSimBaseline(force = false) {
+  return DeviceMgmt.setSimBaseline(force);
+}
 
 /**
  * Provision the offline SMS LOCK/UNLOCK channel for this device: set the

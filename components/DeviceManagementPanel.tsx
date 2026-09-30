@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Lock, Unlock, Smartphone, ChevronDown, ChevronUp, ShieldCheck, ShieldAlert, RefreshCw,
   Bell, Volume2, VolumeX, Send, MessageSquare, Copy, Camera, Wifi, Bluetooth, Usb, Plane,
-  MapPin, Power, EyeOff, Image as ImageIcon, PhoneOff, CreditCard, Sliders,
+  MapPin, Power, EyeOff, Image as ImageIcon, PhoneOff, CreditCard, Sliders, Trash2, Settings2, Link2,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import toast from 'react-hot-toast';
@@ -184,18 +184,30 @@ export default function DeviceManagementPanel({
     { key: 'wallpaper', action: 'WALLPAPER', icon: ImageIcon, label: 'Wallpaper Change Lock' },
   ];
 
-  const sendAction = async (action: string, enabled: boolean, confirmMsg?: string) => {
+  const sendAction = async (action: string, enabled: boolean, confirmMsg?: string, extra?: Record<string, unknown>) => {
     if (confirmMsg && !window.confirm(confirmMsg)) return;
     setActionBusy(action);
     try {
       const res = await fetch('/api/device/command', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customer_id: customerId, command_type: 'DEVICE_ACTION', payload: { action, enabled } }),
+        body: JSON.stringify({ customer_id: customerId, command_type: 'DEVICE_ACTION', payload: { action, enabled, ...(extra || {}) } }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) { toast.success('Sent to phone — applies on next sync'); pollForAck(); }
       else toast.error(data.error || 'Action failed');
     } finally { setActionBusy(null); }
+  };
+
+  const copyDeepLink = () => {
+    try { navigator.clipboard.writeText(`${window.location.origin}/c/${customerId}`); toast.success('Customer link copied'); }
+    catch { toast.error('Copy failed'); }
+  };
+
+  const [lockPkg, setLockPkg] = useState('');
+  const appLock = (suspend: boolean) => {
+    const packages = lockPkg.split(/[,\s]+/).map((s) => s.trim()).filter(Boolean);
+    if (packages.length === 0) { toast.error('Enter at least one package name'); return; }
+    sendAction('APP_LOCK', suspend, undefined, { packages });
   };
 
   // COLLAPSED: a single button (everything hidden until opened).
@@ -230,6 +242,21 @@ export default function DeviceManagementPanel({
             </div>
             <button onClick={load} className="text-slate-400 hover:text-slate-600" title="Refresh"><RefreshCw size={14} /></button>
           </div>
+
+          {/* Deep link + full release (admin) */}
+          {isAdmin && (
+            <div className="px-3 py-2 border-t border-slate-100 flex items-center gap-2 flex-wrap">
+              <button onClick={copyDeepLink} className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50">
+                <Link2 size={13} /> Copy Deep Link
+              </button>
+              <button
+                onClick={() => sendAction('RELEASE', true, 'Release ALL management on this device? Use only when the EMI is fully paid — this unlocks everything and stops financer control.')}
+                disabled={actionBusy === 'RELEASE'}
+                className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 disabled:opacity-40 ml-auto">
+                <Trash2 size={13} /> Release Management
+              </button>
+            </div>
+          )}
 
           {/* Lock / Unlock (admin) */}
           {isAdmin && (
@@ -296,7 +323,7 @@ export default function DeviceManagementPanel({
                     <button onClick={() => copy(`${c} ${smsCode}`, `${c} SMS`)} className="text-slate-400 hover:text-slate-600"><Copy size={13} /></button>
                   </div>
                 ))}
-                <p className="text-[11px] text-slate-500 mt-1">More offline commands (append the code): <code className="font-mono">CAMERA OFF</code>, <code className="font-mono">WIFI ON/OFF</code>, <code className="font-mono">BLUETOOTH OFF</code>, <code className="font-mono">USB OFF</code>, <code className="font-mono">CALLS OFF</code>, <code className="font-mono">WALLPAPER OFF</code>, <code className="font-mono">HIDE ON</code>, <code className="font-mono">TRACK ON</code>, <code className="font-mono">REBOOT</code>.</p>
+                <p className="text-[11px] text-slate-500 mt-1">More offline commands (append the code): <code className="font-mono">CAMERA OFF</code>, <code className="font-mono">WIFI ON/OFF</code>, <code className="font-mono">BLUETOOTH OFF</code>, <code className="font-mono">USB OFF</code>, <code className="font-mono">CALLS OFF</code>, <code className="font-mono">WALLPAPER OFF</code>, <code className="font-mono">HIDE ON</code>, <code className="font-mono">TRACK ON</code>, <code className="font-mono">LOC</code> (SMS back the location), <code className="font-mono">REBOOT</code>.</p>
                 <p className="text-[11px] text-amber-600">Works with no internet on the phone. The number allowlist is the gate — keep those numbers private.</p>
               </div>
             ) : <p className="text-xs text-slate-400">Customer code unavailable — SMS command can’t be shown.</p>}
@@ -360,6 +387,21 @@ export default function DeviceManagementPanel({
                 <div className="flex gap-1">
                   <button disabled={actionBusy === 'TRACKING'} onClick={() => sendAction('TRACKING', true)} className="rounded-md border border-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-600 disabled:opacity-40 hover:bg-slate-50">On</button>
                   <button disabled={actionBusy === 'TRACKING'} onClick={() => sendAction('TRACKING', false)} className="rounded-md border border-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-600 disabled:opacity-40 hover:bg-slate-50">Off</button>
+                </div>
+              </div>
+              {/* OEM autostart (MIUI/Vivo/Oppo) — opens the settings screen ON the phone. */}
+              <div className="flex items-center justify-between py-0.5">
+                <span className="text-xs text-slate-600 inline-flex items-center gap-2"><Settings2 size={14} className="text-slate-400" /> OEM autostart (MIUI/Vivo/Oppo)</span>
+                <button disabled={actionBusy === 'OEM_AUTOSTART'} onClick={() => sendAction('OEM_AUTOSTART', true)} className="rounded-md border border-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-600 disabled:opacity-40 hover:bg-slate-50">Open on phone</button>
+              </div>
+              {/* Per-app lock (Device Owner suspend). Enter package name(s). */}
+              <div className="py-1">
+                <span className="text-xs text-slate-600 inline-flex items-center gap-2 mb-1"><EyeOff size={14} className="text-slate-400" /> App Lock (suspend specific apps)</span>
+                <div className="flex items-center gap-1.5">
+                  <input value={lockPkg} onChange={(e) => setLockPkg(e.target.value)} placeholder="com.whatsapp, com.google.android.youtube"
+                    className="flex-1 rounded-md border border-slate-200 px-2 py-1 text-[11px] font-mono" />
+                  <button disabled={!isOwner || actionBusy === 'APP_LOCK'} onClick={() => appLock(true)} className="rounded-md border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600 disabled:opacity-40 hover:bg-slate-50">Lock</button>
+                  <button disabled={!isOwner || actionBusy === 'APP_LOCK'} onClick={() => appLock(false)} className="rounded-md border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600 disabled:opacity-40 hover:bg-slate-50">Unlock</button>
                 </div>
               </div>
               <div className="flex items-center justify-between pt-1.5 border-t border-slate-100">
@@ -439,6 +481,20 @@ export default function DeviceManagementPanel({
                   ))}
                 </ul>
               )}
+            </div>
+          )}
+
+          {/* Sticky bottom Lock / Unlock bar (admin) — always reachable. */}
+          {isAdmin && (
+            <div className="sticky bottom-0 z-10 bg-white/95 backdrop-blur border-t border-slate-200 p-2 flex gap-2">
+              <button onClick={() => toggle(true)} disabled={busy || lv.locked || lv.pending}
+                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white py-2.5 text-sm font-bold disabled:opacity-40">
+                <Lock size={15} /> Lock Device
+              </button>
+              <button onClick={() => toggle(false)} disabled={busy || lv.label === 'Not locked' || lv.pending}
+                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 text-sm font-bold disabled:opacity-40">
+                <Unlock size={15} /> Unlock Device
+              </button>
             </div>
           )}
         </div>
