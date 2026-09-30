@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     : null;
 
   // Advanced device-action payload (validated).
-  const ACTION_KEYS = new Set(['CAMERA', 'BLUETOOTH', 'WIFI', 'USB', 'AIRPLANE', 'OUTGOING_CALLS', 'WALLPAPER', 'REBOOT', 'APP_HIDE', 'WIFI_POWER', 'AIRPLANE_POWER', 'LOCATION', 'SIM_INFO']);
+  const ACTION_KEYS = new Set(['CAMERA', 'BLUETOOTH', 'WIFI', 'USB', 'AIRPLANE', 'OUTGOING_CALLS', 'WALLPAPER', 'REBOOT', 'APP_HIDE', 'WIFI_POWER', 'AIRPLANE_POWER', 'LOCATION', 'SIM_INFO', 'TRACKING']);
   let payload: Record<string, unknown> | null = null;
   let actionKey = '';
   if (isAction) {

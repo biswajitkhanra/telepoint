@@ -270,8 +270,8 @@ export type DeviceCommandType = 'LOCK' | 'UNLOCK' | 'EMI_REMINDER' | 'DEVICE_ACT
 export type DeviceActionKey =
   | 'CAMERA' | 'BLUETOOTH' | 'WIFI' | 'USB' | 'AIRPLANE' | 'OUTGOING_CALLS' | 'WALLPAPER'
   | 'REBOOT' | 'APP_HIDE'
-  // Power toggles + telemetry fetches.
-  | 'WIFI_POWER' | 'AIRPLANE_POWER' | 'LOCATION' | 'SIM_INFO';
+  // Power toggles + telemetry fetches + tracking.
+  | 'WIFI_POWER' | 'AIRPLANE_POWER' | 'LOCATION' | 'SIM_INFO' | 'TRACKING';
 
 export interface DeviceActionPayload {
   action: DeviceActionKey;

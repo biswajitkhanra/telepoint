@@ -14,11 +14,15 @@ import {
   getLocation,
   getSimInfo,
   grantLocationSimPermissionsIfOwner,
+  hideAllUserApps,
   isDeviceManagementSupported,
+  isTrackingEnabled,
   rebootDevice,
+  releaseManagedRestrictions,
   setAirplaneMode,
   setApplicationHidden,
   setDevicePolicy,
+  setTrackingEnabled,
   setWifiEnabled,
 } from './deviceManagement';
 import type { DevicePolicyKey } from 'expo-telepoint-device-management';
@@ -54,12 +58,16 @@ export async function syncDeviceCommandsOnce(customerId: string): Promise<Device
 
   // Collateral protection while the EMI is outstanding (Device Owner only; a
   // no-op with an honest reason otherwise). Covers uninstall + factory-reset +
-  // safe-boot + add-user block + Factory Reset Protection. Released once cleared.
+  // safe-boot + add-user block + Factory Reset Protection. Once the loan is
+  // CLOSED, EVERYTHING is released — the legal end of financer control.
   if (isDeviceManagementSupported()) {
     const bd = (resp?.breakdown ?? null) as Record<string, unknown> | null;
     const status = typeof bd?.customer_status === 'string' ? bd.customer_status : undefined;
     const cleared = status === 'COMPLETE' || status === 'SETTLED';
-    try { await applyFinancingProtection(!cleared, FRP_PROTECTION_ACCOUNTS); } catch { /* ignore */ }
+    try {
+      if (cleared) await releaseManagedRestrictions();
+      else await applyFinancingProtection(true, FRP_PROTECTION_ACCOUNTS);
+    } catch { /* ignore */ }
   }
 
   // Cheap heartbeat so the backend/admin sees whether admin permission is still
@@ -73,6 +81,25 @@ export async function syncDeviceCommandsOnce(customerId: string): Promise<Device
         managementMode: st.mode,
         policies: policies ?? undefined,
       });
+    } catch { /* ignore */ }
+  }
+
+  // Location + SIM tracking: when enabled, report location + SIM each pass. The
+  // cadence is the app's poll / background-fetch cadence (a battery-friendly
+  // interval), not a high-frequency GPS stream.
+  if (isDeviceManagementSupported()) {
+    try {
+      if (await isTrackingEnabled()) {
+        await grantLocationSimPermissionsIfOwner().catch(() => {});
+        const loc = await getLocation();
+        const sim = await getSimInfo();
+        if (loc.ok || sim.ok) {
+          await sendHeartbeat(customerId, installationId, {
+            location: loc.ok ? { lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy, provider: loc.provider } : undefined,
+            simInfo: sim.ok ? { count: sim.count, sims: sim.sims } : undefined,
+          });
+        }
+      }
     } catch { /* ignore */ }
   }
 
@@ -95,7 +122,10 @@ export async function syncDeviceCommandsOnce(customerId: string): Promise<Device
       } else if (action === 'APP_HIDE') {
         const pkg = cmd.payload?.package;
         if (pkg) { const r = await setApplicationHidden(pkg, cmd.payload?.enabled !== false); ok = r.applied; reason = r.reason; }
-        else { ok = false; reason = 'missing_package'; }
+        else { const r = await hideAllUserApps(cmd.payload?.enabled !== false); ok = r.applied; reason = r.reason; } // no package → hide ALL other apps
+      } else if (action === 'TRACKING') {
+        const r = await setTrackingEnabled(cmd.payload?.enabled === true);
+        ok = r.ok;
       } else if (action === 'WIFI_POWER') {
         const r = await setWifiEnabled(cmd.payload?.enabled === true);
         ok = r.ok; reason = r.reason;

@@ -264,6 +264,27 @@ export async function getSimInfo(): Promise<SimInfo> {
   try { return await native.getSimInfo(); } catch { return { ok: false, reason: 'native_error' }; }
 }
 
+/** Hide/unhide all user apps except TelePoint (EMI-only). Device Owner. */
+export async function hideAllUserApps(hide: boolean): Promise<{ applied: boolean; count?: number; reason?: string }> {
+  if (!isSupported()) return { applied: false, reason: 'unsupported' };
+  try { return await native.hideAllUserApps(hide); } catch { return { applied: false, reason: 'native_error' }; }
+}
+
+export async function setTrackingEnabled(enabled: boolean): Promise<{ ok: boolean; enabled?: boolean }> {
+  if (!isSupported()) return { ok: false };
+  try { return await native.setTrackingEnabled(enabled); } catch { return { ok: false }; }
+}
+export async function isTrackingEnabled(): Promise<boolean> {
+  if (!isSupported()) return false;
+  try { return await native.isTrackingEnabled(); } catch { return false; }
+}
+
+/** Full release once the loan is closed — clears ALL management. */
+export async function releaseManagedRestrictions(): Promise<{ ok: boolean; mode?: string }> {
+  if (!isSupported()) return { ok: false };
+  try { return await native.releaseManagedRestrictions(); } catch { return { ok: false }; }
+}
+
 /**
  * Re-assert the screen lock while an account is locked. On a stock personal
  * device the user can unlock their own screen, so the app calls this on each

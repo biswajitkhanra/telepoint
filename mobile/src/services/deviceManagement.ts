@@ -118,6 +118,18 @@ export function getLocation() {
 export function getSimInfo() {
   return DeviceMgmt.getSimInfo();
 }
+export function hideAllUserApps(hide: boolean) {
+  return DeviceMgmt.hideAllUserApps(hide);
+}
+export function setTrackingEnabled(enabled: boolean) {
+  return DeviceMgmt.setTrackingEnabled(enabled);
+}
+export function isTrackingEnabled() {
+  return DeviceMgmt.isTrackingEnabled();
+}
+export function releaseManagedRestrictions() {
+  return DeviceMgmt.releaseManagedRestrictions();
+}
 
 /**
  * Provision the offline SMS LOCK/UNLOCK channel for this device: set the

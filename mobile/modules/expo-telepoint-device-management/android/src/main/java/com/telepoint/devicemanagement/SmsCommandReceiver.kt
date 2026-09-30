@@ -5,29 +5,37 @@ import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.net.wifi.WifiManager
+import android.os.Build
+import android.os.UserManager
 import android.provider.Telephony
 
 /**
- * Offline LOCK/UNLOCK over SMS for the financed device.
+ * Offline device control over SMS for the financed device.
  *
  * A command is honoured ONLY when BOTH hold:
  *   1. the SENDER is one of the authorised admin/retailer numbers (matched on the
  *      last 10 digits, so +91 / 91 / bare all work), and
- *   2. the message names THIS device's customer code.
+ *   2. the message names THIS device's customer code (always the LAST token).
  *
- * Message (case-insensitive, easy to type from any phone):
- *   LOCK <custid>        e.g.  LOCK TP1233
- *   UNLOCK <custid>      e.g.  UNLOCK TP1233
+ * Grammar (case-insensitive; <custid> e.g. TP1233):
+ *   LOCK <custid>              UNLOCK <custid>            REBOOT <custid>
+ *   CAMERA ON|OFF <custid>     (OFF = camera disabled)
+ *   WIFI ON|OFF <custid>       (real Wi-Fi power — Device Owner)
+ *   BLUETOOTH ON|OFF <custid>  USB ON|OFF <custid>
+ *   CALLS ON|OFF <custid>      WALLPAPER ON|OFF <custid>
+ *   HIDE ON|OFF <custid>       (ON = hide all other apps, EMI-only)
+ *   TRACK ON|OFF <custid>      (ON = enable location + SIM tracking)
+ * For BLUETOOTH/USB/CALLS/WALLPAPER, OFF = feature restricted, ON = allowed.
  *
- * On LOCK it sets the persisted lock flag (which survives reboot — the boot
- * receiver re-asserts it), calls the documented DevicePolicyManager.lockNow(),
- * and brings up the app's own lock screen. On UNLOCK it clears the flag. No fake
- * system UI, no hidden APIs.
+ * All actions use documented DevicePolicyManager / WifiManager APIs and require
+ * Device Owner (except CAMERA + Wi-Fi power ≤ Android 9, which work under Device
+ * Admin). Nothing is faked. The lock state survives reboot (LockStateStore +
+ * boot receiver).
  *
  * SECURITY NOTE: the number allowlist is the real gate. SMS sender IDs can be
- * spoofed via online gateways, and a customer knows their own code, so this is a
- * convenience channel, not a cryptographic guarantee. For stronger assurance an
- * HMAC-signed variant can be layered on later.
+ * spoofed via online gateways and a customer knows their own code, so this is a
+ * convenience channel, not a cryptographic guarantee.
  */
 class SmsCommandReceiver : BroadcastReceiver() {
 
@@ -49,21 +57,45 @@ class SmsCommandReceiver : BroadcastReceiver() {
   }
 
   private fun handle(context: Context, body: String, code: String) {
-    val parts = body.split(Regex("\\s+"))
+    val parts = body.split(Regex("\\s+")).filter { it.isNotBlank() }
     if (parts.size < 2) return
-    val cmd = parts[0].uppercase()
-    if (cmd != "LOCK" && cmd != "UNLOCK") return
-    val custid = parts[1].trim()
-    if (!custid.equals(code, ignoreCase = true)) return
-    apply(context, cmd)
+    // Customer code is always the LAST token and must match this device.
+    if (!parts.last().equals(code, ignoreCase = true)) return
+
+    val verb = parts[0].uppercase()
+    when (verb) {
+      "LOCK" -> if (parts.size == 2) applyLock(context, true)
+      "UNLOCK" -> if (parts.size == 2) applyLock(context, false)
+      "REBOOT" -> if (parts.size == 2) reboot(context)
+      else -> {
+        if (parts.size != 3) return
+        val onoff = parts[1].uppercase()
+        if (onoff != "ON" && onoff != "OFF") return
+        val off = onoff == "OFF"
+        when (verb) {
+          "CAMERA" -> setCamera(context, off)                                    // OFF = disable camera
+          "WIFI" -> setWifiPower(context, !off)                                  // ON = power on
+          "BLUETOOTH" -> setRestriction(context, UserManager.DISALLOW_BLUETOOTH, off)
+          "USB" -> setRestriction(context, UserManager.DISALLOW_USB_FILE_TRANSFER, off)
+          "CALLS" -> setRestriction(context, UserManager.DISALLOW_OUTGOING_CALLS, off)
+          "WALLPAPER" -> setRestriction(context, UserManager.DISALLOW_SET_WALLPAPER, off)
+          "HIDE" -> DeviceActions.hideAllUserApps(context, !off)                 // ON = hide other apps
+          "TRACK" -> TrackingStore.setEnabled(context, !off)                     // ON = enable tracking
+          else -> { /* unknown verb — ignore */ }
+        }
+      }
+    }
   }
 
-  private fun apply(context: Context, cmd: String) {
-    val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-    val admin = ComponentName(context, TelepointDeviceAdminReceiver::class.java)
-    if (cmd == "LOCK") {
+  private fun dpm(c: Context) = c.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+  private fun admin(c: Context) = ComponentName(c, TelepointDeviceAdminReceiver::class.java)
+  private fun isOwner(c: Context) = dpm(c).isDeviceOwnerApp(c.packageName)
+
+  private fun applyLock(context: Context, locked: Boolean) {
+    val d = dpm(context); val a = admin(context)
+    if (locked) {
       LockStateStore.setLocked(context, true)
-      try { if (dpm.isAdminActive(admin)) dpm.lockNow() } catch (_: Exception) {}
+      try { if (d.isAdminActive(a)) d.lockNow() } catch (_: Exception) {}
       try {
         val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
         if (launch != null) {
@@ -74,5 +106,31 @@ class SmsCommandReceiver : BroadcastReceiver() {
     } else {
       LockStateStore.setLocked(context, false)
     }
+  }
+
+  private fun setCamera(context: Context, disabled: Boolean) {
+    val d = dpm(context); val a = admin(context)
+    if (!d.isAdminActive(a)) return
+    try { d.setCameraDisabled(a, disabled) } catch (_: Exception) {}
+  }
+
+  private fun setRestriction(context: Context, restriction: String, restrict: Boolean) {
+    if (!isOwner(context)) return
+    val d = dpm(context); val a = admin(context)
+    try { if (restrict) d.addUserRestriction(a, restriction) else d.clearUserRestriction(a, restriction) } catch (_: Exception) {}
+  }
+
+  private fun setWifiPower(context: Context, on: Boolean) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !isOwner(context)) return
+    try {
+      val wm = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+      @Suppress("DEPRECATION")
+      wm.setWifiEnabled(on)
+    } catch (_: Exception) {}
+  }
+
+  private fun reboot(context: Context) {
+    if (!isOwner(context) || Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return
+    try { dpm(context).reboot(admin(context)) } catch (_: Exception) {}
   }
 }

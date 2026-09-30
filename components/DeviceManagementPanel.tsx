@@ -296,6 +296,7 @@ export default function DeviceManagementPanel({
                     <button onClick={() => copy(`${c} ${smsCode}`, `${c} SMS`)} className="text-slate-400 hover:text-slate-600"><Copy size={13} /></button>
                   </div>
                 ))}
+                <p className="text-[11px] text-slate-500 mt-1">More offline commands (append the code): <code className="font-mono">CAMERA OFF</code>, <code className="font-mono">WIFI ON/OFF</code>, <code className="font-mono">BLUETOOTH OFF</code>, <code className="font-mono">USB OFF</code>, <code className="font-mono">CALLS OFF</code>, <code className="font-mono">WALLPAPER OFF</code>, <code className="font-mono">HIDE ON</code>, <code className="font-mono">TRACK ON</code>, <code className="font-mono">REBOOT</code>.</p>
                 <p className="text-[11px] text-amber-600">Works with no internet on the phone. The number allowlist is the gate — keep those numbers private.</p>
               </div>
             ) : <p className="text-xs text-slate-400">Customer code unavailable — SMS command can’t be shown.</p>}
@@ -343,6 +344,22 @@ export default function DeviceManagementPanel({
                 <div className="flex gap-1">
                   <button disabled={!isOwner || actionBusy === 'AIRPLANE_POWER'} onClick={() => sendAction('AIRPLANE_POWER', true)} className="rounded-md border border-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-600 disabled:opacity-40 hover:bg-slate-50">On</button>
                   <button disabled={!isOwner || actionBusy === 'AIRPLANE_POWER'} onClick={() => sendAction('AIRPLANE_POWER', false)} className="rounded-md border border-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-600 disabled:opacity-40 hover:bg-slate-50">Off</button>
+                </div>
+              </div>
+              {/* App Hide — EMI-only (hide all other apps). */}
+              <div className="flex items-center justify-between py-0.5">
+                <span className="text-xs text-slate-600 inline-flex items-center gap-2"><EyeOff size={14} className="text-slate-400" /> App Hide (EMI-only)</span>
+                <div className="flex gap-1">
+                  <button disabled={!isOwner || actionBusy === 'APP_HIDE'} onClick={() => sendAction('APP_HIDE', true)} className="rounded-md border border-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-600 disabled:opacity-40 hover:bg-slate-50">Hide</button>
+                  <button disabled={!isOwner || actionBusy === 'APP_HIDE'} onClick={() => sendAction('APP_HIDE', false)} className="rounded-md border border-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-600 disabled:opacity-40 hover:bg-slate-50">Show</button>
+                </div>
+              </div>
+              {/* Location + SIM tracking (reports at the app's sync cadence). */}
+              <div className="flex items-center justify-between py-0.5">
+                <span className="text-xs text-slate-600 inline-flex items-center gap-2"><MapPin size={14} className="text-slate-400" /> Location + SIM tracking</span>
+                <div className="flex gap-1">
+                  <button disabled={actionBusy === 'TRACKING'} onClick={() => sendAction('TRACKING', true)} className="rounded-md border border-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-600 disabled:opacity-40 hover:bg-slate-50">On</button>
+                  <button disabled={actionBusy === 'TRACKING'} onClick={() => sendAction('TRACKING', false)} className="rounded-md border border-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-600 disabled:opacity-40 hover:bg-slate-50">Off</button>
                 </div>
               </div>
               <div className="flex items-center justify-between pt-1.5 border-t border-slate-100">

@@ -556,6 +556,35 @@ class ExpoTelepointDeviceManagementModule : Module() {
       mapOf("ok" to true, "count" to sims.size, "sims" to sims)
     }
 
+    // --- App hide-all + tracking + full release -----------------------------
+    // Hide/unhide every user-installed launchable app except TelePoint (EMI-only).
+    AsyncFunction("hideAllUserApps") { hide: Boolean ->
+      val n = DeviceActions.hideAllUserApps(context, hide)
+      if (n < 0) mapOf("applied" to false, "reason" to "requires_device_owner")
+      else mapOf("applied" to true, "count" to n)
+    }
+
+    // Location + SIM tracking flag (read each sync pass by the app).
+    AsyncFunction("setTrackingEnabled") { enabled: Boolean ->
+      TrackingStore.setEnabled(context, enabled)
+      mapOf("ok" to true, "enabled" to enabled)
+    }
+    AsyncFunction("isTrackingEnabled") { TrackingStore.isEnabled(context) }
+
+    // FULL RELEASE once the loan is closed — the legal end of financer control.
+    // Exits kiosk, clears factory-reset/safe-boot/FRP/uninstall protection, clears
+    // every managed restriction, unhides apps, and clears lock + tracking flags.
+    AsyncFunction("releaseManagedRestrictions") {
+      val mode = currentMode()
+      if (mode == "DEVICE_OWNER") {
+        stopKiosk()
+        applyLockPolicies(false)
+        applyFinancingProtection(false, emptyList())
+      }
+      DeviceActions.releaseManagedRestrictions(context)
+      mapOf("ok" to true, "mode" to mode)
+    }
+
     // Whether the app is already exempt from battery optimization. Unrestricted
     // battery lets the background command delivery + EMI reminders keep running
     // when the app is closed, instead of being throttled/killed by Doze.
