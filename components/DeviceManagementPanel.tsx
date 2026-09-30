@@ -23,6 +23,8 @@ import toast from 'react-hot-toast';
 interface DeviceRow {
   id: string; management_status: string; admin_enabled: boolean; management_mode?: string | null;
   policies?: Record<string, boolean> | null;
+  last_location?: { lat?: number; lng?: number; accuracy?: number; provider?: string; at?: string } | null;
+  sim_info?: { count?: number; at?: string; sims?: { slot?: number; carrier?: string; display?: string; number?: string }[] } | null;
   consent_granted_at?: string | null; registered_at?: string; last_seen_at?: string | null;
   device_model?: string | null; device_manufacturer?: string | null; android_version?: string | null;
 }
@@ -327,6 +329,22 @@ export default function DeviceManagementPanel({
                   </div>
                 );
               })}
+              {/* Wi-Fi power — a REAL toggle for Device Owner (not just config lock). */}
+              <div className="flex items-center justify-between py-0.5">
+                <span className="text-xs text-slate-600 inline-flex items-center gap-2"><Wifi size={14} className="text-slate-400" /> Wi-Fi power</span>
+                <div className="flex gap-1">
+                  <button disabled={!isOwner || actionBusy === 'WIFI_POWER'} onClick={() => sendAction('WIFI_POWER', true)} className="rounded-md border border-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-600 disabled:opacity-40 hover:bg-slate-50">On</button>
+                  <button disabled={!isOwner || actionBusy === 'WIFI_POWER'} onClick={() => sendAction('WIFI_POWER', false)} className="rounded-md border border-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-600 disabled:opacity-40 hover:bg-slate-50">Off</button>
+                </div>
+              </div>
+              {/* Airplane power — attempt only; Android usually blocks this even for DO. */}
+              <div className="flex items-center justify-between py-0.5">
+                <span className="text-xs text-slate-600 inline-flex items-center gap-2"><Plane size={14} className="text-slate-400" /> Airplane power <span className="text-[10px] text-slate-400">(often unsupported)</span></span>
+                <div className="flex gap-1">
+                  <button disabled={!isOwner || actionBusy === 'AIRPLANE_POWER'} onClick={() => sendAction('AIRPLANE_POWER', true)} className="rounded-md border border-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-600 disabled:opacity-40 hover:bg-slate-50">On</button>
+                  <button disabled={!isOwner || actionBusy === 'AIRPLANE_POWER'} onClick={() => sendAction('AIRPLANE_POWER', false)} className="rounded-md border border-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-600 disabled:opacity-40 hover:bg-slate-50">Off</button>
+                </div>
+              </div>
               <div className="flex items-center justify-between pt-1.5 border-t border-slate-100">
                 <span className="text-xs text-slate-600 inline-flex items-center gap-2"><Power size={14} className="text-slate-400" /> Reboot device</span>
                 <button disabled={!isOwner || actionBusy === 'REBOOT'} onClick={() => sendAction('REBOOT', true, "Reboot this customer's phone now?")}
@@ -338,6 +356,44 @@ export default function DeviceManagementPanel({
             </div>
           )}
           </>
+          )}
+
+          {/* Device Location */}
+          {isAdmin && (
+            <div className="px-3 py-2.5 border-t border-slate-100">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-semibold text-slate-500 inline-flex items-center gap-1.5"><MapPin size={13} /> Device Location</span>
+                <button onClick={() => sendAction('LOCATION', true)} disabled={actionBusy === 'LOCATION'} className="text-[11px] font-semibold text-blue-600 disabled:opacity-40">Fetch</button>
+              </div>
+              {device?.last_location?.lat != null && device?.last_location?.lng != null ? (
+                <div className="text-xs text-slate-600 space-y-0.5">
+                  <div>Lat: <b className="text-slate-800">{device.last_location.lat}</b> · Lng: <b className="text-slate-800">{device.last_location.lng}</b></div>
+                  {typeof device.last_location.accuracy === 'number' && <div className="text-[11px] text-slate-400">±{Math.round(device.last_location.accuracy)} m · {device.last_location.provider || 'gps'}</div>}
+                  {device.last_location.at && <div className="text-[11px] text-slate-400">Updated {new Date(device.last_location.at).toLocaleString('en-IN')}</div>}
+                  <a className="text-[11px] font-semibold text-blue-600" href={`https://maps.google.com/?q=${device.last_location.lat},${device.last_location.lng}`} target="_blank" rel="noreferrer">View on map ↗</a>
+                </div>
+              ) : <p className="text-[11px] text-slate-400">No location reported yet. Tap Fetch (needs location permission on the phone).</p>}
+            </div>
+          )}
+
+          {/* SIM Information */}
+          {isAdmin && (
+            <div className="px-3 py-2.5 border-t border-slate-100">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-semibold text-slate-500 inline-flex items-center gap-1.5"><CreditCard size={13} /> SIM Information</span>
+                <button onClick={() => sendAction('SIM_INFO', true)} disabled={actionBusy === 'SIM_INFO'} className="text-[11px] font-semibold text-blue-600 disabled:opacity-40">Fetch</button>
+              </div>
+              {device?.sim_info?.sims && device.sim_info.sims.length > 0 ? (
+                <div className="space-y-1">
+                  {device.sim_info.sims.map((s, i) => (
+                    <div key={i} className="text-xs text-slate-600 flex justify-between gap-2">
+                      <span>SIM {typeof s.slot === 'number' ? s.slot + 1 : i + 1}: <b className="text-slate-800">{s.carrier || s.display || '—'}</b>{s.number ? ` · ${s.number}` : ''}</span>
+                    </div>
+                  ))}
+                  {device.sim_info.at && <div className="text-[11px] text-slate-400">Updated {new Date(device.sim_info.at).toLocaleString('en-IN')}</div>}
+                </div>
+              ) : <p className="text-[11px] text-slate-400">No SIM info reported yet. Tap Fetch (needs phone permission).</p>}
+            </div>
           )}
 
           {/* App info & history */}

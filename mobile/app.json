@@ -33,7 +33,13 @@
         "SCHEDULE_EXACT_ALARM",
         "USE_EXACT_ALARM",
         "WAKE_LOCK",
-        "RECEIVE_SMS"
+        "RECEIVE_SMS",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "READ_PHONE_STATE",
+        "READ_PHONE_NUMBERS",
+        "CHANGE_WIFI_STATE",
+        "ACCESS_WIFI_STATE"
       ]
     },
     "plugins": [

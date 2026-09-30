@@ -1,13 +1,19 @@
 package com.telepoint.devicemanagement
 
+import android.Manifest
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
+import android.location.Location
+import android.location.LocationManager
+import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.UserManager
 import android.provider.Settings
+import android.telephony.SubscriptionManager
 import expo.modules.kotlin.exception.Exceptions
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -448,6 +454,106 @@ class ExpoTelepointDeviceManagementModule : Module() {
         val ok = dpm.setApplicationHidden(adminComponent, packageName, hidden)
         mapOf("applied" to ok)
       } catch (e: Exception) { mapOf("applied" to false, "reason" to "exception") }
+    }
+
+    // --- Wi-Fi / Airplane power ---------------------------------------------
+    // Wi-Fi ON/OFF. A Device Owner may toggle Wi-Fi on ALL versions; a normal
+    // app only up to Android 9 (API 28). Honest reason otherwise.
+    AsyncFunction("setWifiEnabled") { enabled: Boolean ->
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !isDeviceOwner()) {
+        return@AsyncFunction mapOf("ok" to false, "reason" to "requires_device_owner")
+      }
+      try {
+        val wm = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+        @Suppress("DEPRECATION")
+        val ok = wm.setWifiEnabled(enabled)
+        mapOf("ok" to ok, "enabled" to enabled)
+      } catch (e: SecurityException) { mapOf("ok" to false, "reason" to "security_exception") }
+      catch (e: Exception) { mapOf("ok" to false, "reason" to "exception") }
+    }
+
+    // Airplane ON/OFF — ATTEMPT ONLY. Modern Android does not let any app
+    // (even Device Owner) toggle airplane mode; setGlobalSetting dropped the key.
+    // We attempt it and report the TRUE result (usually ok=false on new devices)
+    // rather than pretend. The reliable control is the Airplane Mode Lock.
+    AsyncFunction("setAirplaneMode") { enabled: Boolean ->
+      if (!isDeviceOwner()) return@AsyncFunction mapOf("ok" to false, "reason" to "requires_device_owner")
+      try {
+        dpm.setGlobalSetting(adminComponent, Settings.Global.AIRPLANE_MODE_ON, if (enabled) "1" else "0")
+        mapOf("ok" to true, "enabled" to enabled)
+      } catch (e: Exception) {
+        mapOf("ok" to false, "reason" to "unsupported_on_this_android")
+      }
+    }
+
+    // --- Location + SIM information -----------------------------------------
+    // Device Owner silently grants itself the location + phone runtime perms so
+    // the on-demand fetch works. No-op with a reason on a non-owner device.
+    AsyncFunction("grantLocationSimPermissionsIfOwner") {
+      if (!isDeviceOwner()) return@AsyncFunction mapOf("granted" to false, "reason" to "requires_device_owner")
+      val perms = listOf(
+        Manifest.permission.ACCESS_FINE_LOCATION,
+        Manifest.permission.ACCESS_COARSE_LOCATION,
+        Manifest.permission.READ_PHONE_STATE,
+        Manifest.permission.READ_PHONE_NUMBERS,
+      )
+      var granted = 0
+      for (p in perms) {
+        try {
+          dpm.setPermissionGrantState(adminComponent, context.packageName, p, DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED)
+          granted += 1
+        } catch (_: Exception) {}
+      }
+      mapOf("granted" to true, "count" to granted)
+    }
+
+    // Best last-known location across providers (freshest). Honest reason if the
+    // permission is denied or no fix is available.
+    AsyncFunction("getLocation") {
+      val fine = context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+      val coarse = context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+      if (!fine && !coarse) return@AsyncFunction mapOf("ok" to false, "reason" to "permission_denied")
+      val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+      var best: Location? = null
+      for (p in listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER, LocationManager.PASSIVE_PROVIDER)) {
+        try {
+          val loc = lm.getLastKnownLocation(p) ?: continue
+          if (best == null || loc.time > best!!.time) best = loc
+        } catch (_: SecurityException) {} catch (_: Exception) {}
+      }
+      val b = best ?: return@AsyncFunction mapOf("ok" to false, "reason" to "no_location")
+      mapOf(
+        "ok" to true,
+        "lat" to b.latitude,
+        "lng" to b.longitude,
+        "accuracy" to b.accuracy.toDouble(),
+        "provider" to (b.provider ?: ""),
+        "time" to b.time,
+      )
+    }
+
+    // Active SIM information (carrier / number / slot). Requires READ_PHONE_STATE
+    // (number also needs READ_PHONE_NUMBERS). Honest reason if denied.
+    AsyncFunction("getSimInfo") {
+      if (context.checkSelfPermission(Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
+        return@AsyncFunction mapOf("ok" to false, "reason" to "permission_denied")
+      }
+      val sims = ArrayList<Map<String, Any?>>()
+      try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+          val sm = context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as SubscriptionManager
+          val list = try { sm.activeSubscriptionInfoList } catch (_: SecurityException) { null }
+          list?.forEach { info ->
+            sims.add(mapOf(
+              "slot" to info.simSlotIndex,
+              "carrier" to (info.carrierName?.toString() ?: ""),
+              "display" to (info.displayName?.toString() ?: ""),
+              "number" to (try { info.number ?: "" } catch (_: Exception) { "" }),
+            ))
+          }
+        }
+      } catch (_: Exception) {}
+      mapOf("ok" to true, "count" to sims.size, "sims" to sims)
     }
 
     // Whether the app is already exempt from battery optimization. Unrestricted

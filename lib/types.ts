@@ -249,6 +249,10 @@ export interface Device {
   admin_enabled: boolean;
   /** Live advanced-policy snapshot reported by the device (migration 034). */
   policies?: DevicePolicies | null;
+  /** Last location reported by the device (migration 035). */
+  last_location?: { lat?: number; lng?: number; accuracy?: number; provider?: string; at?: string } | null;
+  /** SIM information reported by the device (migration 035). */
+  sim_info?: { count?: number; at?: string; sims?: { slot?: number; carrier?: string; display?: string; number?: string }[] } | null;
   consent_granted_at?: string | null;
   last_seen_at?: string | null;
   registered_at: string;
@@ -265,7 +269,9 @@ export type DeviceCommandType = 'LOCK' | 'UNLOCK' | 'EMI_REMINDER' | 'DEVICE_ACT
 /** Advanced Device-Owner action carried in a DEVICE_ACTION command payload. */
 export type DeviceActionKey =
   | 'CAMERA' | 'BLUETOOTH' | 'WIFI' | 'USB' | 'AIRPLANE' | 'OUTGOING_CALLS' | 'WALLPAPER'
-  | 'REBOOT' | 'APP_HIDE';
+  | 'REBOOT' | 'APP_HIDE'
+  // Power toggles + telemetry fetches.
+  | 'WIFI_POWER' | 'AIRPLANE_POWER' | 'LOCATION' | 'SIM_INFO';
 
 export interface DeviceActionPayload {
   action: DeviceActionKey;

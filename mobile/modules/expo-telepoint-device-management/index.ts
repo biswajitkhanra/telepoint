@@ -233,6 +233,37 @@ export async function setApplicationHidden(packageName: string, hidden: boolean)
   try { return await native.setApplicationHidden(packageName, hidden); } catch { return { applied: false, reason: 'native_error' }; }
 }
 
+/** Wi-Fi ON/OFF. Device Owner on all versions; a normal app only ≤ Android 9. */
+export async function setWifiEnabled(enabled: boolean): Promise<{ ok: boolean; reason?: string }> {
+  if (!isSupported()) return { ok: false, reason: 'unsupported' };
+  try { return await native.setWifiEnabled(enabled); } catch { return { ok: false, reason: 'native_error' }; }
+}
+
+/** Airplane ON/OFF — attempt only; reports the true result (usually unsupported). */
+export async function setAirplaneMode(enabled: boolean): Promise<{ ok: boolean; reason?: string }> {
+  if (!isSupported()) return { ok: false, reason: 'unsupported' };
+  try { return await native.setAirplaneMode(enabled); } catch { return { ok: false, reason: 'native_error' }; }
+}
+
+/** Device Owner grants itself the location + phone runtime permissions. */
+export async function grantLocationSimPermissionsIfOwner(): Promise<{ granted: boolean; reason?: string }> {
+  if (!isSupported()) return { granted: false, reason: 'unsupported' };
+  try { return await native.grantLocationSimPermissionsIfOwner(); } catch { return { granted: false, reason: 'native_error' }; }
+}
+
+export interface DeviceLocation { ok: boolean; lat?: number; lng?: number; accuracy?: number; provider?: string; time?: number; reason?: string }
+export async function getLocation(): Promise<DeviceLocation> {
+  if (!isSupported()) return { ok: false, reason: 'unsupported' };
+  try { return await native.getLocation(); } catch { return { ok: false, reason: 'native_error' }; }
+}
+
+export interface SimInfoEntry { slot: number; carrier: string; display: string; number: string }
+export interface SimInfo { ok: boolean; count?: number; sims?: SimInfoEntry[]; reason?: string }
+export async function getSimInfo(): Promise<SimInfo> {
+  if (!isSupported()) return { ok: false, reason: 'unsupported' };
+  try { return await native.getSimInfo(); } catch { return { ok: false, reason: 'native_error' }; }
+}
+
 /**
  * Re-assert the screen lock while an account is locked. On a stock personal
  * device the user can unlock their own screen, so the app calls this on each

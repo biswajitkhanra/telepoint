@@ -142,7 +142,7 @@ export async function ackCommand(
 export async function sendHeartbeat(
   customerId: string,
   installationId: string,
-  info: { appVersion?: string; androidVersion?: string; adminEnabled?: boolean; managementMode?: string; policies?: object | null },
+  info: { appVersion?: string; androidVersion?: string; adminEnabled?: boolean; managementMode?: string; policies?: object | null; location?: object | null; simInfo?: object | null },
 ) {
   return post<{ ok: boolean }>('/api/device/heartbeat', customerId, {
     installation_id: installationId,
@@ -151,5 +151,7 @@ export async function sendHeartbeat(
     admin_enabled: info.adminEnabled,
     management_mode: info.managementMode,
     policies: info.policies ?? undefined,
+    location: info.location ?? undefined,
+    sim_info: info.simInfo ?? undefined,
   });
 }

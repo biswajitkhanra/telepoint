@@ -103,6 +103,21 @@ export function rebootDevice() {
 export function setApplicationHidden(packageName: string, hidden: boolean) {
   return DeviceMgmt.setApplicationHidden(packageName, hidden);
 }
+export function setWifiEnabled(enabled: boolean) {
+  return DeviceMgmt.setWifiEnabled(enabled);
+}
+export function setAirplaneMode(enabled: boolean) {
+  return DeviceMgmt.setAirplaneMode(enabled);
+}
+export function grantLocationSimPermissionsIfOwner() {
+  return DeviceMgmt.grantLocationSimPermissionsIfOwner();
+}
+export function getLocation() {
+  return DeviceMgmt.getLocation();
+}
+export function getSimInfo() {
+  return DeviceMgmt.getSimInfo();
+}
 
 /**
  * Provision the offline SMS LOCK/UNLOCK channel for this device: set the

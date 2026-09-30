@@ -47,6 +47,34 @@ export async function POST(req: NextRequest) {
       wallpaper: bool(p.wallpaper),
     };
   }
+  // Location snapshot (only when the device reports a valid fix).
+  if (body.location && typeof body.location === 'object' && !Array.isArray(body.location)) {
+    const l = body.location as Record<string, unknown>;
+    if (typeof l.lat === 'number' && typeof l.lng === 'number') {
+      patch.last_location = {
+        lat: l.lat,
+        lng: l.lng,
+        accuracy: typeof l.accuracy === 'number' ? l.accuracy : undefined,
+        provider: typeof l.provider === 'string' ? l.provider : undefined,
+        at: new Date().toISOString(),
+      };
+    }
+  }
+  // SIM info snapshot (bounded to a few known fields).
+  if (body.sim_info && typeof body.sim_info === 'object' && !Array.isArray(body.sim_info)) {
+    const s = body.sim_info as Record<string, unknown>;
+    const rawSims = Array.isArray(s.sims) ? (s.sims as Record<string, unknown>[]) : [];
+    patch.sim_info = {
+      count: typeof s.count === 'number' ? s.count : rawSims.length,
+      at: new Date().toISOString(),
+      sims: rawSims.slice(0, 4).map((x) => ({
+        slot: typeof x.slot === 'number' ? x.slot : undefined,
+        carrier: typeof x.carrier === 'string' ? x.carrier.slice(0, 60) : undefined,
+        display: typeof x.display === 'string' ? x.display.slice(0, 60) : undefined,
+        number: typeof x.number === 'string' ? x.number.slice(0, 24) : undefined,
+      })),
+    };
+  }
 
   const { data: device } = await svc.from('devices')
     .update(patch).eq('customer_id', customerId).eq('installation_id', installationId)

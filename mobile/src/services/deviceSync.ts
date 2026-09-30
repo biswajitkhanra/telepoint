@@ -11,10 +11,15 @@ import {
   executeAuthorizedUnlock,
   getDeviceManagementStatus,
   getDevicePolicies,
+  getLocation,
+  getSimInfo,
+  grantLocationSimPermissionsIfOwner,
   isDeviceManagementSupported,
   rebootDevice,
+  setAirplaneMode,
   setApplicationHidden,
   setDevicePolicy,
+  setWifiEnabled,
 } from './deviceManagement';
 import type { DevicePolicyKey } from 'expo-telepoint-device-management';
 import { cacheCustomerPhoto, presentManualReminder, syncReminderConfigFromServer } from './reminderService';
@@ -91,6 +96,28 @@ export async function syncDeviceCommandsOnce(customerId: string): Promise<Device
         const pkg = cmd.payload?.package;
         if (pkg) { const r = await setApplicationHidden(pkg, cmd.payload?.enabled !== false); ok = r.applied; reason = r.reason; }
         else { ok = false; reason = 'missing_package'; }
+      } else if (action === 'WIFI_POWER') {
+        const r = await setWifiEnabled(cmd.payload?.enabled === true);
+        ok = r.ok; reason = r.reason;
+      } else if (action === 'AIRPLANE_POWER') {
+        const r = await setAirplaneMode(cmd.payload?.enabled === true);
+        ok = r.ok; reason = r.reason;
+      } else if (action === 'LOCATION') {
+        await grantLocationSimPermissionsIfOwner().catch(() => {});
+        const loc = await getLocation();
+        if (loc.ok) {
+          await sendHeartbeat(customerId, installationId, {
+            location: { lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy, provider: loc.provider },
+          });
+          ok = true;
+        } else { ok = false; reason = loc.reason; }
+      } else if (action === 'SIM_INFO') {
+        await grantLocationSimPermissionsIfOwner().catch(() => {});
+        const sim = await getSimInfo();
+        if (sim.ok) {
+          await sendHeartbeat(customerId, installationId, { simInfo: { count: sim.count, sims: sim.sims } });
+          ok = true;
+        } else { ok = false; reason = sim.reason; }
       } else if (action) {
         const r = await setDevicePolicy(action as DevicePolicyKey, cmd.payload?.enabled === true);
         ok = r.applied; reason = r.reason;
