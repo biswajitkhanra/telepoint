@@ -247,6 +247,8 @@ export interface Device {
   app_version?: string | null;
   management_status: DeviceManagementStatus;
   admin_enabled: boolean;
+  /** Live advanced-policy snapshot reported by the device (migration 034). */
+  policies?: DevicePolicies | null;
   consent_granted_at?: string | null;
   last_seen_at?: string | null;
   registered_at: string;
@@ -255,9 +257,35 @@ export interface Device {
 }
 
 // LOCK/UNLOCK move the device lock state; EMI_REMINDER is the server-driven
-// MANUAL "Send EMI Reminder" (Section 18) — separate from the automatic LOCAL
-// reminder engine, which never creates a command. Added in migration 032.
-export type DeviceCommandType = 'LOCK' | 'UNLOCK' | 'EMI_REMINDER';
+// MANUAL "Send EMI Reminder" (Section 18); DEVICE_ACTION carries an advanced
+// Device-Owner action (camera/bluetooth/wifi/usb/airplane/outgoing-call/wallpaper
+// lock, reboot, app hide) in `payload`. Added in migrations 032 + 034.
+export type DeviceCommandType = 'LOCK' | 'UNLOCK' | 'EMI_REMINDER' | 'DEVICE_ACTION';
+
+/** Advanced Device-Owner action carried in a DEVICE_ACTION command payload. */
+export type DeviceActionKey =
+  | 'CAMERA' | 'BLUETOOTH' | 'WIFI' | 'USB' | 'AIRPLANE' | 'OUTGOING_CALLS' | 'WALLPAPER'
+  | 'REBOOT' | 'APP_HIDE';
+
+export interface DeviceActionPayload {
+  action: DeviceActionKey;
+  /** For the stateful toggles: true = lock/restrict, false = release. */
+  enabled?: boolean;
+  /** For APP_HIDE: the target package. */
+  package?: string;
+}
+
+/** Live policy snapshot the device reports (devices.policies, migration 034). */
+export interface DevicePolicies {
+  mode?: string;
+  camera?: boolean;
+  bluetooth?: boolean;
+  wifi?: boolean;
+  usb?: boolean;
+  airplane?: boolean;
+  outgoingCalls?: boolean;
+  wallpaper?: boolean;
+}
 export type DeviceCommandStatus =
   | 'PENDING'
   | 'RECEIVED'
@@ -278,6 +306,8 @@ export interface DeviceCommand {
   /** EMI_REMINDER only: whether to speak the reminder, and in which language. */
   voice?: boolean | null;
   language?: 'bn' | 'hi' | null;
+  /** DEVICE_ACTION only: {action, enabled?, package?}. */
+  payload?: DeviceActionPayload | null;
   status: DeviceCommandStatus;
   issued_by?: string | null;
   issued_by_role?: 'super_admin' | 'retailer' | null;

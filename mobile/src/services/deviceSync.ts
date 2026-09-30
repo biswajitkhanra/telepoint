@@ -10,8 +10,13 @@ import {
   executeAuthorizedLock,
   executeAuthorizedUnlock,
   getDeviceManagementStatus,
+  getDevicePolicies,
   isDeviceManagementSupported,
+  rebootDevice,
+  setApplicationHidden,
+  setDevicePolicy,
 } from './deviceManagement';
+import type { DevicePolicyKey } from 'expo-telepoint-device-management';
 import { cacheCustomerPhoto, presentManualReminder, syncReminderConfigFromServer } from './reminderService';
 import { FRP_PROTECTION_ACCOUNTS } from '../config';
 
@@ -57,17 +62,45 @@ export async function syncDeviceCommandsOnce(customerId: string): Promise<Device
   if (isDeviceManagementSupported()) {
     try {
       const st = await getDeviceManagementStatus();
-      await sendHeartbeat(customerId, installationId, { adminEnabled: st.adminActive, managementMode: st.mode });
+      const policies = await getDevicePolicies().catch(() => null);
+      await sendHeartbeat(customerId, installationId, {
+        adminEnabled: st.adminActive,
+        managementMode: st.mode,
+        policies: policies ?? undefined,
+      });
     } catch { /* ignore */ }
   }
 
   let lockedChangeTo: boolean | undefined;
+  let actionExecuted = false;
   const bd = (resp?.breakdown ?? null) as Record<string, unknown> | null;
   for (const cmd of resp?.commands ?? []) {
     // Local re-validation (defence in depth): only fresh, in-flight commands.
     if (cmd.status !== 'PENDING' && cmd.status !== 'RECEIVED') continue;
     const exp = Date.parse(cmd.expires_at);
     if (!Number.isFinite(exp) || exp <= Date.now()) continue;
+
+    if (cmd.command_type === 'DEVICE_ACTION') {
+      const action = cmd.payload?.action;
+      let ok = false;
+      let reason: string | undefined;
+      if (action === 'REBOOT') {
+        const r = await rebootDevice();
+        ok = r.ok; reason = r.reason;
+      } else if (action === 'APP_HIDE') {
+        const pkg = cmd.payload?.package;
+        if (pkg) { const r = await setApplicationHidden(pkg, cmd.payload?.enabled !== false); ok = r.applied; reason = r.reason; }
+        else { ok = false; reason = 'missing_package'; }
+      } else if (action) {
+        const r = await setDevicePolicy(action as DevicePolicyKey, cmd.payload?.enabled === true);
+        ok = r.applied; reason = r.reason;
+      } else {
+        reason = 'missing_action';
+      }
+      await ackCommand(customerId, installationId, cmd.id, ok ? 'EXECUTED' : 'FAILED', ok ? undefined : reason);
+      actionExecuted = true;
+      continue;
+    }
 
     if (cmd.command_type === 'EMI_REMINDER') {
       // Manual admin/retailer reminder — show it now (+ optional voice), then ack.
@@ -97,6 +130,16 @@ export async function syncDeviceCommandsOnce(customerId: string): Promise<Device
       result.ok ? undefined : result.reason,
     );
     if (result.ok) lockedChangeTo = cmd.command_type === 'LOCK';
+  }
+
+  // After applying any advanced action, report the fresh policy snapshot so the
+  // admin panel reflects the real on-device state (not a guessed one).
+  if (actionExecuted && isDeviceManagementSupported()) {
+    try {
+      const st = await getDeviceManagementStatus();
+      const policies = await getDevicePolicies().catch(() => null);
+      await sendHeartbeat(customerId, installationId, { adminEnabled: st.adminActive, managementMode: st.mode, policies: policies ?? undefined });
+    } catch { /* ignore */ }
   }
 
   // NOTE: we deliberately do NOT call lockNow() on every pass while locked. The

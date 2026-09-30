@@ -203,6 +203,36 @@ export async function getSmsControlStatus(): Promise<SmsControlStatus> {
   try { return await native.getSmsControlStatus(); } catch { return fallback; }
 }
 
+// --- Advanced device actions (Device Owner) --------------------------------
+export type DevicePolicyKey = 'CAMERA' | 'BLUETOOTH' | 'WIFI' | 'USB' | 'AIRPLANE' | 'OUTGOING_CALLS' | 'WALLPAPER';
+export interface DevicePolicyResult { applied: boolean; policy?: string; enabled?: boolean; mode?: string; reason?: string }
+
+/** Lock (enabled=true) or release (false) a device policy. CAMERA works under
+ * Device Admin too; the rest require Device Owner. Honest reason on refusal. */
+export async function setDevicePolicy(policy: DevicePolicyKey, enabled: boolean): Promise<DevicePolicyResult> {
+  if (!isSupported()) return { applied: false, reason: 'unsupported' };
+  try { return await native.setDevicePolicy(policy, enabled); } catch { return { applied: false, reason: 'native_error' }; }
+}
+
+export interface DevicePoliciesState {
+  mode: string; camera: boolean; bluetooth: boolean; wifi: boolean; usb: boolean;
+  airplane: boolean; outgoingCalls: boolean; wallpaper: boolean;
+}
+export async function getDevicePolicies(): Promise<DevicePoliciesState | null> {
+  if (!isSupported()) return null;
+  try { return await native.getDevicePolicies(); } catch { return null; }
+}
+
+export async function rebootDevice(): Promise<{ ok: boolean; reason?: string }> {
+  if (!isSupported()) return { ok: false, reason: 'unsupported' };
+  try { return await native.rebootDevice(); } catch { return { ok: false, reason: 'native_error' }; }
+}
+
+export async function setApplicationHidden(packageName: string, hidden: boolean): Promise<{ applied: boolean; reason?: string }> {
+  if (!isSupported() || !packageName) return { applied: false, reason: 'unsupported' };
+  try { return await native.setApplicationHidden(packageName, hidden); } catch { return { applied: false, reason: 'native_error' }; }
+}
+
 /**
  * Re-assert the screen lock while an account is locked. On a stock personal
  * device the user can unlock their own screen, so the app calls this on each

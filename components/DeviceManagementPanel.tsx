@@ -22,6 +22,7 @@ import toast from 'react-hot-toast';
 
 interface DeviceRow {
   id: string; management_status: string; admin_enabled: boolean; management_mode?: string | null;
+  policies?: Record<string, boolean> | null;
   consent_granted_at?: string | null; registered_at?: string; last_seen_at?: string | null;
   device_model?: string | null; device_manufacturer?: string | null; android_version?: string | null;
 }
@@ -73,6 +74,7 @@ export default function DeviceManagementPanel({
   const [sending, setSending] = useState(false);
   const [sendVoice, setSendVoice] = useState(false);
   const [sendLang, setSendLang] = useState<'bn' | 'hi'>('bn');
+  const [actionBusy, setActionBusy] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async () => {
@@ -166,21 +168,33 @@ export default function DeviceManagementPanel({
   };
   const tc = tone[lv.tone];
 
-  // Actions Android only allows under Device Owner — shown honestly, not faked.
-  const ownerOnlyActions = [
-    { icon: Smartphone, label: 'App Lock / Unlock' },
-    { icon: ImageIcon, label: 'Wallpaper Set / Remove' },
-    { icon: Camera, label: 'Camera Lock / Unlock' },
-    { icon: Usb, label: 'USB On / Off' },
-    { icon: Bluetooth, label: 'Bluetooth Lock / Unlock' },
-    { icon: Wifi, label: 'Wi-Fi Config Lock' },
-    { icon: Plane, label: 'Airplane Mode Lock' },
-    { icon: PhoneOff, label: 'Outgoing Call Lock' },
-    { icon: EyeOff, label: 'App Hide / Unhide' },
-    { icon: Power, label: 'Reboot' },
-    { icon: MapPin, label: 'Device Location' },
-    { icon: CreditCard, label: 'SIM Information' },
+  const isOwner = device?.management_mode === 'DEVICE_OWNER';
+
+  // Real Device-Owner toggles. `enabled=true` LOCKS/restricts the feature. State
+  // comes from the device's reported policy snapshot (device.policies).
+  const POLICY_TOGGLES: { key: string; action: string; icon: typeof Camera; label: string; adminOk?: boolean }[] = [
+    { key: 'camera', action: 'CAMERA', icon: Camera, label: 'Camera Lock', adminOk: true },
+    { key: 'bluetooth', action: 'BLUETOOTH', icon: Bluetooth, label: 'Bluetooth Lock' },
+    { key: 'wifi', action: 'WIFI', icon: Wifi, label: 'Wi-Fi Config Lock' },
+    { key: 'usb', action: 'USB', icon: Usb, label: 'USB File-Transfer Lock' },
+    { key: 'airplane', action: 'AIRPLANE', icon: Plane, label: 'Airplane Mode Lock' },
+    { key: 'outgoingCalls', action: 'OUTGOING_CALLS', icon: PhoneOff, label: 'Outgoing Call Lock' },
+    { key: 'wallpaper', action: 'WALLPAPER', icon: ImageIcon, label: 'Wallpaper Change Lock' },
   ];
+
+  const sendAction = async (action: string, enabled: boolean, confirmMsg?: string) => {
+    if (confirmMsg && !window.confirm(confirmMsg)) return;
+    setActionBusy(action);
+    try {
+      const res = await fetch('/api/device/command', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customer_id: customerId, command_type: 'DEVICE_ACTION', payload: { action, enabled } }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) { toast.success('Sent to phone — applies on next sync'); pollForAck(); }
+      else toast.error(data.error || 'Action failed');
+    } finally { setActionBusy(null); }
+  };
 
   // COLLAPSED: a single button (everything hidden until opened).
   return (
@@ -285,24 +299,45 @@ export default function DeviceManagementPanel({
             ) : <p className="text-xs text-slate-400">Customer code unavailable — SMS command can’t be shown.</p>}
           </div>
 
-          {/* Advanced device actions (Bajaj-style) — honest states */}
+          {/* Advanced device actions (Bajaj-style) — real Device-Owner toggles */}
+          {isAdmin && (
+          <>
           <button onClick={() => setOpenAdvanced((o) => !o)} className="w-full px-3 py-1.5 border-t border-slate-100 flex items-center justify-between text-xs font-medium text-slate-500 hover:bg-slate-50">
             <span className="inline-flex items-center gap-1.5"><Sliders size={13} /> Advanced device actions</span>
             {openAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
           {openAdvanced && (
-            <div className="px-3 py-2 border-t border-slate-100 space-y-1">
-              <p className="text-[11px] text-slate-500 mb-1">These require the phone to be enrolled as <b>Device Owner</b>. They are enforced on-device; unavailable options are shown honestly, never faked.</p>
-              {ownerOnlyActions.map((a) => (
-                <div key={a.label} className="flex items-center justify-between py-1">
-                  <span className="text-xs text-slate-600 inline-flex items-center gap-2"><a.icon size={14} className="text-slate-400" /> {a.label}</span>
-                  <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 rounded px-1.5 py-0.5">
-                    {device?.management_mode === 'DEVICE_OWNER' ? 'Device Owner' : 'Requires Device Owner'}
-                  </span>
-                </div>
-              ))}
-              <p className="text-[11px] text-slate-400 pt-1">Factory-reset block, Safe-Mode block and FRP are applied automatically while the EMI is unpaid (Device Owner).</p>
+            <div className="px-3 py-2 border-t border-slate-100 space-y-1.5">
+              {!isOwner && <p className="text-[11px] text-amber-600 mb-1">These require the phone enrolled as <b>Device Owner</b>. Toggles stay disabled until then — never faked.</p>}
+              {POLICY_TOGGLES.map((t) => {
+                const on = !!device?.policies?.[t.key];
+                const canToggle = !!(isOwner || (t.adminOk && device?.admin_enabled));
+                return (
+                  <div key={t.key} className="flex items-center justify-between py-0.5">
+                    <span className="text-xs text-slate-600 inline-flex items-center gap-2"><t.icon size={14} className="text-slate-400" /> {t.label}</span>
+                    {canToggle ? (
+                      <button type="button" role="switch" aria-checked={on} disabled={actionBusy === t.action}
+                        onClick={() => sendAction(t.action, !on)}
+                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:opacity-50 ${on ? 'bg-red-500' : 'bg-slate-300'}`}>
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${on ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                      </button>
+                    ) : (
+                      <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 rounded px-1.5 py-0.5">Requires Device Owner</span>
+                    )}
+                  </div>
+                );
+              })}
+              <div className="flex items-center justify-between pt-1.5 border-t border-slate-100">
+                <span className="text-xs text-slate-600 inline-flex items-center gap-2"><Power size={14} className="text-slate-400" /> Reboot device</span>
+                <button disabled={!isOwner || actionBusy === 'REBOOT'} onClick={() => sendAction('REBOOT', true, "Reboot this customer's phone now?")}
+                  className="inline-flex items-center gap-1 rounded-md bg-slate-700 hover:bg-slate-800 text-white px-2 py-1 text-[11px] font-semibold disabled:opacity-40">
+                  <Power size={12} /> Reboot
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-400 pt-1">A red toggle = feature locked. Factory-reset block, Safe-Mode block and FRP are applied automatically while the EMI is unpaid (Device Owner).</p>
             </div>
+          )}
+          </>
           )}
 
           {/* App info & history */}

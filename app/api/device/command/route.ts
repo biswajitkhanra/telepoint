@@ -25,12 +25,12 @@ export async function POST(req: NextRequest) {
   if (!staff) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { userId: staffUserId, role } = staff;
 
-  let body: { customer_id?: unknown; command_type?: unknown; reason?: unknown; voice?: unknown; language?: unknown };
+  let body: { customer_id?: unknown; command_type?: unknown; reason?: unknown; voice?: unknown; language?: unknown; payload?: unknown };
   try { body = await req.json(); } catch { return NextResponse.json({ error: 'Invalid request' }, { status: 400 }); }
 
   const customerId = typeof body.customer_id === 'string' ? body.customer_id : '';
   const commandType =
-    body.command_type === 'LOCK' || body.command_type === 'UNLOCK' || body.command_type === 'EMI_REMINDER'
+    body.command_type === 'LOCK' || body.command_type === 'UNLOCK' || body.command_type === 'EMI_REMINDER' || body.command_type === 'DEVICE_ACTION'
       ? (body.command_type as DeviceCommandType)
       : null;
   const reason = typeof body.reason === 'string' ? body.reason.slice(0, 300) : null;
@@ -39,11 +39,12 @@ export async function POST(req: NextRequest) {
   }
 
   const isReminder = commandType === 'EMI_REMINDER';
+  const isAction = commandType === 'DEVICE_ACTION';
 
-  // LOCK/UNLOCK are admin-only. EMI_REMINDER is allowed for admin or the owning
-  // retailer.
+  // LOCK/UNLOCK and advanced DEVICE_ACTIONs are admin-only. EMI_REMINDER is also
+  // allowed for the owning retailer.
   if (!isReminder && role !== 'super_admin') {
-    return NextResponse.json({ error: 'Only an administrator can lock or unlock a device' }, { status: 403 });
+    return NextResponse.json({ error: 'Only an administrator can perform this device action' }, { status: 403 });
   }
 
   // Reminder options (validated).
@@ -51,6 +52,20 @@ export async function POST(req: NextRequest) {
   const language = isReminder
     ? (body.language === 'hi' ? 'hi' : 'bn')
     : null;
+
+  // Advanced device-action payload (validated).
+  const ACTION_KEYS = new Set(['CAMERA', 'BLUETOOTH', 'WIFI', 'USB', 'AIRPLANE', 'OUTGOING_CALLS', 'WALLPAPER', 'REBOOT', 'APP_HIDE']);
+  let payload: Record<string, unknown> | null = null;
+  let actionKey = '';
+  if (isAction) {
+    const p = (body.payload ?? {}) as Record<string, unknown>;
+    actionKey = typeof p.action === 'string' ? p.action : '';
+    if (!ACTION_KEYS.has(actionKey)) {
+      return NextResponse.json({ error: 'Invalid device action' }, { status: 400 });
+    }
+    payload = { action: actionKey, enabled: p.enabled === true };
+    if (actionKey === 'APP_HIDE' && typeof p.package === 'string') payload.package = p.package.slice(0, 200);
+  }
 
   const svc = createServiceClient();
 
@@ -92,11 +107,16 @@ export async function POST(req: NextRequest) {
 
   // Supersede any still-in-flight command OF THE SAME KIND so a new instruction
   // always wins. Lock/unlock share a lifecycle (newest lock-state wins);
-  // reminders are independent and only supersede prior pending reminders.
-  const supersedeTypes = isReminder ? ['EMI_REMINDER'] : ['LOCK', 'UNLOCK'];
-  await svc.from('device_commands')
-    .update({ status: 'CANCELLED', updated_at: new Date().toISOString() })
-    .eq('device_id', device.id).in('status', ['PENDING', 'RECEIVED']).in('command_type', supersedeTypes);
+  // reminders are independent; a device action supersedes only a pending action
+  // of the SAME kind (a new camera command must not cancel a pending bluetooth one).
+  const supersedeTypes = isReminder ? ['EMI_REMINDER'] : isAction ? ['DEVICE_ACTION'] : ['LOCK', 'UNLOCK'];
+  {
+    let sup = svc.from('device_commands')
+      .update({ status: 'CANCELLED', updated_at: new Date().toISOString() })
+      .eq('device_id', device.id).in('status', ['PENDING', 'RECEIVED']).in('command_type', supersedeTypes);
+    if (isAction) sup = sup.filter('payload->>action', 'eq', actionKey);
+    await sup;
+  }
 
   const nowMs = Date.now();
   const insert = {
@@ -108,6 +128,7 @@ export async function POST(req: NextRequest) {
     emi_amount: emiAmount,
     voice,
     language,
+    payload,
     status: 'PENDING' as const,
     issued_by: staffUserId,
     issued_by_role: role,
@@ -135,21 +156,23 @@ export async function POST(req: NextRequest) {
   await writeDeviceAudit(svc, {
     actor_user_id: staffUserId,
     actor_role: role,
-    action: isReminder ? 'EMI_REMINDER_SENT' : auditAction(commandType, 'REQUESTED'),
+    action: isAction ? `DEVICE_ACTION_${actionKey}` : isReminder ? 'EMI_REMINDER_SENT' : auditAction(commandType, 'REQUESTED'),
     customer_id: customerId,
     device_id: device.id,
     command_id: command.id,
-    metadata: { reason, emi_amount: emiAmount, voice, language },
+    metadata: { reason, emi_amount: emiAmount, voice, language, payload },
   });
 
   // Wake the customer's app with a real push so the command is applied promptly.
   await pushToCustomer(svc, customerId, {
     title: 'TelePoint',
-    body: isReminder
-      ? 'You have an EMI payment reminder.'
-      : commandType === 'LOCK'
-        ? 'Your device has been locked for an overdue EMI. Please pay your dues to unlock.'
-        : 'Your device has been unlocked.',
+    body: isAction
+      ? 'TelePoint device settings updated.'
+      : isReminder
+        ? 'You have an EMI payment reminder.'
+        : commandType === 'LOCK'
+          ? 'Your device has been locked for an overdue EMI. Please pay your dues to unlock.'
+          : 'Your device has been unlocked.',
     data: { type: 'device_command', command_type: commandType },
   });
 

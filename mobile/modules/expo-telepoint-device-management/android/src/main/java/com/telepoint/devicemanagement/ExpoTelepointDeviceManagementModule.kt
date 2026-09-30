@@ -387,6 +387,69 @@ class ExpoTelepointDeviceManagementModule : Module() {
       )
     }
 
+    // --- Advanced device actions (Bajaj-style) ------------------------------
+    // Stateful lock toggles. CAMERA works for DEVICE_ADMIN or DEVICE_OWNER; all
+    // the user-restriction toggles are DEVICE_OWNER only. `enabled=true` LOCKS
+    // (restricts) the feature; false releases it. Honest reason on refusal.
+    AsyncFunction("setDevicePolicy") { policy: String, enabled: Boolean ->
+      val mode = currentMode()
+      val admin = adminComponent
+      if (policy == "CAMERA") {
+        if (!dpm.isAdminActive(admin)) return@AsyncFunction mapOf("applied" to false, "reason" to "admin_inactive", "mode" to mode)
+        return@AsyncFunction try {
+          dpm.setCameraDisabled(admin, enabled)
+          mapOf("applied" to true, "policy" to policy, "enabled" to enabled, "mode" to mode)
+        } catch (e: Exception) { mapOf("applied" to false, "reason" to "exception", "mode" to mode) }
+      }
+      if (mode != "DEVICE_OWNER") return@AsyncFunction mapOf("applied" to false, "reason" to "requires_device_owner", "mode" to mode)
+      val restriction = when (policy) {
+        "BLUETOOTH" -> UserManager.DISALLOW_BLUETOOTH
+        "WIFI" -> UserManager.DISALLOW_CONFIG_WIFI
+        "USB" -> UserManager.DISALLOW_USB_FILE_TRANSFER
+        "AIRPLANE" -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) UserManager.DISALLOW_AIRPLANE_MODE else null
+        "OUTGOING_CALLS" -> UserManager.DISALLOW_OUTGOING_CALLS
+        "WALLPAPER" -> UserManager.DISALLOW_SET_WALLPAPER
+        else -> null
+      } ?: return@AsyncFunction mapOf("applied" to false, "reason" to "unsupported_policy", "mode" to mode)
+      try {
+        if (enabled) dpm.addUserRestriction(admin, restriction) else dpm.clearUserRestriction(admin, restriction)
+        mapOf("applied" to true, "policy" to policy, "enabled" to enabled, "mode" to mode)
+      } catch (e: Exception) { mapOf("applied" to false, "reason" to "exception", "mode" to mode) }
+    }
+
+    // Live state of each toggle, read from the OS — so the panel never guesses.
+    AsyncFunction("getDevicePolicies") {
+      val um = context.getSystemService(Context.USER_SERVICE) as UserManager
+      val r = um.userRestrictions
+      val cam = try { dpm.getCameraDisabled(adminComponent) } catch (e: Exception) { false }
+      mapOf(
+        "mode" to currentMode(),
+        "camera" to cam,
+        "bluetooth" to r.getBoolean(UserManager.DISALLOW_BLUETOOTH, false),
+        "wifi" to r.getBoolean(UserManager.DISALLOW_CONFIG_WIFI, false),
+        "usb" to r.getBoolean(UserManager.DISALLOW_USB_FILE_TRANSFER, false),
+        "airplane" to r.getBoolean(UserManager.DISALLOW_AIRPLANE_MODE, false),
+        "outgoingCalls" to r.getBoolean(UserManager.DISALLOW_OUTGOING_CALLS, false),
+        "wallpaper" to r.getBoolean(UserManager.DISALLOW_SET_WALLPAPER, false),
+      )
+    }
+
+    // Reboot — Device Owner only (API 24+). May throw if a call is active.
+    AsyncFunction("rebootDevice") {
+      if (currentMode() != "DEVICE_OWNER") return@AsyncFunction mapOf("ok" to false, "reason" to "requires_device_owner")
+      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return@AsyncFunction mapOf("ok" to false, "reason" to "unsupported_version")
+      try { dpm.reboot(adminComponent); mapOf("ok" to true) } catch (e: Exception) { mapOf("ok" to false, "reason" to "exception") }
+    }
+
+    // Hide/unhide another app — Device Owner only.
+    AsyncFunction("setApplicationHidden") { packageName: String, hidden: Boolean ->
+      if (currentMode() != "DEVICE_OWNER") return@AsyncFunction mapOf("applied" to false, "reason" to "requires_device_owner")
+      try {
+        val ok = dpm.setApplicationHidden(adminComponent, packageName, hidden)
+        mapOf("applied" to ok)
+      } catch (e: Exception) { mapOf("applied" to false, "reason" to "exception") }
+    }
+
     // Whether the app is already exempt from battery optimization. Unrestricted
     // battery lets the background command delivery + EMI reminders keep running
     // when the app is closed, instead of being throttled/killed by Doze.

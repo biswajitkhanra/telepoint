@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { data: device } = await svc.from('devices')
-    .select('id, management_status, admin_enabled, management_mode, consent_granted_at, registered_at, last_seen_at, device_model, device_manufacturer, android_version')
+    .select('id, management_status, admin_enabled, management_mode, policies, consent_granted_at, registered_at, last_seen_at, device_model, device_manufacturer, android_version')
     .eq('customer_id', customerId).order('registered_at', { ascending: false }).limit(1).maybeSingle();
 
   const { data: commands } = await svc.from('device_commands')

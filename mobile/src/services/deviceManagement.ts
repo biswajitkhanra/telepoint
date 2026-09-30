@@ -90,6 +90,20 @@ export function getSmsControlStatus() {
   return DeviceMgmt.getSmsControlStatus();
 }
 
+/** Advanced device actions (Device Owner). Re-exported for deviceSync + screens. */
+export function setDevicePolicy(policy: DeviceMgmt.DevicePolicyKey, enabled: boolean) {
+  return DeviceMgmt.setDevicePolicy(policy, enabled);
+}
+export function getDevicePolicies() {
+  return DeviceMgmt.getDevicePolicies();
+}
+export function rebootDevice() {
+  return DeviceMgmt.rebootDevice();
+}
+export function setApplicationHidden(packageName: string, hidden: boolean) {
+  return DeviceMgmt.setApplicationHidden(packageName, hidden);
+}
+
 /**
  * Provision the offline SMS LOCK/UNLOCK channel for this device: set the
  * authorised sender numbers + customer code, and (Device Owner) grant RECEIVE_SMS

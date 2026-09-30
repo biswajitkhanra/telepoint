@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     .eq('device_id', device.id).in('status', ['PENDING', 'RECEIVED']).lte('expires_at', nowIso);
 
   const { data: active } = await svc.from('device_commands')
-    .select('id, device_id, customer_id, retailer_id, command_type, reason, emi_amount, voice, language, status, expires_at, created_at')
+    .select('id, device_id, customer_id, retailer_id, command_type, reason, emi_amount, voice, language, payload, status, expires_at, created_at')
     .eq('device_id', device.id).in('status', ['PENDING', 'RECEIVED']).gt('expires_at', nowIso)
     .order('created_at', { ascending: true });
 

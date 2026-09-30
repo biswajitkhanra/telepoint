@@ -87,11 +87,12 @@ export interface PollCommand {
   device_id: string;
   customer_id: string;
   retailer_id: string;
-  command_type: 'LOCK' | 'UNLOCK' | 'EMI_REMINDER';
+  command_type: 'LOCK' | 'UNLOCK' | 'EMI_REMINDER' | 'DEVICE_ACTION';
   reason?: string | null;
   emi_amount?: number | null;
   voice?: boolean | null;
   language?: 'bn' | 'hi' | null;
+  payload?: { action?: string; enabled?: boolean; package?: string } | null;
   status: string;
   expires_at: string;
 }
@@ -141,7 +142,7 @@ export async function ackCommand(
 export async function sendHeartbeat(
   customerId: string,
   installationId: string,
-  info: { appVersion?: string; androidVersion?: string; adminEnabled?: boolean; managementMode?: string },
+  info: { appVersion?: string; androidVersion?: string; adminEnabled?: boolean; managementMode?: string; policies?: object | null },
 ) {
   return post<{ ok: boolean }>('/api/device/heartbeat', customerId, {
     installation_id: installationId,
@@ -149,5 +150,6 @@ export async function sendHeartbeat(
     android_version: info.androidVersion,
     admin_enabled: info.adminEnabled,
     management_mode: info.managementMode,
+    policies: info.policies ?? undefined,
   });
 }

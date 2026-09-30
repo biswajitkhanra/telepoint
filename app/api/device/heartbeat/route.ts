@@ -31,6 +31,22 @@ export async function POST(req: NextRequest) {
   if (typeof body.management_mode === 'string' && ALLOWED_MODES.includes(body.management_mode)) {
     patch.management_mode = body.management_mode;
   }
+  // Live advanced-policy snapshot the device reports (migration 034). Only a
+  // small, known set of boolean keys is stored — nothing free-form from client.
+  if (body.policies && typeof body.policies === 'object' && !Array.isArray(body.policies)) {
+    const p = body.policies as Record<string, unknown>;
+    const bool = (v: unknown) => v === true;
+    patch.policies = {
+      mode: typeof p.mode === 'string' ? p.mode : undefined,
+      camera: bool(p.camera),
+      bluetooth: bool(p.bluetooth),
+      wifi: bool(p.wifi),
+      usb: bool(p.usb),
+      airplane: bool(p.airplane),
+      outgoingCalls: bool(p.outgoingCalls),
+      wallpaper: bool(p.wallpaper),
+    };
+  }
 
   const { data: device } = await svc.from('devices')
     .update(patch).eq('customer_id', customerId).eq('installation_id', installationId)
