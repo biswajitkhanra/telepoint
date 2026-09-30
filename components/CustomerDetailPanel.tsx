@@ -186,19 +186,22 @@ export default function CustomerDetailPanel({ customer, paidCount, totalEmis, is
             <PhoneLockBadge customerId={customer.id} isLocked={customer.is_locked || false} lockProvider={customer.lock_provider} isAdmin={isAdmin || false} variant="badge" onToggled={onLockToggled} />
           </div>
 
-          {/* Consent-based EMI device management. Lock/Unlock is admin-only; the
-              reminder controls + "Send EMI Reminder" are available to the owning
-              retailer too. The panel confirms the LOCKED state from the device's
-              acknowledgement, never merely from the command being sent. */}
-          <div className="mt-3">
-            <DeviceManagementPanel
-              customerId={customer.id}
-              isAdmin={isAdmin || false}
-              isLocked={customer.is_locked || false}
-              deviceName={customer.model_no || 'Device'}
-              onToggled={onLockToggled}
-            />
-          </div>
+          {/* Consent-based EMI device management — ADMIN ONLY. Hidden by default:
+              it renders as a single collapsed "Device & App Lock" button and only
+              opens its controls when clicked. Retailers never see it. The panel
+              confirms the LOCKED state from the device's acknowledgement, never
+              merely from the command being sent. */}
+          {isAdmin && (
+            <div className="mt-3">
+              <DeviceManagementPanel
+                customerId={customer.id}
+                isAdmin={isAdmin}
+                isLocked={customer.is_locked || false}
+                deviceName={customer.model_no || 'Device'}
+                onToggled={onLockToggled}
+              />
+            </div>
+          )}
 
           {/* Phones + share */}
           <div className="flex flex-wrap gap-2 mt-2.5">
