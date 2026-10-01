@@ -51,6 +51,12 @@ class TelepointBootReceiver : BroadcastReceiver() {
       if (dpm.isAdminActive(admin)) dpm.lockNow()
     } catch (_: Exception) { /* ignore */ }
 
+    // Show the full-screen lock cover immediately so the phone reads "locked"
+    // even before the relaunched app draws its lock screen (non-Device-Owner
+    // phones have no kiosk; this is the belt-and-braces cover). Application
+    // context because the receiver may be destroyed right after onReceive.
+    TelepointOverlay.show(context.applicationContext, "lock", "Device Locked", "EMI payment required", null)
+
     // Relaunch the app so its own lock screen is shown to the user.
     try {
       val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)

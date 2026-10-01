@@ -1,3 +1,4 @@
+import { ReticleDev } from './reticle-dev';
 
 import type { Metadata } from 'next';
 import './globals.css';
@@ -39,7 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
       </head>
-      <body className="overflow-x-hidden pb-20 flex flex-col min-h-screen">
+      <body className="overflow-x-hidden pb-20 flex flex-col min-h-screen">{process.env.NODE_ENV === 'development' ? <ReticleDev /> : null}
         <div className="flex-1">
           {children}
         </div>

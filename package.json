@@ -28,6 +28,8 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@reticlehq/next": "^3.4.0",
+    "@reticlehq/react": "^3.4.0",
     "@types/node": "^20.16.11",
     "@types/qrcode": "^1.5.5",
     "@types/react": "^18.3.11",

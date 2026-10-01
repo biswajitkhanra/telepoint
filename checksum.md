@@ -159,6 +159,22 @@ Four independent hostile auditors scored the session's changes and every confirm
 
 Checks after every fix: web `tsc` 0, mobile `tsc` 0, `node --test` 27/27.
 
+## 2026-10-01 reboot/background enforcement pass (user-reported: unlocked after reboot, app-only lock, background)
+
+- **Reboot re-lock hardened:** `TelepointBootReceiver` now also shows the full-screen lock cover immediately on boot (before the relaunched app draws) on top of `lockNow` + relaunch; manifest intent-filters verified (BOOT_COMPLETED / LOCKED_BOOT_COMPLETED / QUICKBOOT_POWERON).
+- **Non-Device-Owner re-assert (the app-only lock fix):** `TelepointCommandService.tick()` now, while locked on a DEVICE_ADMIN phone (no kiosk), re-issues `lockNow()` every poll (6 s fast cadence while locked) and keeps the lock cover up (`TelepointOverlay.isShowing()` guard) — the customer can no longer keep using the phone after unlocking the screen. Device Owner devices are pinned by kiosk + HOME takeover and skip this (no double-lock loop).
+- **Background guarantees verified:** `TelepointCommandService` is `START_STICKY`, self-reschedules (30 s idle / 6 s locked), runs as a foreground `dataSync` service, restarts on boot via the receiver, and executes LOCK/UNLOCK/RELEASE/DEVICE_ACTION with the app fully closed — plus the OEM autostart/background-pop-ups cards for vivo/Xiaomi/Oppo/Huawei.
+- **Honest limit re-stated:** on a DEVICE_ADMIN phone Android forbids a kiosk — the 6 s re-lock is the strongest app-side mitigation; the hard block still requires **Device Owner enrolment (store QR)**. Checksum items above remain the acceptance evidence.
+- **Verifier flags closed (2026-10-01, 2nd iteration):** the non-DO re-assert now runs at the TOP of `tick()` BEFORE any network call (offline re-lock, not just on 2xx polls); Android 15+ FGS budget handled via `onTimeout` override (clean stop instead of crash); `TelepointOverlay.view` is `@Volatile`; boot receiver uses `applicationContext` for the overlay; receiver marked `directBootAware` (pre-unlock enforcement still needs device-protected storage — BOOT_COMPLETED remains the enforcement point, documented).
+- Checks: mobile `tsc` PASS (0), `node --test` PASS. Final consolidated EAS build `8dc37791-2e3e-421d-84ff-ecb663d6bd23` submitted (supersedes `2de953f9`).
+
+## 2026-10-01 reticle E2E instrumentation + first verdict
+
+- **Reticle installed + wired** (user ran the installer; `npx @reticlehq/server init` completed): daemon on :4400, Next.js dev server instrumented via `withReticle()` (next.config), `app/reticle-dev.tsx` adapter (no client store in this app — generator confirmed "No state library detected"), bridge files `.reticle.json`, `.reticle/`, `RETICLE.md`, AGENTS.md/CLAUDE.md sections.
+- **Dev server restarted by us** (`npm run dev`, background) after init's instance died — one server on :3000, per the four guards.
+- **FIRST VERDICT (green):** `reticle verify http://localhost:3000/login --expect-file .reticle/first-verdict.json` → **`verified: yes`, `verifiedReason: "proved"`, exit 0** — route `login` ✓, text "Sign in to manage customers and collections" ✓, visible "Sign in" button ✓. An earlier run returned `verified: no` (net supabase.co predicate — the login page makes no Supabase call until submit) and was corrected, not weakened: the new predicate asserts the real, observable login surface.
+- Honest limit: deeper admin flows (device panel, payment summary) need staff credentials + a service-role key locally; the login-form verdict proves the instrumentation + drive + predicate loop end-to-end. Gate/regression runs (`npx @reticlehq/server gate`) will replay saved flows after they are recorded with credentials.
+
 ## 2026-10-01 independent cross-check pass (4 verifiers + lead spot-checks, live source only)
 
 Four independent verifier agents walked `docs/ANDROID_MASTER_CHECKLIST.md` §4.5 A–D against live code (no files touched); the lead agent re-checked every contested finding by hand:

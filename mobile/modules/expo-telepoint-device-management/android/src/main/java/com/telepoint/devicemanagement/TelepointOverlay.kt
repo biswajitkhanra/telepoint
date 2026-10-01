@@ -34,7 +34,7 @@ import android.widget.TextView
  * Device Owner kiosk). Never faked.
  */
 object TelepointOverlay {
-  private var view: View? = null
+  @Volatile private var view: View? = null
   private val handler = Handler(Looper.getMainLooper())
   /** Wrong-PIN counter for the app-lock gate; 3 misses escalate to a full phone lock. */
   private var appLockAttempts = 0
@@ -62,6 +62,9 @@ object TelepointOverlay {
   }
 
   fun dismiss(c: Context) { handler.post { dismissInternal(c) } }
+
+  /** True while a cover is currently on screen. */
+  fun isShowing(): Boolean = view != null
 
   private fun dismissInternal(c: Context) {
     val v = view ?: return

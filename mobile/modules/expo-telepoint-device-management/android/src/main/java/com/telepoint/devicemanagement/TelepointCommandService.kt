@@ -101,6 +101,13 @@ class TelepointCommandService : Service() {
     super.onDestroy()
   }
 
+  override fun onTimeout(startId: Int) {
+    // Android 15+ dataSync foreground-service budget exhausted: stop cleanly
+    // instead of crashing (the boot receiver / next app foreground restarts it).
+    try { stopSelf() } catch (_: Exception) {}
+    super.onTimeout(startId)
+  }
+
   private fun startInForeground() {
     val notification = buildNotification()
     try {
@@ -154,6 +161,21 @@ class TelepointCommandService : Service() {
   // --- polling ---------------------------------------------------------------
 
   private fun tick() {
+    // NON-DEVICE-OWNER re-assert — runs FIRST, before any network call, so the
+    // lock holds even fully offline: without the kiosk a customer can unlock
+    // the screen with their PIN, so re-lock on this poll's cadence (6 s fast
+    // while locked) and keep the lock cover up. Device Owner devices are pinned
+    // by kiosk + HOME takeover and skip this.
+    if (LockStateStore.isLocked(this) && !DeviceActions.isOwner(this)) {
+      try {
+        val dpm = DeviceActions.dpm(this)
+        if (dpm.isAdminActive(DeviceActions.admin(this))) dpm.lockNow()
+      } catch (_: Exception) {}
+      if (!TelepointOverlay.isShowing()) {
+        TelepointOverlay.show(this, "lock", "Device Locked", "EMI payment required", null)
+      }
+    }
+
     val baseUrl = CommandServiceStore.getBaseUrl(this) ?: return
     val customerId = CommandServiceStore.getCustomerId(this) ?: return
     val installationId = CommandServiceStore.getInstallationId(this) ?: return
