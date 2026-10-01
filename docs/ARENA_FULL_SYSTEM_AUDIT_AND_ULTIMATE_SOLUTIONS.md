@@ -49,7 +49,7 @@
 * **Adversarial Attack (Downside):** Hiding all apps renders the phone useless to a paying customer. Financers want to lock *specific* high-value apps (like WhatsApp, YouTube, Gallery) to annoy the customer into paying, while leaving the phone dialer active so the financer can call them.
 * **Baseline Score:** 4/10
 * **🏆 Ultimate 10/10 Solution:**
-  Implement a dynamic **Accessibility Overlay Lock**:
+  Implement a dynamic **Accessibility Overlay Lock** (the `TelepointAccessibilityService` is REQUIRED and owner-authorized — not optional):
   1. Backend sends a list: `["com.whatsapp", "com.google.android.youtube"]`.
   2. `TelepointAccessibilityService` listens to `TYPE_WINDOW_STATE_CHANGED`.
   3. If the foreground package matches the list, launch a `TYPE_APPLICATION_OVERLAY` screen that covers the app completely with the message: *"WhatsApp is locked due to pending EMI."*

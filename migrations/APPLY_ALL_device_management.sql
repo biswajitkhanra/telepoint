@@ -1,8 +1,8 @@
 -- ============================================================
--- TelePoint — APPLY ALL device-management migrations (030–036)
+-- TelePoint — APPLY ALL device-management migrations (030–037)
 -- Paste this whole file into the Supabase SQL Editor and RUN once.
 -- Idempotent + additive: safe to re-run; does not touch existing data.
--- (Order: 030 → 031 → 032 → 034 → 035 → 036. There is no 033.)
+-- (Order: 030 → 031 → 032 → 034 → 035 → 036 → 037. There is no 033.)
 -- ============================================================
 
 
@@ -498,3 +498,46 @@ ALTER TABLE devices ADD COLUMN IF NOT EXISTS totp_secret TEXT;
 
 DO $$ BEGIN RAISE NOTICE '036: devices.totp_secret'; END $$;
 -- <<<<<<<<<<<<<<<<<<<< end 036_totp_offline_unlock.sql <<<<<<<<<<<<<<<<<<<<
+
+-- >>>>>>>>>>>>>>>>>>>> 037_unlock_wins_superseded.sql >>>>>>>>>>>>>>>>>>>>
+-- ============================================================
+-- 037 — UNLOCK-WINS (stale LOCK commands ack SUPERSEDED)
+-- Safe to re-run. Idempotent.
+--
+-- The app now stamps a local unlock watermark on every unlock (backend UNLOCK,
+-- offline TOTP code, offline SMS UNLOCK) and acks any LOCK command issued BEFORE
+-- that watermark with result SUPERSEDED instead of executing it — so an offline
+-- unlock always sticks even when the server was not updated. The ack route
+-- closes the command with status 'SUPERSEDED' and sets the device ACTIVE.
+-- ============================================================
+
+ALTER TABLE device_commands DROP CONSTRAINT IF EXISTS device_commands_status_check;
+
+-- Bulletproof fallback: drop ANY check constraint touching the status column
+-- (in case the live table's constraint was created under a different name),
+-- then add ours back with the widened set. Idempotent.
+DO $$
+DECLARE
+  cname TEXT;
+BEGIN
+  FOR cname IN
+    SELECT con.conname
+    FROM pg_constraint con
+    JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
+    WHERE con.conrelid = 'public.device_commands'::regclass
+      AND con.contype = 'c'
+      AND att.attname = 'status'
+  LOOP
+    EXECUTE format('ALTER TABLE public.device_commands DROP CONSTRAINT %I', cname);
+  END LOOP;
+END $$;
+
+ALTER TABLE public.device_commands ADD CONSTRAINT device_commands_status_check
+  CHECK (status IN (
+    'PENDING', 'RECEIVED', 'EXECUTED', 'FAILED', 'EXPIRED', 'CANCELLED', 'SUPERSEDED'
+  ));
+
+DO $$ BEGIN
+  RAISE NOTICE '037: device_commands.status admits SUPERSEDED (unlock-wins)';
+END $$;
+-- <<<<<<<<<<<<<<<<<<<< end 037_unlock_wins_superseded.sql <<<<<<<<<<<<<<<<<<<<

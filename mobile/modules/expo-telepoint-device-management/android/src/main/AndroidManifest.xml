@@ -7,6 +7,14 @@
   <uses-permission android:name="android.permission.RECEIVE_SMS" />
 
   <!--
+    Native background command delivery. A foreground service polls the portal so
+    an authorised LOCK/UNLOCK executes with the app closed. dataSync is the
+    matching foreground-service type required on Android 14 (API 34).
+  -->
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
+  <!--
     Device-admin receiver for consent-based EMI device management.
     The user must explicitly activate this in the Android system dialog; the
     manifest entry alone grants nothing. android:exported=true is required so
@@ -43,9 +51,12 @@
     </receiver>
 
     <!--
-      Offline SMS LOCK/UNLOCK. Only HMAC-signed commands (verified against the
-      per-device secret) are honoured, so the customer cannot text a command.
-      Protected with BROADCAST_SMS so only the system can deliver the broadcast.
+      Offline SMS LOCK/UNLOCK. Honoured only when the sender matches the
+      allowlisted admin/retailer numbers AND the message names this device's
+      customer code. This is a convenience channel, NOT cryptographically
+      authenticated: sender IDs can be spoofed by online gateways and the
+      customer knows their own code. Protected with BROADCAST_SMS so only the
+      system can deliver the broadcast.
     -->
     <receiver
       android:name="com.telepoint.devicemanagement.SmsCommandReceiver"
@@ -68,5 +79,36 @@
         <action android:name="android.intent.action.BOOT_COMPLETED" />
       </intent-filter>
     </receiver>
+
+    <!--
+      Native command delivery while the app is closed. Internal only; started by
+      the app after login and on boot (this app is the Device Owner/DPC, so a
+      foreground service may be started from BOOT_COMPLETED).
+    -->
+    <service
+      android:name="com.telepoint.devicemanagement.TelepointCommandService"
+      android:exported="false"
+      android:stopWithTask="false"
+      android:foregroundServiceType="dataSync" />
+
+    <!--
+      Owner-authorised AccessibilityService: deterrent against uninstall /
+      clear-data / force-stop / factory-reset screens while the EMI is
+      outstanding. Binding permission is declared here (it is NOT a runtime
+      <uses-permission>). Device Owner remains the guaranteed block. Release
+      disables it (LoanStateStore.isUninstallProtected == false).
+    -->
+    <service
+      android:name="com.telepoint.devicemanagement.TelepointAccessibilityService"
+      android:exported="true"
+      android:label="@string/telepoint_accessibility_label"
+      android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+      <intent-filter>
+        <action android:name="android.accessibilityservice.AccessibilityService" />
+      </intent-filter>
+      <meta-data
+        android:name="android.accessibilityservice"
+        android:resource="@xml/telepoint_accessibility_service" />
+    </service>
   </application>
 </manifest>

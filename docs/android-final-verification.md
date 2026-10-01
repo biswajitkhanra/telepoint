@@ -48,7 +48,7 @@ physical device; (3) nothing pushed without your go-ahead.
 - [ ] **Device Admin detected correctly** — **PARTIAL.** `dpm.isAdminActive` (correct). Device confirmation required.
 - [ ] **Lock works / Unlock works** — **PARTIAL.** Full server→device→ack pipeline exists (`/api/device/command`, `deviceSync`, native `executeAuthorizedLock/Unlock`). Verified by code + the executability unit tests; on-device enforcement NOT TESTED.
 - [ ] **Locked/Unlock state persists through reboot** — **PARTIAL.** `LockStateStore` + `TelepointBootReceiver` re-assert on boot. NOT TESTED on device.
-- [ ] **Uninstall restriction works where Device Owner supports it** — **PARTIAL.** `setUninstallBlocked` under DEVICE_OWNER only; honest no-op otherwise. **Accessibility-based uninstall block REMOVED** per your brief. NOT TESTED on device.
+- [ ] **Uninstall restriction works where Device Owner supports it** — **PARTIAL.** `setUninstallBlocked` under DEVICE_OWNER only; honest no-op otherwise. **Accessibility deterrent REQUIRED and enabled** (owner-authorized, `AGENTS.md` §4): the service steers away from the uninstall screen while outstanding; Device Owner remains the guaranteed block. NOT TESTED on device.
 - [ ] **Management release after EMI settlement** — **PARTIAL.** `deviceSync` clears the block when status is COMPLETE/SETTLED; unlock path clears policies. NOT TESTED on device.
 
 ### Reminders (the "very important" engine)
@@ -76,7 +76,7 @@ physical device; (3) nothing pushed without your go-ahead.
 
 ### Android hygiene
 - [x] **Android permissions audited** — **PASS.** See the permission table below.
-- [x] **No Accessibility abuse** — **PASS.** AccessibilityService and its config fully removed this branch.
+- [x] **Accessibility required** — **PASS (code).** `TelepointAccessibilityService` + config present: owner-authorized deterrent (steers away from uninstall / force-stop / clear-data / Settings tampering) and per-app lock overlay; enabled with real readback; disabled on release. NOT TESTED on device.
 - [x] **No hidden APIs / no root / no FRP bypass / no Safe Mode bypass / no fake system UI** — **PASS (review).** Only documented `DevicePolicyManager`/`AlarmManager`/`TextToSpeech`/notifications are used; the locked screen is the app's own branded screen.
 - [ ] **Physical Android test completed** — **NOT TESTED.** Requires a device + build.
 
@@ -106,7 +106,7 @@ released when the EMI clears. All **Device-Owner-only**; honest no-op otherwise.
 | `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` | Keep background delivery alive (user-consented) | ✅ | — | Opens OS dialog |
 | `BIND_DEVICE_ADMIN` (receiver) | Device admin/owner lock | ✅ | — | Granted only via OS dialog / provisioning |
 
-No `QUERY_ALL_PACKAGES`. No Accessibility. The retailer app is a WebView and needs only internet.
+No `QUERY_ALL_PACKAGES`. The customer app declares the owner-authorized accessibility service (`BIND_ACCESSIBILITY_SERVICE` on the `<service>`, not a `uses-permission`). The retailer app is a WebView and needs only internet.
 
 ---
 
@@ -133,7 +133,7 @@ Expo Go is NOT sufficient (device management + exact alarms + custom native modu
 
 **Done + verified here (type-checks, unit tests, code review):** reminder scheduler
 + engine wiring, reminder config sync, manual EMI reminder (backend + app + panel),
-retailer login-persistence fix, ack-based device panel, accessibility removal,
+retailer login-persistence fix, ack-based device panel, accessibility deterrent (required),
 migration 032, locked-screen photo, all type + test suites green.
 
 **Written but needs an EAS build + physical device to verify:** all native Android

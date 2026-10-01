@@ -46,3 +46,8 @@ next-env.d.ts
 /supabase/database_upload_*.sql
 /backups/latest/
 *.dump
+
+# Agent workspace tooling — never committed.
+/.kilo/
+/.arena/
+/.dsh/

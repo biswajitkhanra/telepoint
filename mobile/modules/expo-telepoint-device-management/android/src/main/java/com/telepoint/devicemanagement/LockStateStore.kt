@@ -17,6 +17,7 @@ object LockStateStore {
   private const val PREFS = "telepoint_emi_lock"
   private const val KEY_LOCKED = "emi_locked"
   private const val KEY_UNINSTALL_PROTECTED = "uninstall_protected"
+  private const val KEY_LAST_UNLOCKED_AT = "last_unlocked_at"
 
   private fun prefs(context: Context) =
     context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -39,5 +40,19 @@ object LockStateStore {
 
   fun setUninstallProtected(context: Context, protected: Boolean) {
     prefs(context).edit().putBoolean(KEY_UNINSTALL_PROTECTED, protected).apply()
+  }
+
+  /**
+   * Unlock-wins watermark: the last time the device was unlocked (backend
+   * UNLOCK, offline TOTP code, or offline SMS UNLOCK). Any LOCK command issued
+   * BEFORE this moment is stale and must be acked SUPERSEDED instead of
+   * re-locking the phone — so an offline unlock always sticks even when the
+   * server has not been updated yet. A LOCK issued AFTER it still executes.
+   */
+  fun getLastUnlockedAt(context: Context): Long =
+    prefs(context).getLong(KEY_LAST_UNLOCKED_AT, 0L)
+
+  fun setLastUnlockedAt(context: Context, at: Long) {
+    prefs(context).edit().putLong(KEY_LAST_UNLOCKED_AT, at).apply()
   }
 }

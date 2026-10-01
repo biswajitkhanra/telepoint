@@ -18,7 +18,7 @@ This blueprint provides the exact, production-ready implementation architecture,
 The app currently supports whole-device Kiosk mode lock and whole-device app hiding (`hideAllUserApps`), but lacks a selective per-app PIN lock (e.g., locking WhatsApp, YouTube, or Gallery behind a PIN while keeping Phone, Settings, and TelePoint accessible).
 
 #### Best Implementation Architecture
-Leverage `TelepointAccessibilityService.kt` combined with Android's `WindowManager` overlay (`TYPE_APPLICATION_OVERLAY`).
+**Accessibility is REQUIRED (owner-authorized) and must be implemented — not optional.** Leverage `TelepointAccessibilityService.kt` combined with Android's `WindowManager` overlay (`TYPE_APPLICATION_OVERLAY`).
 
 ```kotlin
 // Location: mobile/android/app/src/main/java/com/telepoint/devicemanagement/AppLockManager.kt

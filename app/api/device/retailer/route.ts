@@ -30,11 +30,11 @@ export async function POST(req: NextRequest) {
   }
 
   const { data: device } = await svc.from('devices')
-    .select('id, management_status, admin_enabled, management_mode, policies, last_location, sim_info, consent_granted_at, registered_at, last_seen_at, device_model, device_manufacturer, android_version')
+    .select('id, management_status, admin_enabled, management_mode, policies, last_location, sim_info, consent_granted_at, registered_at, last_seen_at, device_model, device_manufacturer, android_version, app_version')
     .eq('customer_id', customerId).order('registered_at', { ascending: false }).limit(1).maybeSingle();
 
   const { data: commands } = await svc.from('device_commands')
-    .select('id, command_type, reason, status, emi_amount, voice, language, created_at, received_at, executed_at, expires_at, failure_reason')
+    .select('id, command_type, reason, status, emi_amount, voice, language, payload, created_at, received_at, executed_at, expires_at, failure_reason')
     .eq('customer_id', customerId).order('created_at', { ascending: false }).limit(20);
 
   let breakdown: unknown = null;

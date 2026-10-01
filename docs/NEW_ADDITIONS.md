@@ -30,7 +30,7 @@ Use this as the "make sure the new environment has all of this" checklist.
 - **`expo-telepoint-device-management`** additions:
   `DeviceActions`, `WallpaperManagerHelper`, `OemPermissionHelper`, `SmsCommandReceiver`
   (+ `SmsCommandStore`), `SimSentinelReceiver` (+ `SimSentinelStore`), `TrackingStore`,
-  `Totp`. (Removed: the old `TelepointAccessibilityService`.)
+  `Totp`. (`TelepointAccessibilityService` is REQUIRED — owner-authorized deterrent against uninstall/reset + per-app lock overlay; declared in the manifest with its `res/xml` config and enabled during provisioning.)
 
 ## 5. New Android permissions (`mobile/app.json`, customer app)
 `SCHEDULE_EXACT_ALARM`, `USE_EXACT_ALARM`, `WAKE_LOCK`, `RECEIVE_SMS`, `SEND_SMS`,

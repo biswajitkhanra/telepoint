@@ -22,7 +22,7 @@ For each file, I have identified **"The Catch"** (the critical hidden vulnerabil
 * ⚠️ **The Catch (Background Tracking Limits):** Standard Android `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` does not work on Xiaomi, Vivo, or Oppo. Their proprietary task killers will terminate your tracking service in 15 minutes.
 * 🏆 **Best Way to Implement:** Use the OEM Intent Dispatcher. Detect `Build.MANUFACTURER` and launch the exact vendor activity (e.g., `com.miui.securitycenter/com.miui.permcenter.autostart.AutoStartManagementActivity`) to force the store staff to explicitly grant "Autostart".
 * ⚠️ **The Catch (App Locking):** Hiding all apps renders the phone useless, which doesn't help the financer collect EMI.
-* 🏆 **Best Way to Implement:** Use `TelepointAccessibilityService` to listen for `TYPE_WINDOW_STATE_CHANGED`. When a restricted app (like WhatsApp) opens, instantly launch a `TYPE_APPLICATION_OVERLAY` screen covering it with an EMI warning, leaving the rest of the phone usable.
+* 🏆 **Best Way to Implement (REQUIRED — accessibility is mandatory and owner-authorized, not optional):** Use `TelepointAccessibilityService` to listen for `TYPE_WINDOW_STATE_CHANGED`. When a restricted app (like WhatsApp) opens, instantly launch a `TYPE_APPLICATION_OVERLAY` screen covering it with an EMI warning, leaving the rest of the phone usable. The same service is the required additional deterrent against uninstall/reset/Settings tampering; Device Owner remains the guaranteed block.
 
 ---
 

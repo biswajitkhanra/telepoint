@@ -13,9 +13,12 @@ import android.os.Build
 import android.os.UserManager
 import android.provider.Telephony
 import android.telephony.SmsManager
+import android.util.Log
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+private const val TAG = "TelepointSms"
 
 /**
  * Offline device control over SMS for the financed device.
@@ -50,26 +53,45 @@ class SmsCommandReceiver : BroadcastReceiver() {
     if (intent.action != Telephony.Sms.Intents.SMS_RECEIVED_ACTION) return
     val allowed = SmsCommandStore.getAllowedSenders(context)
     val code = SmsCommandStore.getCustomerCode(context)
-    if (allowed.isEmpty() || code.isNullOrBlank()) return
+    if (allowed.isEmpty() || code.isNullOrBlank()) {
+      Log.w(TAG, "SMS ignored: SMS control not configured")
+      SmsCommandStore.recordEvent(context, "not_configured")
+      return
+    }
 
     val messages = try { Telephony.Sms.Intents.getMessagesFromIntent(intent) } catch (_: Exception) { null } ?: return
     if (messages.isEmpty()) return
 
     val sender = messages[0].originatingAddress ?: messages[0].displayOriginatingAddress ?: return
     val senderKey = SmsCommandStore.normalizeNumber(sender)
-    if (senderKey.length != 10 || senderKey !in allowed) return
+    if (senderKey.length != 10 || senderKey !in allowed) {
+      // Do not log the number itself (no PII); just the reason.
+      Log.w(TAG, "SMS rejected: sender not in allowlist")
+      SmsCommandStore.recordEvent(context, "sender_not_allowed")
+      return
+    }
 
     val body = messages.joinToString("") { it.messageBody ?: "" }.trim()
-    try { handle(context, body, code, sender) } catch (_: Exception) { /* ignore malformed */ }
+    Log.i(TAG, "SMS from allowlisted sender; verb=${body.split(Regex("\\s+")).firstOrNull()}")
+    try { handle(context, body, code, sender) } catch (_: Exception) {
+      SmsCommandStore.recordEvent(context, "error")
+    }
   }
 
   private fun handle(context: Context, body: String, code: String, sender: String) {
     val parts = body.split(Regex("\\s+")).filter { it.isNotBlank() }
-    if (parts.size < 2) return
+    if (parts.size < 2) {
+      SmsCommandStore.recordEvent(context, "malformed")
+      return
+    }
     // Customer code is always the LAST token and must match this device.
-    if (!parts.last().equals(code, ignoreCase = true)) return
+    if (!parts.last().equals(code, ignoreCase = true)) {
+      SmsCommandStore.recordEvent(context, "code_mismatch")
+      return
+    }
 
     val verb = parts[0].uppercase()
+    SmsCommandStore.recordEvent(context, "executed", verb)
     when (verb) {
       "LOCK" -> if (parts.size == 2) applyLock(context, true)
       "UNLOCK" -> if (parts.size == 2) applyLock(context, false)

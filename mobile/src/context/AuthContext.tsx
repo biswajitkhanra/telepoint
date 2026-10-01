@@ -17,6 +17,11 @@ import { customerCodeOf } from '../utils/customerCode';
  */
 function bootstrapDevice(customer: Customer | null | undefined) {
   if (!customer) return;
+  // A closed loan must never provision the SMS/SIM control channels again.
+  if (customer.status === 'COMPLETE' || customer.status === 'SETTLED') {
+    cancelAllReminders().catch(() => {});
+    return;
+  }
   cacheCustomerPhoto(customer.customer_photo_url)
     .then(() => syncReminders())
     .catch(() => { /* engine unavailable (Expo Go / non-Android) — safe no-op */ });
@@ -27,6 +32,9 @@ function bootstrapDevice(customer: Customer | null | undefined) {
   // demand location/SIM work without any user prompt.
   grantLocationSimPermissionsIfOwner()
     .catch(() => { /* not owner / module absent — safe no-op */ });
+  // Accessibility is consent-based and enabled on-device only (store/owner toggles
+  // the real system setting at provisioning). This app never enables it remotely;
+  // the PIN-9088 panel only CONFIRMS the live state. Nothing to do at login.
   // SIM sentinel: set the financer alert numbers, then baseline the enrolled SIM
   // once (won't overwrite, so a later swap is detected).
   configureSimSentinel(SMS_ALLOWED_SENDERS)

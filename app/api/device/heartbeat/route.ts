@@ -31,8 +31,10 @@ export async function POST(req: NextRequest) {
   if (typeof body.management_mode === 'string' && ALLOWED_MODES.includes(body.management_mode)) {
     patch.management_mode = body.management_mode;
   }
-  // Live advanced-policy snapshot the device reports (migration 034). Only a
-  // small, known set of boolean keys is stored — nothing free-form from client.
+  // Live policy snapshot the device reports (migration 034). Only a small,
+  // known set of keys is stored — nothing free-form from the client. The
+  // financing/accessibility keys let the admin portal show the REAL on-device
+  // protection state (FRP, accessibility, uninstall/reset blocks, overlay).
   if (body.policies && typeof body.policies === 'object' && !Array.isArray(body.policies)) {
     const p = body.policies as Record<string, unknown>;
     const bool = (v: unknown) => v === true;
@@ -45,6 +47,17 @@ export async function POST(req: NextRequest) {
       airplane: bool(p.airplane),
       outgoingCalls: bool(p.outgoingCalls),
       wallpaper: bool(p.wallpaper),
+      uninstallBlocked: bool(p.uninstallBlocked),
+      factoryResetBlocked: bool(p.factoryResetBlocked),
+      safeBootBlocked: bool(p.safeBootBlocked),
+      addUserBlocked: bool(p.addUserBlocked),
+      debuggingBlocked: bool(p.debuggingBlocked),
+      userControlDisabled: bool(p.userControlDisabled),
+      frpSupported: bool(p.frpSupported),
+      frpEnabled: bool(p.frpEnabled),
+      accessibilityEnabled: bool(p.accessibilityEnabled),
+      overlayGranted: bool(p.overlayGranted),
+      sdkInt: typeof p.sdkInt === 'number' ? p.sdkInt : undefined,
     };
   }
   // Location snapshot (only when the device reports a valid fix).

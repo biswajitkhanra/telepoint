@@ -1,16 +1,19 @@
 package com.telepoint.devicemanagement
 
 import android.Manifest
+import android.app.AlarmManager
+import android.app.NotificationManager
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationManager
+import android.net.Uri
 import android.net.wifi.WifiManager
 import android.os.Build
+import android.os.PowerManager
 import android.os.UserManager
 import android.provider.Settings
 import android.telephony.SubscriptionManager
@@ -54,9 +57,6 @@ class ExpoTelepointDeviceManagementModule : Module() {
 
   private fun isDeviceOwner(): Boolean = dpm.isDeviceOwnerApp(context.packageName)
 
-  private fun launcherComponent(): ComponentName? =
-    context.packageManager.getLaunchIntentForPackage(context.packageName)?.component
-
   /**
    * KIOSK/lock-state policies only (Device Owner). Applied when LOCKED, cleared
    * when UNLOCKED. Deliberately does NOT touch factory-reset / safe-boot / FRP /
@@ -68,46 +68,9 @@ class ExpoTelepointDeviceManagementModule : Module() {
    *     lock screen; cleared on release
    */
   private fun applyLockPolicies(active: Boolean) {
-    if (!isDeviceOwner()) return
-    val admin = adminComponent
-    val pkg = context.packageName
-
-    try {
-      dpm.setLockTaskPackages(admin, if (active) arrayOf(pkg) else arrayOf())
-    } catch (_: Exception) {}
-
-    // While kiosked, still let the customer reach the notification shade / quick
-    // settings + power menu so they can turn ON Wi-Fi / mobile data (needed for
-    // the phone to receive the UNLOCK). HOME is deliberately NOT allowed, so they
-    // cannot leave the lock screen.
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-      try {
-        dpm.setLockTaskFeatures(
-          admin,
-          if (active)
-            (DevicePolicyManager.LOCK_TASK_FEATURE_GLOBAL_ACTIONS or
-              DevicePolicyManager.LOCK_TASK_FEATURE_KEYGUARD or
-              DevicePolicyManager.LOCK_TASK_FEATURE_SYSTEM_INFO or
-              DevicePolicyManager.LOCK_TASK_FEATURE_NOTIFICATIONS)
-          else DevicePolicyManager.LOCK_TASK_FEATURE_NONE,
-        )
-      } catch (_: Exception) {}
-    }
-
-    val launcher = launcherComponent()
-    if (launcher != null) {
-      try {
-        if (active) {
-          val filter = IntentFilter(Intent.ACTION_MAIN).apply {
-            addCategory(Intent.CATEGORY_HOME)
-            addCategory(Intent.CATEGORY_DEFAULT)
-          }
-          dpm.addPersistentPreferredActivity(admin, filter, launcher)
-        } else {
-          dpm.clearPackagePersistentPreferredActivities(admin, pkg)
-        }
-      } catch (_: Exception) {}
-    }
+    // Shared with the native background command service so an online LOCK applies
+    // identically whether the app is open or closed.
+    LockPolicies.apply(context, active)
   }
 
   /** Parse a JSON array (or comma list) of FRP account identifiers, safely. */
@@ -137,66 +100,8 @@ class ExpoTelepointDeviceManagementModule : Module() {
    * FRP is the deterrent for that path, and it only works on Device Owner +
    * Android 11+ + devices whose OEM implements FactoryResetProtectionPolicy.
    */
-  private fun applyFinancingProtection(active: Boolean, frpAccounts: List<String>): Map<String, Any?> {
-    val mode = currentMode()
-    if (mode != "DEVICE_OWNER") {
-      return mapOf("applied" to false, "mode" to mode, "reason" to "requires_device_owner")
-    }
-    val admin = adminComponent
-    val pkg = context.packageName
-
-    try { dpm.setUninstallBlocked(admin, pkg, active) } catch (_: Exception) {}
-
-    // Keep the OS from letting the user force-stop / swipe-kill the collateral
-    // app (API 30+), so reminders + command delivery keep running — the DO-native
-    // alternative to the battery-optimisation prompt.
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-      try { dpm.setUserControlDisabledPackages(admin, if (active) listOf(pkg) else emptyList()) } catch (_: Exception) {}
-    }
-
-    val restrictions = listOf(
-      UserManager.DISALLOW_FACTORY_RESET,
-      UserManager.DISALLOW_SAFE_BOOT,
-      UserManager.DISALLOW_ADD_USER,
-      // Stop the customer changing the clock to defeat the reminder / lock timing.
-      UserManager.DISALLOW_CONFIG_DATE_TIME,
-    )
-    for (r in restrictions) {
-      try { if (active) dpm.addUserRestriction(admin, r) else dpm.clearUserRestriction(admin, r) } catch (_: Exception) {}
-    }
-
-    var frpApplied = false
-    val frpSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
-    if (frpSupported) {
-      try {
-        val builder = android.app.admin.FactoryResetProtectionPolicy.Builder()
-          .setFactoryResetProtectionEnabled(active)
-        if (frpAccounts.isNotEmpty()) builder.setFactoryResetProtectionAccounts(frpAccounts)
-        val policy = builder.build()
-        // Pass the policy to enable; null to clear when released.
-        dpm.setFactoryResetProtectionPolicy(admin, if (active) policy else null)
-        frpApplied = true
-        // Best-effort nudge for GMS to sync the FRP state. Third-party apps
-        // usually cannot deliver this protected broadcast, so it is guarded and
-        // NOT relied upon — setFactoryResetProtectionPolicy is the real mechanism.
-        try {
-          context.sendBroadcast(
-            Intent("com.google.android.gms.auth.FRP_CONFIG_CHANGED").setPackage("com.google.android.gms")
-          )
-        } catch (_: Exception) {}
-      } catch (_: Exception) { frpApplied = false }
-    }
-
-    return mapOf(
-      "applied" to true,
-      "mode" to mode,
-      "active" to active,
-      "frpApplied" to frpApplied,
-      "frpSupported" to frpSupported,
-      "accountsConfigured" to frpAccounts.size,
-      "sdkInt" to Build.VERSION.SDK_INT,
-    )
-  }
+  private fun applyFinancingProtection(active: Boolean, frpAccounts: List<String>): Map<String, Any?> =
+    FinancingProtection.apply(context, active, frpAccounts)
 
   /** Enter the kiosk (lock-task) on the foreground activity, if permitted. */
   private fun startKioskIfPermitted() {
@@ -309,6 +214,8 @@ class ExpoTelepointDeviceManagementModule : Module() {
           startKioskIfPermitted()
         }
         dpm.lockNow()
+        // Pop the lock cover immediately over whatever is on screen.
+        TelepointOverlay.show(context, "lock", "Device Locked", "EMI payment required", null)
         mapOf("ok" to true, "commandId" to commandId, "mode" to mode, "enforced" to (mode == "DEVICE_OWNER"))
       } catch (e: SecurityException) {
         mapOf("ok" to false, "commandId" to commandId, "reason" to "security_exception")
@@ -326,11 +233,14 @@ class ExpoTelepointDeviceManagementModule : Module() {
       }
       val mode = currentMode()
       LockStateStore.setLocked(context, false)
+      // Unlock-wins watermark: any LOCK command issued before now is stale.
+      LockStateStore.setLastUnlockedAt(context, System.currentTimeMillis())
       WallpaperManagerHelper.restoreCustomerWallpaper(context)
       if (mode == "DEVICE_OWNER") {
         stopKiosk()
         applyLockPolicies(false)
       }
+      TelepointOverlay.dismiss(context)
       mapOf("ok" to true, "commandId" to commandId, "mode" to mode)
     }
 
@@ -343,7 +253,8 @@ class ExpoTelepointDeviceManagementModule : Module() {
       }
       try {
         dpm.setUninstallBlocked(adminComponent, context.packageName, active)
-        mapOf("applied" to true, "mode" to mode, "blocked" to active)
+        val blocked = dpm.isUninstallBlocked(adminComponent, context.packageName)
+        mapOf("applied" to (blocked == active), "mode" to mode, "blocked" to blocked)
       } catch (e: Exception) {
         mapOf("applied" to false, "mode" to mode, "reason" to "exception")
       }
@@ -366,13 +277,146 @@ class ExpoTelepointDeviceManagementModule : Module() {
       val r = um.userRestrictions
       mapOf(
         "mode" to mode,
+        "uninstallBlocked" to try { dpm.isUninstallBlocked(adminComponent, context.packageName) } catch (_: Exception) { false },
         "factoryResetBlocked" to r.getBoolean(UserManager.DISALLOW_FACTORY_RESET, false),
         "safeBootBlocked" to r.getBoolean(UserManager.DISALLOW_SAFE_BOOT, false),
         "addUserBlocked" to r.getBoolean(UserManager.DISALLOW_ADD_USER, false),
-        "frpSupported" to (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R),
+        "frpSupported" to FinancingProtection.supportsFrp(context),
+        "frpEnabled" to if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && isDeviceOwner()) {
+          try { dpm.getFactoryResetProtectionPolicy(adminComponent)?.isFactoryResetProtectionEnabled == true } catch (_: Exception) { false }
+        } else false,
         "sdkInt" to Build.VERSION.SDK_INT,
       )
     }
+
+    // --- On-device permission diagnostics (owner-only, PIN-gated in the UI) --
+    // Reads the LIVE OS state of every permission/policy the financing controls
+    // rely on, so the owner can see exactly what is granted vs missing on this
+    // exact phone. It discloses NOTHING secret: no tokens, no customer data, and
+    // the PIN is a UI gate only — it never authorises a device command.
+    AsyncFunction("getPermissionDiagnostics") {
+      fun granted(p: String) = context.checkSelfPermission(p) == PackageManager.PERMISSION_GRANTED
+      val um = context.getSystemService(Context.USER_SERVICE) as UserManager
+      val r = um.userRestrictions
+      val overlayGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        try { Settings.canDrawOverlays(context) } catch (_: Exception) { false }
+      } else true
+      val notificationsEnabled = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+        try {
+          (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).areNotificationsEnabled()
+        } catch (_: Exception) { true }
+      } else true
+      val exactAlarmGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        try { (context.getSystemService(Context.ALARM_SERVICE) as AlarmManager).canScheduleExactAlarms() } catch (_: Exception) { false }
+      } else true
+      val batteryUnrestricted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        try { (context.getSystemService(Context.POWER_SERVICE) as PowerManager).isIgnoringBatteryOptimizations(context.packageName) } catch (_: Exception) { false }
+      } else true
+      val uninstallBlocked = try { dpm.isUninstallBlocked(adminComponent, context.packageName) } catch (_: Exception) { false }
+      val frpEnabled = try {
+        dpm.getFactoryResetProtectionPolicy(adminComponent)?.isFactoryResetProtectionEnabled == true
+      } catch (_: Exception) { false }
+      mapOf(
+        "mode" to currentMode(),
+        "deviceAdmin" to dpm.isAdminActive(adminComponent),
+        "deviceOwner" to isDeviceOwner(),
+        "uninstallBlocked" to uninstallBlocked,
+        "factoryResetBlocked" to r.getBoolean(UserManager.DISALLOW_FACTORY_RESET, false),
+        "safeBootBlocked" to r.getBoolean(UserManager.DISALLOW_SAFE_BOOT, false),
+        "addUserBlocked" to r.getBoolean(UserManager.DISALLOW_ADD_USER, false),
+        "frpSupported" to FinancingProtection.supportsFrp(context),
+        "frpEnabled" to frpEnabled,
+        "overlayGranted" to overlayGranted,
+        "notificationsEnabled" to notificationsEnabled,
+        "exactAlarmGranted" to exactAlarmGranted,
+        "batteryUnrestricted" to batteryUnrestricted,
+        "receiveSms" to granted(Manifest.permission.RECEIVE_SMS),
+        "sendSms" to granted(Manifest.permission.SEND_SMS),
+        "fineLocation" to granted(Manifest.permission.ACCESS_FINE_LOCATION),
+        "backgroundLocation" to if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+          granted(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+        } else true,
+        "phoneState" to granted(Manifest.permission.READ_PHONE_STATE),
+        "accessibilityEnabled" to TelepointAccessibilityService.isEnabled(context),
+        "debuggingBlocked" to r.getBoolean(UserManager.DISALLOW_DEBUGGING_FEATURES, false),
+        "userControlDisabled" to if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+          try { dpm.getUserControlDisabledPackages(adminComponent).contains(context.packageName) } catch (_: Exception) { false }
+        } else false,
+        "sdkInt" to Build.VERSION.SDK_INT,
+      )
+    }
+
+    // --- Accessibility deterrent (customer-consented) -----------------------
+    // The service is enabled by the owner/store with the REAL system toggle at
+    // provisioning; the app only CONFIRMS the live state and opens the system
+    // screen. There is deliberately NO silent-enable path.
+    AsyncFunction("isAccessibilityServiceEnabled") {
+      TelepointAccessibilityService.isEnabled(context)
+    }
+    AsyncFunction("openAccessibilitySettings") {
+      try {
+        context.startActivity(
+          Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+        mapOf("opened" to true)
+      } catch (_: Exception) { mapOf("opened" to false) }
+    }
+
+    // Open the OS "Display over other apps" screen for this app. The user must
+    // toggle it themselves — Android never lets an app grant it silently.
+    AsyncFunction("requestOverlayPermission") {
+      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+        return@AsyncFunction mapOf("requested" to false, "reason" to "not_needed")
+      }
+      if (Settings.canDrawOverlays(context)) {
+        return@AsyncFunction mapOf("requested" to false, "alreadyGranted" to true)
+      }
+      try {
+        val intent = Intent(
+          Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+          Uri.parse("package:${context.packageName}"),
+        ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+        context.startActivity(intent)
+        mapOf("requested" to true)
+      } catch (_: Exception) {
+        mapOf("requested" to false, "reason" to "unavailable")
+      }
+    }
+
+    // Open this app's system settings page (notifications / permissions review).
+    AsyncFunction("openAppSettings") {
+      try {
+        val intent = Intent(
+          Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+          Uri.parse("package:${context.packageName}"),
+        ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+        context.startActivity(intent)
+        mapOf("opened" to true)
+      } catch (_: Exception) {
+        mapOf("opened" to false)
+      }
+    }
+
+    // --- Native background command delivery ---------------------------------
+    // Lets the device receive + execute an authorised LOCK/UNLOCK/DEVICE_ACTION
+    // even when the React app is closed, instead of waiting for the app to open.
+    // The JS layer configures it after login and starts it.
+    AsyncFunction("configureCommandService") { baseUrl: String, customerId: String, installationId: String, sessionToken: String, frpAccountsCsv: String? ->
+      CommandServiceStore.configure(context, baseUrl, customerId, installationId, sessionToken, frpAccountsCsv ?: "")
+      mapOf("ok" to true, "configured" to CommandServiceStore.isConfigured(context))
+    }
+    AsyncFunction("startCommandService") {
+      if (!CommandServiceStore.isConfigured(context)) {
+        return@AsyncFunction mapOf("started" to false, "reason" to "not_configured")
+      }
+      TelepointCommandService.start(context)
+      mapOf("started" to true)
+    }
+    AsyncFunction("stopCommandService") {
+      TelepointCommandService.stop(context)
+      mapOf("stopped" to true)
+    }
+    AsyncFunction("isCommandServiceRunning") { TelepointCommandService.running }
 
     // --- SMS command channel (offline LOCK/UNLOCK) --------------------------
     // Configure the authorised sender numbers + this device's customer code so an
@@ -406,6 +450,8 @@ class ExpoTelepointDeviceManagementModule : Module() {
         "configured" to SmsCommandStore.isConfigured(context),
         "permissionGranted" to perm,
         "mode" to currentMode(),
+        "allowedSenderCount" to SmsCommandStore.getAllowedSenders(context).size,
+        "lastEvent" to SmsCommandStore.getLastEvent(context),
       )
     }
 
@@ -444,6 +490,13 @@ class ExpoTelepointDeviceManagementModule : Module() {
       val um = context.getSystemService(Context.USER_SERVICE) as UserManager
       val r = um.userRestrictions
       val cam = try { dpm.getCameraDisabled(adminComponent) } catch (e: Exception) { false }
+      val uninstallBlocked = try { dpm.isUninstallBlocked(adminComponent, context.packageName) } catch (_: Exception) { false }
+      val frpEnabled = try {
+        dpm.getFactoryResetProtectionPolicy(adminComponent)?.isFactoryResetProtectionEnabled == true
+      } catch (_: Exception) { false }
+      val overlayGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        try { Settings.canDrawOverlays(context) } catch (_: Exception) { false }
+      } else true
       mapOf(
         "mode" to currentMode(),
         "camera" to cam,
@@ -453,6 +506,21 @@ class ExpoTelepointDeviceManagementModule : Module() {
         "airplane" to r.getBoolean(UserManager.DISALLOW_AIRPLANE_MODE, false),
         "outgoingCalls" to r.getBoolean(UserManager.DISALLOW_OUTGOING_CALLS, false),
         "wallpaper" to r.getBoolean(UserManager.DISALLOW_SET_WALLPAPER, false),
+        // Financing + accessibility live state so the admin portal shows the
+        // REAL on-device protection (migration 034 policies snapshot).
+        "uninstallBlocked" to uninstallBlocked,
+        "factoryResetBlocked" to r.getBoolean(UserManager.DISALLOW_FACTORY_RESET, false),
+        "safeBootBlocked" to r.getBoolean(UserManager.DISALLOW_SAFE_BOOT, false),
+        "addUserBlocked" to r.getBoolean(UserManager.DISALLOW_ADD_USER, false),
+        "debuggingBlocked" to r.getBoolean(UserManager.DISALLOW_DEBUGGING_FEATURES, false),
+        "userControlDisabled" to if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+          try { dpm.getUserControlDisabledPackages(adminComponent).contains(context.packageName) } catch (_: Exception) { false }
+        } else false,
+        "frpSupported" to FinancingProtection.supportsFrp(context),
+        "frpEnabled" to frpEnabled,
+        "accessibilityEnabled" to TelepointAccessibilityService.isEnabled(context),
+        "overlayGranted" to overlayGranted,
+        "sdkInt" to Build.VERSION.SDK_INT,
       )
     }
 
@@ -488,18 +556,14 @@ class ExpoTelepointDeviceManagementModule : Module() {
       catch (e: Exception) { mapOf("ok" to false, "reason" to "exception") }
     }
 
-    // Airplane ON/OFF — ATTEMPT ONLY. Modern Android does not let any app
-    // (even Device Owner) toggle airplane mode; setGlobalSetting dropped the key.
-    // We attempt it and report the TRUE result (usually ok=false on new devices)
-    // rather than pretend. The reliable control is the Airplane Mode Lock.
+    // Airplane ON/OFF — honest, best-effort. Modern Android (API 29+) blocks the
+    // global toggle even for Device Owner, so we try the global setting, then the
+    // hidden ConnectivityManager#setAirplaneMode, then a per-radio fallback
+    // (Wi-Fi + mobile data + Bluetooth). Reports which method actually worked.
     AsyncFunction("setAirplaneMode") { enabled: Boolean ->
       if (!isDeviceOwner()) return@AsyncFunction mapOf("ok" to false, "reason" to "requires_device_owner")
-      try {
-        dpm.setGlobalSetting(adminComponent, Settings.Global.AIRPLANE_MODE_ON, if (enabled) "1" else "0")
-        mapOf("ok" to true, "enabled" to enabled)
-      } catch (e: Exception) {
-        mapOf("ok" to false, "reason" to "unsupported_on_this_android")
-      }
+      val method = DeviceActions.setAirplaneMode(context, enabled)
+      mapOf("ok" to (method != "unsupported"), "enabled" to enabled, "method" to method)
     }
 
     // --- Location + SIM information -----------------------------------------
@@ -598,13 +662,29 @@ class ExpoTelepointDeviceManagementModule : Module() {
     // every managed restriction, unhides apps, and clears lock + tracking flags.
     AsyncFunction("releaseManagedRestrictions") {
       val mode = currentMode()
+      var released = true
       if (mode == "DEVICE_OWNER") {
         stopKiosk()
         applyLockPolicies(false)
-        applyFinancingProtection(false, emptyList())
+        released = applyFinancingProtection(false, emptyList())["applied"] == true
+        // Stop the accessibility deterrent too — financer control has ended.
+        try { TelepointAccessibilityService.disableBestEffort(context) } catch (_: Exception) {}
       }
-      DeviceActions.releaseManagedRestrictions(context)
-      mapOf("ok" to true, "mode" to mode)
+      AppLockStore.clear(context)
+      TelepointOverlay.dismiss(context)
+      released = DeviceActions.releaseManagedRestrictions(context) && released
+      // Removing only the uninstall policy leaves a Device Owner unremovable.
+      // Clear all policies first, then relinquish this legacy DPC without a wipe.
+      // This deprecated Android API needs an OEM-specific release acceptance test.
+      if (released && mode == "DEVICE_OWNER") {
+        try {
+          @Suppress("DEPRECATION")
+          dpm.clearDeviceOwnerApp(context.packageName)
+          released = !isDeviceOwner()
+        } catch (_: Exception) { released = false }
+      }
+      if (released) LockStateStore.setUninstallProtected(context, false)
+      mapOf("ok" to released, "mode" to currentMode(), "reason" to if (released) null else "release_incomplete")
     }
 
     // --- SIM sentinel provisioning ------------------------------------------
@@ -639,6 +719,54 @@ class ExpoTelepointDeviceManagementModule : Module() {
       } catch (e: Exception) { mapOf("applied" to false, "reason" to "exception") }
     }
 
+    // --- Full-screen overlay (Display over other apps) ----------------------
+    // Pops the lock/reminder cover immediately over whatever is on screen.
+    AsyncFunction("showLockOverlay") { title: String, body: String ->
+      TelepointOverlay.show(context, "lock", title.ifBlank { "Device Locked" }, body, null)
+      mapOf("shown" to TelepointOverlay.canDraw(context))
+    }
+    AsyncFunction("showReminderOverlay") { title: String, body: String ->
+      TelepointOverlay.show(context, "reminder", title, body, null)
+      mapOf("shown" to TelepointOverlay.canDraw(context))
+    }
+    AsyncFunction("dismissOverlay") {
+      TelepointOverlay.dismiss(context)
+      mapOf("ok" to true)
+    }
+
+    // --- Per-app PIN overlay lock (Display over other apps, no suspend) -----
+    AsyncFunction("configureAppLock") { packagesJson: String, pin: String ->
+      val pkgs = parseFrpAccounts(packagesJson)
+      if (pkgs.isEmpty()) return@AsyncFunction mapOf("ok" to false, "reason" to "no_packages")
+      AppLockStore.setLockedPackages(context, pkgs)
+      AppLockStore.setPin(context, pin)
+      AppLockStore.setEnabled(context, true)
+      mapOf("ok" to true, "packages" to pkgs.size, "hasPin" to AppLockStore.hasPin(context))
+    }
+    AsyncFunction("setAppLockEnabled") { enabled: Boolean ->
+      AppLockStore.setEnabled(context, enabled)
+      mapOf("ok" to true, "enabled" to enabled)
+    }
+    AsyncFunction("getAppLockState") {
+      mapOf(
+        "enabled" to AppLockStore.isEnabled(context),
+        "packages" to AppLockStore.lockedPackages(context).toList(),
+        "hasPin" to AppLockStore.hasPin(context),
+      )
+    }
+    AsyncFunction("verifyAppLockPin") { pkg: String, pin: String ->
+      val ok = AppLockStore.verifyPin(context, pin)
+      if (ok && pkg.isNotBlank()) {
+        AppLockStore.grantTempUnlock(context, pkg)
+        TelepointOverlay.dismiss(context)
+      }
+      mapOf("ok" to ok)
+    }
+    AsyncFunction("clearAppLock") {
+      AppLockStore.clear(context)
+      mapOf("ok" to true)
+    }
+
     // --- TOTP offline unlock ------------------------------------------------
     // Store the per-device shared secret (provisioned at enrolment).
     AsyncFunction("setTotpSecret") { secret: String ->
@@ -655,6 +783,12 @@ class ExpoTelepointDeviceManagementModule : Module() {
       if (currentMode() == "DEVICE_OWNER") { stopKiosk(); applyLockPolicies(false) }
       DeviceActions.releaseLock(context)
       mapOf("ok" to true)
+    }
+
+    // Last local unlock timestamp (unlock-wins watermark). LOCK commands issued
+    // before this moment are stale and are acked SUPERSEDED, never re-executed.
+    AsyncFunction("getLastUnlockedAt") {
+      LockStateStore.getLastUnlockedAt(context)
     }
 
     // Whether the app is already exempt from battery optimization. Unrestricted

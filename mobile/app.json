@@ -32,6 +32,7 @@
         "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
         "SCHEDULE_EXACT_ALARM",
         "USE_EXACT_ALARM",
+        "USE_FULL_SCREEN_INTENT",
         "WAKE_LOCK",
         "RECEIVE_SMS",
         "ACCESS_FINE_LOCATION",
@@ -42,9 +43,12 @@
         "CHANGE_WIFI_STATE",
         "ACCESS_WIFI_STATE",
         "SET_WALLPAPER",
+        "SYSTEM_ALERT_WINDOW",
         "SEND_SMS",
         "INTERNET",
-        "ACCESS_NETWORK_STATE"
+        "ACCESS_NETWORK_STATE",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_DATA_SYNC"
       ]
     },
     "plugins": [

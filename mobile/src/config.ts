@@ -73,12 +73,16 @@ export const SMS_ALLOWED_SENDERS: string = (
   '7003617029,7003617074'
 );
 
-// Default = the numeric Gaia id for financebuddy144@gmail.com (per the FRP setup
-// guide). Overridable via EXPO_PUBLIC_FRP_ACCOUNTS / extra.frpAccounts.
+// FAIL-SAFE: no default account. FRP locks a reset phone to the configured
+// account, so a wrong id is worse than none — the device must NOT ship with a
+// baked-in Gaia id. Set EXPO_PUBLIC_FRP_ACCOUNTS (numeric Gaia userId, verified
+// via People API people/me → metadata.sources[].id) or app.config
+// extra.frpAccounts before enabling FRP on a Device Owner + Android 11+ phone.
+// Until then FinancingProtection reports frp_accounts_missing (policy_not_applied).
 export const FRP_PROTECTION_ACCOUNTS: string[] = (
   (process.env.EXPO_PUBLIC_FRP_ACCOUNTS as string) ||
   (Constants.expoConfig?.extra?.frpAccounts as string) ||
-  '106892760455009935120'
+  ''
 )
   .split(',')
   .map((s) => s.trim())

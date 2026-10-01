@@ -2,12 +2,18 @@
 
 ## NO-COMPUTER path (what your store staff actually do) — QR at setup
 
-> The old "Accessibility uninstall-protection" no-ADB path has been **removed**
-> (Android forbids Accessibility for device management, and it was only a soft
-> lock). The real, no-computer method is **Device Owner via a provisioning QR**.
-> Device Owner is the only mode that gives the full Bajaj-style lock (can't exit
-> with a PIN, can't uninstall, factory-reset/safe-boot blocked, FRP, survives
-> reboot) — and it is set with **no PC touching the phone**.
+> The real, no-computer method is **Device Owner via a provisioning QR**.
+> Device Owner is the mode that gives the full Bajaj-style lock (can't exit with
+> a PIN, can't uninstall, factory-reset/safe-boot blocked, FRP, survives reboot)
+> — and it is set with **no PC touching the phone**.
+>
+> **Accessibility deterrent (owner-authorised):** on top of Device Owner, the
+> TelePoint accessibility service is enabled on the financed phone as an extra
+> layer that steers away from the uninstall / force-stop / clear-data /
+> factory-reset screens while the EMI is outstanding. It does **not** replace
+> Device Owner (which is the guaranteed block), is off in Safe Mode, and is turned
+> off automatically once the loan is COMPLETE/SETTLED. See the "Enable the
+> accessibility deterrent" step below.
 
 **One-time setup (admin):**
 1. Host the customer APK at a public `https://` URL.
@@ -21,9 +27,15 @@
 2. At the first setup-wizard screen, **tap the same spot 6 times** → the QR scanner opens.
 3. **Scan the QR.** The phone joins Wi-Fi, downloads TelePoint, and enrols it as
    **Device Owner** automatically.
-4. Hand over the phone. From then on the admin/retailer portal (and the two
-   authorised SMS numbers) control it; everything releases automatically when the
-   EMI is fully paid.
+4. **Enable the accessibility deterrent (customer-consented).** Open TelePoint →
+   Profile → tap the version footer **7×** → enter PIN **9088** → tap
+   **Open settings** on the "Accessibility protection" row → turn on **TelePoint
+   device protection** in **Settings → Accessibility**. Re-open the panel and
+   confirm the row reads **on** (green). The app never enables it remotely or
+   silently; this is done in front of the customer at the store.
+5. Hand over the phone. From then on the admin/retailer portal (and the two
+   authorised SMS numbers) control it; everything — Device Owner **and** the
+   accessibility deterrent — releases automatically when the EMI is fully paid.
 
 No ADB, no cable, no PC touches the phone. The only computer step is generating
 the QR once — and even that runs in the browser on any phone/tablet.
@@ -79,7 +91,12 @@ Prerequisites: a store PC with `adb` (Android platform-tools) and a USB cable.
    - If it fails with *"Not allowed to set the device owner because there are
      already some accounts on the device"*, an account was added during setup —
      factory reset and repeat, skipping all sign-in.
-6. Hand the phone to the customer. They log in with Aadhaar/mobile as usual. The
+6. **Enable the accessibility deterrent (customer-consented):** TelePoint →
+   Profile → tap the version footer **7×** → PIN **9088** → **Open settings** on
+   the "Accessibility protection" row → turn on **TelePoint device protection** in
+   Settings → Accessibility. Confirm the row reads **on**. (No silent/remote
+   enable; the owner does this explicitly.)
+7. Hand the phone to the customer. They log in with Aadhaar/mobile as usual. The
    app auto-registers; the admin panel will now show **Hard lock (Device Owner)**.
 
 > The Device Owner component for each build variant:

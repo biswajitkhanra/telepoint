@@ -3,16 +3,21 @@ import { AppState, AppStateStatus } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import {
   getInstallationId,
+  getSessionToken,
   registerDevice,
   type DeviceStatusResponse,
 } from '../services/deviceApi';
 import {
+  configureCommandService,
   getDeviceInfo,
   getDeviceManagementStatus,
   isDeviceManagementSupported,
+  lockNow,
   setTotpSecret,
+  startCommandService,
 } from '../services/deviceManagement';
 import { syncDeviceCommandsOnce } from '../services/deviceSync';
+import { FRP_PROTECTION_ACCOUNTS, PORTAL_BASE_URL } from '../config';
 
 /**
  * Customer command listener. While a customer is logged in it periodically asks
@@ -48,12 +53,47 @@ export function useDeviceCommands(customerId: string | null | undefined) {
   });
   const busy = useRef(false);
   const registered = useRef(false);
+  const serviceStarted = useRef(false);
 
-  const applyStatus = useCallback((resp: DeviceStatusResponse | null) => {
+  // Start the NATIVE background command service so an authorised LOCK/UNLOCK
+  // executes even when the app is closed (not only while this JS poll runs).
+  const ensureCommandService = useCallback(async () => {
+    if (!customerId || !isDeviceManagementSupported() || serviceStarted.current) return;
+    try {
+      const token = await getSessionToken();
+      if (!token) return;
+      const installationId = await getInstallationId();
+      const res = await configureCommandService(
+        PORTAL_BASE_URL,
+        customerId,
+        installationId,
+        token,
+        FRP_PROTECTION_ACCOUNTS.join(','),
+      );
+      if (res.ok) {
+        await startCommandService();
+        serviceStarted.current = true;
+      }
+    } catch { /* retry next tick */ }
+  }, [customerId]);
+
+  const applyStatus = useCallback(async (resp: DeviceStatusResponse | null, lockedChangeTo?: boolean) => {
     if (!resp) return;
     const managementStatus = resp.device?.management_status;
+    // An executed LOCK/UNLOCK command wins outright. Otherwise the NATIVE
+    // enforced state (persisted, survives reboot) is the truth — a stale server
+    // LOCKED cannot re-lock a phone that was unlocked offline (TOTP/SMS), so
+    // the unlock always sticks even when the server has not been updated.
+    let nativeLocked: boolean | null = null;
+    if (isDeviceManagementSupported()) {
+      try { nativeLocked = (await getDeviceManagementStatus()).enforcedLocked ?? null; } catch { nativeLocked = null; }
+    }
     setInfo((prev) => ({
-      locked: managementStatus === 'LOCKED' ? true : managementStatus === 'ACTIVE' ? false : prev.locked,
+      locked: lockedChangeTo !== undefined
+        ? lockedChangeTo
+        : nativeLocked != null
+          ? nativeLocked
+          : managementStatus === 'ACTIVE' ? false : prev.locked,
       emiAmount: readBreakdownAmount(resp.breakdown) ?? prev.emiAmount,
       retailerName: resp.retailer?.name ?? prev.retailerName,
       retailerPhone: resp.retailer?.mobile ?? prev.retailerPhone,
@@ -65,6 +105,9 @@ export function useDeviceCommands(customerId: string | null | undefined) {
     if (!customerId || busy.current) return;
     busy.current = true;
     try {
+      // Make sure the native background delivery service is running (idempotent).
+      await ensureCommandService();
+
       // Consent-at-purchase: the customer agreed to EMI device management as
       // part of the financing agreement, so the device is auto-registered on
       // first run (consent recorded) — the retailer/admin can then request a
@@ -96,14 +139,11 @@ export function useDeviceCommands(customerId: string | null | undefined) {
       // Single source of truth for poll → execute → ack → re-assert, shared with
       // the background-fetch task so foreground and closed-app behave identically.
       const { resp, lockedChangeTo } = await syncDeviceCommandsOnce(customerId);
-      applyStatus(resp);
-      if (lockedChangeTo !== undefined) {
-        setInfo((prev) => ({ ...prev, locked: lockedChangeTo }));
-      }
+      await applyStatus(resp, lockedChangeTo);
     } catch { /* offline / transient — retry next tick */ } finally {
       busy.current = false;
     }
-  }, [customerId, applyStatus]);
+  }, [customerId, applyStatus, ensureCommandService]);
 
   // On launch, enforce the last server-confirmed lock immediately from the
   // persisted native flag, before the first network poll returns — so a locked
@@ -112,7 +152,14 @@ export function useDeviceCommands(customerId: string | null | undefined) {
     if (!customerId || !isDeviceManagementSupported()) return;
     let cancelled = false;
     getDeviceManagementStatus()
-      .then((st) => { if (!cancelled && st.enforcedLocked) setInfo((prev) => ({ ...prev, locked: true })); })
+      .then((st) => {
+        if (!cancelled && st.enforcedLocked) {
+          setInfo((prev) => ({ ...prev, locked: true }));
+          // Enter the kiosk / secure the screen once on launch, so a lock applied
+          // while the app was closed (by the native service) is enforced on screen.
+          lockNow().catch(() => {});
+        }
+      })
       .catch(() => {});
     return () => { cancelled = true; };
   }, [customerId]);

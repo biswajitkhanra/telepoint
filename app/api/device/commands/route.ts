@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
 
   // Live amount due + retailer contact + photo for the locked screen / reminders.
   const { data: customer } = await svc.from('customers')
-    .select('id, customer_name, customer_photo_url, retailer:retailers(name, mobile)').eq('id', customerId).single();
+    .select('id, status, customer_name, customer_photo_url, retailer:retailers(name, mobile)').eq('id', customerId).single();
   let breakdown: unknown = null;
   try { const { data } = await svc.rpc('get_due_breakdown', { p_customer_id: customerId }); breakdown = data; } catch { breakdown = null; }
 
@@ -76,6 +76,7 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     commands,
+    loan_status: customer?.status ?? null,
     device: { id: device.id, management_status: device.management_status },
     retailer: (customer as Record<string, unknown> | null)?.retailer ?? null,
     customer_name: (customer as Record<string, unknown> | null)?.customer_name ?? null,

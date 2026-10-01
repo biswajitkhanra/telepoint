@@ -136,6 +136,7 @@ export async function setUninstallProtection(active: boolean): Promise<{ applied
 
 export interface FinancingProtectionResult {
   applied: boolean;
+  failedPolicies?: string[];
   reason?: string;
   mode?: string;
   active?: boolean;
@@ -160,18 +161,133 @@ export async function applyFinancingProtection(active: boolean, frpAccounts: str
 
 export interface ProtectionStatus {
   mode: string;
+  uninstallBlocked: boolean;
   factoryResetBlocked: boolean;
   safeBootBlocked: boolean;
   addUserBlocked: boolean;
   frpSupported: boolean;
+  frpEnabled: boolean;
   sdkInt: number;
 }
 
 /** Read which collateral protections are actually in force right now. */
 export async function getProtectionStatus(): Promise<ProtectionStatus> {
-  const fallback: ProtectionStatus = { mode: 'UNSUPPORTED', factoryResetBlocked: false, safeBootBlocked: false, addUserBlocked: false, frpSupported: false, sdkInt: 0 };
+  const fallback: ProtectionStatus = { mode: 'UNSUPPORTED', uninstallBlocked: false, factoryResetBlocked: false, safeBootBlocked: false, addUserBlocked: false, frpSupported: false, frpEnabled: false, sdkInt: 0 };
   if (!isSupported()) return fallback;
   try { return await native.getProtectionStatus(); } catch { return fallback; }
+}
+
+/** Live OS state of every permission/policy the financing controls rely on. */
+export interface PermissionDiagnostics {
+  mode: string;
+  deviceAdmin: boolean;
+  deviceOwner: boolean;
+  uninstallBlocked: boolean;
+  factoryResetBlocked: boolean;
+  safeBootBlocked: boolean;
+  addUserBlocked: boolean;
+  frpSupported: boolean;
+  /** Factory Reset Protection is currently enabled (financer account attached). */
+  frpEnabled: boolean;
+  overlayGranted: boolean;
+  notificationsEnabled: boolean;
+  exactAlarmGranted: boolean;
+  batteryUnrestricted: boolean;
+  receiveSms: boolean;
+  sendSms: boolean;
+  fineLocation: boolean;
+  backgroundLocation: boolean;
+  phoneState: boolean;
+  /** Owner-authorised accessibility deterrent is enabled on this phone. */
+  accessibilityEnabled: boolean;
+  /** USB/ADB debugging is blocked (Device Owner DISALLOW_DEBUGGING_FEATURES). */
+  debuggingBlocked?: boolean;
+  /** This app is blocked from force-stop/clear-data on API 30+. */
+  userControlDisabled?: boolean;
+  sdkInt: number;
+}
+
+/**
+ * Read the LIVE status of every permission/policy on this exact device, so the
+ * owner can verify what is granted vs missing. Discloses nothing secret and is
+ * gated behind the in-app PIN screen (a UI gate only — it authorises nothing).
+ */
+export async function getPermissionDiagnostics(): Promise<PermissionDiagnostics | null> {
+  if (!isSupported()) return null;
+  try { return await native.getPermissionDiagnostics(); } catch { return null; }
+}
+
+/** Open the OS "Display over other apps" screen (user must toggle it). */
+export async function requestOverlayPermission(): Promise<{ requested: boolean; alreadyGranted?: boolean; reason?: string }> {
+  if (!isSupported()) return { requested: false, reason: 'unsupported' };
+  try { return await native.requestOverlayPermission(); } catch { return { requested: false, reason: 'native_error' }; }
+}
+
+/** Open this app's system settings page (notifications / permission review). */
+export async function openAppSettings(): Promise<{ opened: boolean }> {
+  if (!isSupported()) return { opened: false };
+  try { return await native.openAppSettings(); } catch { return { opened: false }; }
+}
+
+// --- Accessibility deterrent (owner-authorised) ----------------------------
+// A defence-in-depth layer that deters uninstall / clear-data / force-stop /
+// factory-reset screens while the EMI is outstanding. It is NOT a guaranteed
+// block (Device Owner is); see the master checklist. Safe no-op off-Android.
+
+/**
+ * True when the TelePoint accessibility service is enabled on this phone. This is
+ * a CONFIRMATION read — the app never enables accessibility silently or remotely.
+ */
+export async function isAccessibilityServiceEnabled(): Promise<boolean> {
+  if (!isSupported()) return false;
+  try { return await native.isAccessibilityServiceEnabled(); } catch { return false; }
+}
+
+/**
+ * Open the OS Accessibility settings so the owner can turn the deterrent on/off
+ * with the real system toggle (customer-consented at provisioning). There is no
+ * silent-enable API by design.
+ */
+export async function openAccessibilitySettings(): Promise<{ opened: boolean }> {
+  if (!isSupported()) return { opened: false };
+  try { return await native.openAccessibilitySettings(); } catch { return { opened: false }; }
+}
+
+/** Last local unlock timestamp (unlock-wins watermark), 0 when never unlocked. */
+export async function getLastUnlockedAt(): Promise<number> {
+  if (!isSupported()) return 0;
+  try { return await native.getLastUnlockedAt(); } catch { return 0; }
+}
+
+// --- Native background command delivery ------------------------------------
+// A foreground service polls the portal so an authorised LOCK/UNLOCK executes
+// even with the React app closed. Configure after login, then start.
+export async function configureCommandService(
+  baseUrl: string,
+  customerId: string,
+  installationId: string,
+  sessionToken: string,
+  frpAccountsCsv = '',
+): Promise<{ ok: boolean; configured?: boolean }> {
+  if (!isSupported() || !baseUrl || !customerId || !installationId || !sessionToken) return { ok: false };
+  try {
+    return await native.configureCommandService(baseUrl, customerId, installationId, sessionToken, frpAccountsCsv);
+  } catch { return { ok: false }; }
+}
+
+export async function startCommandService(): Promise<{ started: boolean; reason?: string }> {
+  if (!isSupported()) return { started: false, reason: 'unsupported' };
+  try { return await native.startCommandService(); } catch { return { started: false, reason: 'native_error' }; }
+}
+
+export async function stopCommandService(): Promise<{ stopped: boolean }> {
+  if (!isSupported()) return { stopped: false };
+  try { return await native.stopCommandService(); } catch { return { stopped: false }; }
+}
+
+export async function isCommandServiceRunning(): Promise<boolean> {
+  if (!isSupported()) return false;
+  try { return await native.isCommandServiceRunning(); } catch { return false; }
 }
 
 /**
@@ -196,7 +312,15 @@ export async function grantSmsPermissionIfOwner(): Promise<{ granted: boolean; r
   try { return await native.grantSmsPermissionIfOwner(); } catch { return { granted: false, reason: 'native_error' }; }
 }
 
-export interface SmsControlStatus { configured: boolean; permissionGranted: boolean; mode: string }
+export interface SmsControlStatus {
+  configured: boolean;
+  permissionGranted: boolean;
+  mode: string;
+  /** How many authorised sender numbers are stored (no numbers disclosed). */
+  allowedSenderCount?: number;
+  /** Last result: "timestamp|kind|detail" (e.g. "…|executed|LOCK"); no PII. */
+  lastEvent?: string | null;
+}
 export async function getSmsControlStatus(): Promise<SmsControlStatus> {
   const fallback: SmsControlStatus = { configured: false, permissionGranted: false, mode: 'UNSUPPORTED' };
   if (!isSupported()) return fallback;
@@ -295,6 +419,61 @@ export async function openOemAutostartSettings(): Promise<{ opened: boolean }> {
 export async function setAppsSuspended(packages: string[], suspended: boolean): Promise<{ applied: boolean; reason?: string; failed?: string[] }> {
   if (!isSupported() || packages.length === 0) return { applied: false, reason: 'no_packages' };
   try { return await native.setAppsSuspended(JSON.stringify(packages), suspended); } catch { return { applied: false, reason: 'native_error' }; }
+}
+
+// --- Full-screen overlay (Display over other apps) --------------------------
+// Pops a cover over whatever is on screen using SYSTEM_ALERT_WINDOW. Safe no-op
+// off-Android; falls back to the normal app lock screen when the overlay
+// permission is not granted.
+
+/** Show the full-screen EMI-lock overlay immediately (over any app). */
+export async function showLockOverlay(title: string, body: string): Promise<{ shown: boolean }> {
+  if (!isSupported()) return { shown: false };
+  try { return await native.showLockOverlay(title, body); } catch { return { shown: false }; }
+}
+
+/** Show a dismissible full-screen EMI-reminder overlay. */
+export async function showReminderOverlay(title: string, body: string): Promise<{ shown: boolean }> {
+  if (!isSupported()) return { shown: false };
+  try { return await native.showReminderOverlay(title, body); } catch { return { shown: false }; }
+}
+
+/** Remove any overlay currently on screen. */
+export async function dismissOverlay(): Promise<{ ok: boolean }> {
+  if (!isSupported()) return { ok: false };
+  try { return await native.dismissOverlay(); } catch { return { ok: false }; }
+}
+
+// --- Per-app PIN overlay lock (Display over other apps, not suspend) --------
+
+export interface AppLockState { enabled: boolean; packages: string[]; hasPin: boolean }
+
+/** Configure which packages are PIN-locked and the unlock PIN. */
+export async function configureAppLock(packages: string[], pin: string): Promise<{ ok: boolean; reason?: string; packages?: number; hasPin?: boolean }> {
+  if (!isSupported() || packages.length === 0 || !pin) return { ok: false, reason: 'invalid_args' };
+  try { return await native.configureAppLock(JSON.stringify(packages), pin); } catch { return { ok: false, reason: 'native_error' }; }
+}
+
+export async function setAppLockEnabled(enabled: boolean): Promise<{ ok: boolean; enabled?: boolean }> {
+  if (!isSupported()) return { ok: false };
+  try { return await native.setAppLockEnabled(enabled); } catch { return { ok: false }; }
+}
+
+export async function getAppLockState(): Promise<AppLockState> {
+  const fallback: AppLockState = { enabled: false, packages: [], hasPin: false };
+  if (!isSupported()) return fallback;
+  try { return await native.getAppLockState(); } catch { return fallback; }
+}
+
+/** Verify a per-app unlock PIN; on success the overlay dismisses for 60 s. */
+export async function verifyAppLockPin(pkg: string, pin: string): Promise<{ ok: boolean }> {
+  if (!isSupported() || !pkg || !pin) return { ok: false };
+  try { return await native.verifyAppLockPin(pkg, pin); } catch { return { ok: false }; }
+}
+
+export async function clearAppLock(): Promise<{ ok: boolean }> {
+  if (!isSupported()) return { ok: false };
+  try { return await native.clearAppLock(); } catch { return { ok: false }; }
 }
 
 /** SIM sentinel: set the financer alert numbers + baseline the enrolled SIM. */

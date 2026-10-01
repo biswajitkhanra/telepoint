@@ -32,6 +32,7 @@ Console documentation, linked inline.
 | Capability | Permission(s) | Protection | DO auto-grant? | In current set? |
 |---|---|---|---|---|
 | Device admin/owner lock, wipe, kiosk | `BIND_DEVICE_ADMIN` (on the receiver, not `uses-permission`) | signature | n/a (enforced on receiver) | Yes (native manifest) |
+| **Anti-tamper / uninstall-reset deterrent / per-app lock overlay — REQUIRED** | `BIND_ACCESSIBILITY_SERVICE` (on the `<service>`, not `uses-permission`) | signature | n/a (enabled via the OS Accessibility toggle, or DO `setSecureSetting` + real readback) | Yes (declared in the module manifest + `res/xml`) |
 | Camera-disable, reboot, app-hide, user restrictions, FRP | **none** (DevicePolicyManager, gated by DO status) | none | n/a | Correctly none |
 | Exact-alarm EMI reminders | `SCHEDULE_EXACT_ALARM` and/or `USE_EXACT_ALARM` | appop(special) / normal | No (appop) / n/a (normal) | Both declared |
 | Notifications (Android 13+) | `POST_NOTIFICATIONS` | dangerous | **Yes** | Yes |
@@ -59,6 +60,23 @@ Enforced as the `android:permission` attribute on `TelepointDeviceAdminReceiver`
 Correctly declared in the device-management module manifest with `android:exported="true"`.
 Ref: [Manifest.permission#BIND_DEVICE_ADMIN](https://developer.android.com/reference/android/Manifest.permission#BIND_DEVICE_ADMIN),
 [Device admin overview](https://developer.android.com/guide/topics/admin/device-admin).
+
+### BIND_ACCESSIBILITY_SERVICE — signature (REQUIRED)
+The owner-authorized `TelepointAccessibilityService` is a **mandatory** component of the
+financed-device protection: it is an additional deterrent that steers away from the
+uninstall / force-stop / clear-data / Settings-tampering screens and powers the per-app
+lock overlay. It is declared as the `android:permission` attribute on the `<service>` (not
+as a `<uses-permission>`) with the
+`android.accessibilityservice.AccessibilityService` intent-filter and
+`res/xml/telepoint_accessibility_service.xml`. It is enabled by the owner/store via the
+real OS Accessibility toggle (Device Owner best-effort `setSecureSetting`, then the user
+toggle) and verified by a real readback — it is **never** enabled by faking policy state
+or intercepting the consent dialog. `BIND_ACCESSIBILITY_SERVICE` is a signature binding
+permission, so the user must grant service access through Settings while the app itself
+cannot self-grant it. It does **not** replace Device Owner (the guaranteed uninstall/reset
+block) and cannot block a hardware/recovery wipe.
+Ref: [AccessibilityService](https://developer.android.com/reference/android/accessibilityservice/AccessibilityService),
+[Manifest.permission#BIND_ACCESSIBILITY_SERVICE](https://developer.android.com/reference/android/Manifest.permission#BIND_ACCESSIBILITY_SERVICE).
 
 ### All other DevicePolicyManager actions — no manifest permission
 `setCameraDisabled`, `reboot()`, `setApplicationHidden`, `addUserRestriction`
@@ -108,7 +126,8 @@ Required; correctly declared. `TIMEZONE_CHANGED` / `TIME_SET` / `MY_PACKAGE_REPL
 extra permission. Ref: [Manifest.permission#RECEIVE_BOOT_COMPLETED](https://developer.android.com/reference/android/Manifest.permission#RECEIVE_BOOT_COMPLETED).
 
 ### RECEIVE_SMS — dangerous (biggest Play caveat)
-Backs the offline HMAC-signed LOCK/UNLOCK channel. DO **can** grant it silently
+Backs the offline SMS LOCK/UNLOCK channel (sender allowlist + customer code only —
+**not** cryptographically authenticated; sender IDs are spoofable). DO **can** grant it silently
 (code confirms: `setPermissionGrantState(..., RECEIVE_SMS, GRANTED)`).
 **Google Play SMS/Call-Log policy** restricts `RECEIVE_SMS`: on the public Play Store it is allowed
 only for a default SMS handler or a short list of approved use cases — **device financing is not one
@@ -116,7 +135,10 @@ of them** ([SMS/Call Log policy](https://support.google.com/googleplay/android-d
 The compliant path is **private / managed distribution**: apps privately published under
 [Managed Google Play](https://support.google.com/googleplay/android-developer/answer/10467955) (or
 sideloaded during DO provisioning) are outside the public-listing SMS review. The receiver is
-correctly hardened (`android:permission="android.permission.BROADCAST_SMS"`, HMAC verification).
+hardened at the OS level (`android:permission="android.permission.BROADCAST_SMS"`), and the
+channel is gated by the sender allowlist plus the customer code. It is **not** HMAC-signed —
+replay/spoof protection against a determined attacker is not provided; treat SMS as a degraded
+offline fallback, not an authenticated channel.
 
 ### ACCESS_FINE_LOCATION / ACCESS_COARSE_LOCATION — dangerous
 Foreground location for on-demand fetch. DO grants both silently (code confirms). Required and

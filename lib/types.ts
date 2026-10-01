@@ -272,8 +272,8 @@ export type DeviceActionKey =
   | 'REBOOT' | 'APP_HIDE'
   // Power toggles + telemetry fetches + tracking.
   | 'WIFI_POWER' | 'AIRPLANE_POWER' | 'LOCATION' | 'SIM_INFO' | 'TRACKING'
-  // Full release, OEM autostart opener, per-app lock (suspend).
-  | 'RELEASE' | 'OEM_AUTOSTART' | 'APP_LOCK';
+  // Full release, OEM autostart opener, per-app lock (suspend) and per-app PIN overlay lock.
+  | 'RELEASE' | 'OEM_AUTOSTART' | 'APP_LOCK' | 'APP_PIN_LOCK';
 
 export interface DeviceActionPayload {
   action: DeviceActionKey;
@@ -283,6 +283,8 @@ export interface DeviceActionPayload {
   package?: string;
   /** For APP_LOCK: the target packages to suspend/unsuspend. */
   packages?: string[];
+  /** For APP_PIN_LOCK: the store-provided unlock PIN. */
+  pin?: string;
 }
 
 /** Live policy snapshot the device reports (devices.policies, migration 034). */
@@ -302,7 +304,8 @@ export type DeviceCommandStatus =
   | 'EXECUTED'
   | 'FAILED'
   | 'EXPIRED'
-  | 'CANCELLED';
+  | 'CANCELLED'
+  | 'SUPERSEDED';
 
 export interface DeviceCommand {
   id: string;

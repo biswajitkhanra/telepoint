@@ -16,7 +16,7 @@ TelePoint finances a phone on EMI. **The phone is the collateral, and TelePoint 
 2. **Proportionate control.** While the EMI is unpaid, TelePoint can lock the device, restrict features, and prevent removal/reset — to protect the collateral, not to harm the customer. The locked screen always shows the amount due and how to pay/contact the store.
 3. **Automatic, total release on closure.** The moment the loan is **COMPLETE** (fully paid) or **SETTLED**, the app **releases everything** — lock, uninstall block, factory-reset block, safe-boot block, FRP, all feature restrictions, hidden apps, and tracking — and the customer regains a normal, unmanaged phone. This is enforced in code (`releaseManagedRestrictions`), not left to manual action.
 
-**Do not deploy this on a device the customer did not finance under an agreement, or without their consent.** Only documented Android APIs are used — no root, no exploits, no accessibility abuse, no fake system UI, no bypasses.
+**Do not deploy this on a device the customer did not finance under an agreement, or without their consent.** Only documented Android APIs are used — no root, no exploits, no fake system UI, no bypasses. The customer app also declares the owner-authorized accessibility service, which is **required** to prevent uninstall/reset as an additional deterrent layer (steering away from the uninstall/reset/settings screens) on top of Device Owner, which remains the guaranteed block.
 
 ---
 
@@ -99,7 +99,7 @@ QR-code / `afw#setup` provisioning is the scalable alternative — see `docs/DEV
 ⚠️ **Use the account's NUMERIC Google id (Gaia `userId`), NOT the plain email.** The raw email is unreliable and on some phones locks to an *unknown* account after reset. For the target account (`biswajit.khanra82@gmail.com`): sign in as that account, call People API `people/me?personFields=metadata` and read `metadata.sources[].id` (the numeric id), then set `EXPO_PUBLIC_FRP_ACCOUNTS=<that number>`. Requires **Device Owner + Android 11+** and an OEM that implements `FactoryResetProtectionPolicy`. Details + sources in `docs/frp-and-sms-provisioning-research.md` §2.
 
 ### 3.6 Permissions the app requests (and why)
-`RECEIVE_BOOT_COMPLETED` (re-lock + reschedule after reboot) · `POST_NOTIFICATIONS` (reminders) · `SCHEDULE_EXACT_ALARM`/`USE_EXACT_ALARM`/`WAKE_LOCK` (exact reminders) · `RECEIVE_SMS` (offline control) · `ACCESS_FINE/COARSE_LOCATION` (location) · `READ_PHONE_STATE`/`READ_PHONE_NUMBERS` (SIM info) · `CHANGE_WIFI_STATE`/`ACCESS_WIFI_STATE` (Wi-Fi power) · `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` (keep background alive). On Device Owner the dangerous runtime permissions are granted silently; no Accessibility, no `QUERY_ALL_PACKAGES`.
+`RECEIVE_BOOT_COMPLETED` (re-lock + reschedule after reboot) · `POST_NOTIFICATIONS` (reminders) · `SCHEDULE_EXACT_ALARM`/`USE_EXACT_ALARM`/`WAKE_LOCK` (exact reminders) · `RECEIVE_SMS` (offline control) · `ACCESS_FINE/COARSE_LOCATION` (location) · `READ_PHONE_STATE`/`READ_PHONE_NUMBERS` (SIM info) · `CHANGE_WIFI_STATE`/`ACCESS_WIFI_STATE` (Wi-Fi power) · `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` (keep background alive). On Device Owner the dangerous runtime permissions are granted silently. The customer app declares the **required** owner-authorized accessibility service (`BIND_ACCESSIBILITY_SERVICE` on the `<service>`, not a `uses-permission`) to prevent uninstall/reset as an additional deterrent; no `QUERY_ALL_PACKAGES`.
 
 ---
 

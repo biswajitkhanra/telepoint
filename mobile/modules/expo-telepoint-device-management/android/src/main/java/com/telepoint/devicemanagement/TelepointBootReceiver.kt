@@ -29,6 +29,19 @@ class TelepointBootReceiver : BroadcastReceiver() {
       action != "android.intent.action.QUICKBOOT_POWERON"
     ) return
 
+    // Financing policy remains active even when the EMI lock screen is off.
+    FinancingProtection.restore(context)
+
+    // NOTE: accessibility is consent-based and enabled by the owner/store with the
+    // real system toggle at provisioning. It is never silently re-enabled here;
+    // the PIN-9088 panel / heartbeat only CONFIRM its live on/off state.
+
+    // Restart native command delivery so an online LOCK/UNLOCK still reaches this
+    // device without the customer opening the app.
+    if (CommandServiceStore.isConfigured(context)) {
+      TelepointCommandService.start(context)
+    }
+
     if (!LockStateStore.isLocked(context)) return
 
     // Re-assert the screen lock if we are an active admin.

@@ -37,12 +37,12 @@ export async function getInstallationId(): Promise<string> {
   return id;
 }
 
-async function sessionToken(): Promise<string | null> {
+export async function getSessionToken(): Promise<string | null> {
   try { return await AsyncStorage.getItem(STORAGE_KEYS.CUSTOMER_SESSION_TOKEN); } catch { return null; }
 }
 
 async function post<T>(path: string, customerId: string, extra: Record<string, unknown>): Promise<T | null> {
-  const token = await sessionToken();
+  const token = await getSessionToken();
   if (!token) return null; // no proof of login → do not call
   try {
     const res = await fetch(`${PORTAL_BASE_URL}${path}`, {
@@ -92,9 +92,11 @@ export interface PollCommand {
   emi_amount?: number | null;
   voice?: boolean | null;
   language?: 'bn' | 'hi' | null;
-  payload?: { action?: string; enabled?: boolean; package?: string; packages?: string[] } | null;
+  payload?: { action?: string; enabled?: boolean; package?: string; packages?: string[]; pin?: string } | null;
   status: string;
   expires_at: string;
+  /** Issued-at timestamp — used by the unlock-wins guard to skip stale LOCKs. */
+  created_at?: string;
 }
 
 export interface ReminderSettingsPayload {
@@ -108,6 +110,7 @@ export interface ReminderSettingsPayload {
 
 export interface DeviceStatusResponse {
   commands?: PollCommand[];
+  loan_status?: string | null;
   device?: { id: string; management_status: string } | null;
   retailer?: { name?: string; mobile?: string } | null;
   customer_name?: string | null;
@@ -128,7 +131,7 @@ export async function ackCommand(
   customerId: string,
   installationId: string,
   commandId: string,
-  result: 'EXECUTED' | 'FAILED',
+  result: 'EXECUTED' | 'FAILED' | 'SUPERSEDED',
   failureReason?: string,
 ) {
   return post<{ status: string }>('/api/device/command/ack', customerId, {

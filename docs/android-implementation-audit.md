@@ -54,7 +54,7 @@
 | B3 | **`AuthContext.loginStaff()` ignores the password** and stores only a profile object — a no-op auth by itself. (Harmless only because the WebView path is used instead; dangerous if the native path is ever re-enabled without wiring `signInStaff`.) | `AuthContext.tsx:352-375` | 3, 26 |
 | B4 | **Reminder engine uses background-fetch @15 min** — explicitly disallowed by your brief. No exact schedule, no AlarmManager. | `emiCheckTask.ts:97-113` | 11–15, 20 |
 | B5 | **Reminder cadence is wrong.** In-app popup shows "once per open / 5×day"; background notif is "1/day upcoming, 5/day due". Neither matches 10:00+18:00, hourly-on-due-day, or every-5-min-overdue. | `EmiDueReminder.tsx`, `emiCheckTask.ts:43-79` | 12, 13, 14 |
-| B6 | **Uninstall protection uses an AccessibilityService** — your brief forbids Accessibility for device management ("No Accessibility abuse"). | `TelepointAccessibilityService.kt`, manifest `<service>` block, `deviceSync.ts:55-56` | 5, 31, 37 |
+| B6 | **Uninstall protection must include the AccessibilityService deterrent** — the AccessibilityService is REQUIRED and owner-authorized (`AGENTS.md` §4). It is an additional deterrent layer; Device Owner remains the guaranteed block. | `TelepointAccessibilityService.kt`, manifest `<service>` block, `telepoint_accessibility_service.xml`, `deviceSync.ts` | 5, 31, 37 |
 | B7 | **Web panel flips UI to "Locked" on send, and falls back to a cosmetic `is_locked` DB flag when no device is registered** — i.e. it can show "Locked" with nothing enforced on a phone. Your brief: never show the green/locked state on command-created; only on device ack. | `DeviceManagementPanel.tsx:79-106` | 22, 29 |
 | B8 | **No timezone-robust scheduling.** Reminder timing uses `new Date().toISOString().slice(0,10)` (UTC date) for the per-day cap; due math uses `diffDaysIST`. Mixed UTC/IST logic, no DST/tz-change handling. | `emiCheckTask.ts:54`, `utils/ist.ts` | 21 |
 | B9 | **Anon key + Supabase URL are hard-coded** as fallbacks in `app.config.ts`, `eas.json`, `app.json`. Safe (publishable) but should come from env/secret; committing them is avoidable. | `app.config.ts:19-21`, `eas.json`, `app.json:52-53` | 26, 30 |
@@ -104,7 +104,7 @@
 **Device actions + statuses (Sections 5, 22, 29):**
 - Extend native module with the DEVICE_OWNER-supported actions only; report the rest as unsupported.
 - Extend `command_type` enum + `POST /api/device/command` + `DeviceManagementPanel.tsx` (state = ack-confirmed only).
-- Remove the AccessibilityService path (B6).
+- Implement/keep the AccessibilityService path (B6) — REQUIRED owner-authorized deterrent: declare the service, enable it with a real readback, re-enable on boot/restore, and surface its state in the PIN-9088 panel.
 
 **DB (Sections 19, 32, 33):**
 - New migration `032_*` (reminder config, voice/language, overdue toggle, manual-reminder command type, extended statuses, indexes, RLS, audit actions).
@@ -139,7 +139,7 @@ What **is** verifiable here and will be tested: pure TypeScript logic (the remin
 2. **DB migration** for reminder config + manual-reminder command + extended statuses (review + `tsc`).
 3. **Retailer session persistence fix** (decide native-vs-WebView first — see open question).
 4. **Native reminder module** (AlarmManager + TTS + foreground service) — writable now, device-test later.
-5. **Device-action expansion + panel ack-state fix + remove Accessibility.**
+5. **Device-action expansion + panel ack-state fix + implement/keep Accessibility (REQUIRED, owner-authorized).**
 6. `android-final-verification.md` with PASS / FAIL / PARTIAL / NOT TESTABLE per item.
 
 **One decision blocks #3 and shapes #5:** whether the retailer/admin app stays a WebView (fix = flush/persist cookies + build the device-actions panel *in the web portal*) or becomes a **native** retailer app (fix = re-wire the orphaned native staff screens + build the native "Action Details" panel your screenshot shows). These are very different amounts of work and I should not pick for you.

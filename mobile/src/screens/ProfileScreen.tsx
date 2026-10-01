@@ -2,7 +2,7 @@
 // IDFC clarity + trust: Customer profile, masked Aadhaar, loan credentials & security controls
 // 100% Data Accuracy (MRP, Down Payment, Financed Loan, Customer ID) & Fixed Call Support 7003617029
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -59,6 +59,22 @@ export const ProfileScreen = () => {
   } = useAuth();
   const [switchModalVisible, setSwitchModalVisible] = useState(false);
   const [switchingLoanId, setSwitchingLoanId] = useState<string | null>(null);
+
+  // Hidden owner entry: 7 quick taps on the version footer opens the PIN-gated
+  // diagnostic panel. This is a discoverability affordance only — the panel has
+  // its own PIN gate, so the tap target itself reveals nothing sensitive.
+  const versionTaps = useRef<{ count: number; last: number }>({ count: 0, last: 0 });
+  const handleVersionTap = () => {
+    const now = Date.now();
+    const s = versionTaps.current;
+    s.count = now - s.last < 1200 ? s.count + 1 : 1;
+    s.last = now;
+    if (s.count >= 7) {
+      s.count = 0;
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      navigation.navigate('Diagnostic');
+    }
+  };
 
   if (!customer) return null;
 
@@ -417,11 +433,11 @@ export const ProfileScreen = () => {
           </View>
         )}
 
-        {/* App Version Info */}
-        <View style={styles.versionFooter}>
+        {/* App Version Info (tap 7× → hidden, PIN-gated diagnostics) */}
+        <PressableScale style={styles.versionFooter} onPress={handleVersionTap} scaleTo={0.98}>
           <Text style={styles.versionText}>Telepoint EMI • Version 1.0.0 (Production)</Text>
           <Text style={styles.versionSubText}>Protected with 256-Bit SSL Encryption</Text>
-        </View>
+        </PressableScale>
       </ScrollView>
 
       {/* Switch Active Loan Modal */}

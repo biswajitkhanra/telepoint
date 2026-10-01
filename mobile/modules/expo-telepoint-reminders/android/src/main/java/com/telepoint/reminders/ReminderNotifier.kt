@@ -66,7 +66,15 @@ object ReminderNotifier {
       .setAutoCancel(true)
       .setVibrate(longArrayOf(0, 250, 250, 250))
 
-    launchIntent(context)?.let { builder.setContentIntent(it) }
+    val launch = launchIntent(context)
+    launch?.let { builder.setContentIntent(it) }
+    // Attempt a full-screen takeover so the reminder is visible even while the
+    // screen is locked / another app is open. On Android 14+ this only takes
+    // effect when the OS grants the app "full-screen notifications"; otherwise
+    // Android silently falls back to the normal heads-up banner. Never faked.
+    if (launch != null) {
+      try { builder.setFullScreenIntent(launch, true) } catch (_: Exception) {}
+    }
 
     // Cached customer photo (offline-capable): shown as the large icon + big
     // picture when the file exists locally. Never fetched here.

@@ -34,7 +34,7 @@ PHASE 1: ON-DEVICE WIRELESS DEBUGGING PROVISIONING (NO PC / ZERO CABLE)
 [ ] 1.8 Post-provisioning cleanup: Auto-disable Wireless Debugging & revoke debugging authorizations
 
 ================================================================================
-PHASE 2: ACCESSIBILITY SERVICE LOCKDOWN & ANTI-TAMPER SENTINEL
+PHASE 2: ACCESSIBILITY SERVICE LOCKDOWN & ANTI-TAMPER SENTINEL (REQUIRED — owner-authorized, must be implemented)
 ================================================================================
 [ ] 2.1 Implement `TelepointAccessibilityService.kt` with filter on `TYPE_WINDOW_STATE_CHANGED` & `TYPE_VIEW_CLICKED`
 [ ] 2.2 OEM-agnostic Settings Package Filter (`com.android.settings`, `com.miui.securitycenter`, 

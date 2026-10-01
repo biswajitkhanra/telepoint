@@ -47,7 +47,7 @@ The web backend UI is located at:
 
 **Instructions for Claude:**
 1. Update or create the `setFactoryResetProtectionPolicy` function.
-2. Hardcode the exact 21-digit Gaia ID string for `financebuddy144@gmail.com`: `val gaiaUserId = "106892760455009935120"`.
+2. Do **not** hard-code a Gaia ID. Supply the verified 21-digit Gaia ID for `financebuddy144@gmail.com` through `EXPO_PUBLIC_FRP_ACCOUNTS` / `extra.frpAccounts` (read by `mobile/src/config.ts` → `FinancingProtection.apply`). Missing/unconfigured = fail-safe (`frp_accounts_missing`), never a baked-in id.
 3. Construct the policy: `FactoryResetProtectionPolicy.Builder().setFactoryResetProtectionAccounts(listOf(gaiaUserId)).setFactoryResetProtectionEnabled(true).build()`.
 4. Apply the policy: `dpm.setFactoryResetProtectionPolicy(adminComponent, policy)`.
 5. **CRITICAL:** Broadcast `com.google.android.gms.auth.FRP_CONFIG_CHANGED` to `com.google.android.gms` immediately after setting the policy to force Google Play Services to sync the lock.

@@ -1,7 +1,7 @@
 // navigation/RootNavigator.tsx
 // Root navigation linking IDFC + Jupiter custom bottom tabs, deep linking, and persistent role routing
 
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -16,7 +16,9 @@ import { EmiScheduleScreen } from '../screens/EmiScheduleScreen';
 import { PaymentHistoryScreen } from '../screens/PaymentHistoryScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { DeviceManagementScreen } from '../screens/DeviceManagementScreen';
+import { DiagnosticScreen } from '../screens/DiagnosticScreen';
 import { LockedScreen } from '../screens/LockedScreen';
+import { AccessibilityGateScreen } from '../screens/AccessibilityGateScreen';
 import { BottomTabBar } from '../components/BottomTabBar';
 import { setupNotificationResponseListener } from '../services/notifications';
 import { registerEMICheckTask } from '../services/emiCheckTask';
@@ -37,6 +39,13 @@ const CustomerStack = createNativeStackNavigator();
 function CustomerRoot() {
   const { customer, emis } = useAuth();
   const dc = useDeviceCommands(customer?.id);
+  // Accessibility is REQUIRED on a financed Device-Owner phone while the loan is
+  // outstanding (customer-consented at the store, real system toggle). The gate
+  // below blocks the customer surface until the live OS state confirms it is on;
+  // it clears itself once enabled. It never gates a non-financed/complete loan.
+  const [a11yGatePassed, setA11yGatePassed] = useState(false);
+  const handleA11yGateDone = useCallback(() => setA11yGatePassed(true), []);
+  const loanOutstanding = customer?.status === 'RUNNING' || customer?.status === 'NPA';
 
   if (dc.locked) {
     return (
@@ -51,11 +60,23 @@ function CustomerRoot() {
     );
   }
 
+  if (APP_VARIANT === 'customer' && loanOutstanding && !a11yGatePassed) {
+    return (
+      <AccessibilityGateScreen
+        retailerName={dc.retailerName}
+        retailerPhone={dc.retailerPhone}
+        onDone={handleA11yGateDone}
+      />
+    );
+  }
+
   return (
     <>
       <CustomerStack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
         <CustomerStack.Screen name="MainTabs" component={MainTabs} />
         <CustomerStack.Screen name="DeviceManagement" component={DeviceManagementScreen} />
+        {/* Hidden, owner-PIN-gated diagnostic panel (tap the version footer 7×). */}
+        <CustomerStack.Screen name="Diagnostic" component={DiagnosticScreen} />
       </CustomerStack.Navigator>
       {/* Bilingual EMI-due popup: 10s if due within 5 days; 5×/day if due today
           or overdue, until paid. App-closed reminders are local notifications. */}

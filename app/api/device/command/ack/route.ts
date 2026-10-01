@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
 
   const installationId = typeof body.installation_id === 'string' ? body.installation_id.trim() : '';
   const commandId = typeof body.command_id === 'string' ? body.command_id : '';
-  const result = body.result === 'EXECUTED' || body.result === 'FAILED' ? body.result : null;
+  const result = body.result === 'EXECUTED' || body.result === 'FAILED' || body.result === 'SUPERSEDED' ? body.result : null;
   const failureReason = typeof body.failure_reason === 'string' ? body.failure_reason.slice(0, 300) : null;
   if (!installationId || !commandId || !result) {
     return NextResponse.json({ error: 'installation_id, command_id and result are required' }, { status: 400 });
@@ -55,6 +55,17 @@ export async function POST(req: NextRequest) {
     await svc.from('devices').update({ management_status: executedStatusFor(cmd.command_type), updated_at: nowIso }).eq('id', device!.id);
     await writeDeviceAudit(svc, { action: auditAction(cmd.command_type, 'EXECUTED'), customer_id: customerId, device_id: device!.id, command_id: cmd.id });
     return NextResponse.json({ status: 'EXECUTED' });
+  }
+
+  // SUPERSEDED — the device unlocked locally (backend UNLOCK / offline TOTP /
+  // offline SMS UNLOCK) AFTER this LOCK was issued, so the stale lock must not
+  // re-lock the phone and the portal must not keep showing "Locked". The
+  // command is closed without flipping the device back to LOCKED.
+  if (result === 'SUPERSEDED') {
+    await svc.from('device_commands').update({ status: 'SUPERSEDED', executed_at: nowIso, updated_at: nowIso }).eq('id', cmd.id).in('status', ['PENDING', 'RECEIVED']);
+    await svc.from('devices').update({ management_status: 'ACTIVE', updated_at: nowIso }).eq('id', device!.id);
+    await writeDeviceAudit(svc, { action: auditAction(cmd.command_type, 'SUPERSEDED'), customer_id: customerId, device_id: device!.id, command_id: cmd.id });
+    return NextResponse.json({ status: 'SUPERSEDED' });
   }
 
   // FAILED — record why; leave the device in its prior confirmed state.

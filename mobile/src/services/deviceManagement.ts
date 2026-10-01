@@ -85,6 +85,57 @@ export function getProtectionStatus() {
   return DeviceMgmt.getProtectionStatus();
 }
 
+/** Live OS state of every permission/policy the financing controls rely on. */
+export type { PermissionDiagnostics } from 'expo-telepoint-device-management';
+export function getPermissionDiagnostics() {
+  return DeviceMgmt.getPermissionDiagnostics();
+}
+
+/** Open the OS "Display over other apps" screen (user must toggle it). */
+export function requestOverlayPermission() {
+  return DeviceMgmt.requestOverlayPermission();
+}
+
+/** CONFIRM whether the customer-consented accessibility deterrent is enabled. */
+export function isAccessibilityServiceEnabled() {
+  return DeviceMgmt.isAccessibilityServiceEnabled();
+}
+
+/** Open the OS Accessibility settings for the owner to toggle it (consented). */
+export function openAccessibilitySettings() {
+  return DeviceMgmt.openAccessibilitySettings();
+}
+
+/** Last local unlock timestamp (unlock-wins watermark), 0 when never unlocked. */
+export function getLastUnlockedAt() {
+  return DeviceMgmt.getLastUnlockedAt();
+}
+
+/** Open this app's system settings page (notifications / permission review). */
+export function openAppSettings() {
+  return DeviceMgmt.openAppSettings();
+}
+
+// --- Native background command delivery ------------------------------------
+export function configureCommandService(
+  baseUrl: string,
+  customerId: string,
+  installationId: string,
+  sessionToken: string,
+  frpAccountsCsv = '',
+) {
+  return DeviceMgmt.configureCommandService(baseUrl, customerId, installationId, sessionToken, frpAccountsCsv);
+}
+export function startCommandService() {
+  return DeviceMgmt.startCommandService();
+}
+export function stopCommandService() {
+  return DeviceMgmt.stopCommandService();
+}
+export function isCommandServiceRunning() {
+  return DeviceMgmt.isCommandServiceRunning();
+}
+
 /** Read the SMS-control status (configured / permission / mode). */
 export function getSmsControlStatus() {
   return DeviceMgmt.getSmsControlStatus();
@@ -135,6 +186,34 @@ export function openOemAutostartSettings() {
 }
 export function setAppsSuspended(packages: string[], suspended: boolean) {
   return DeviceMgmt.setAppsSuspended(packages, suspended);
+}
+
+// Full-screen overlay (Display over other apps)
+export function showLockOverlay(title: string, body: string) {
+  return DeviceMgmt.showLockOverlay(title, body);
+}
+export function showReminderOverlay(title: string, body: string) {
+  return DeviceMgmt.showReminderOverlay(title, body);
+}
+export function dismissOverlay() {
+  return DeviceMgmt.dismissOverlay();
+}
+
+// Per-app PIN overlay lock
+export function configureAppLock(packages: string[], pin: string) {
+  return DeviceMgmt.configureAppLock(packages, pin);
+}
+export function setAppLockEnabled(enabled: boolean) {
+  return DeviceMgmt.setAppLockEnabled(enabled);
+}
+export function getAppLockState() {
+  return DeviceMgmt.getAppLockState();
+}
+export function verifyAppLockPin(pkg: string, pin: string) {
+  return DeviceMgmt.verifyAppLockPin(pkg, pin);
+}
+export function clearAppLock() {
+  return DeviceMgmt.clearAppLock();
 }
 export function configureSimSentinel(alertNumbersCsv: string) {
   return DeviceMgmt.configureSimSentinel(alertNumbersCsv);

@@ -1,7 +1,6 @@
 'use client';
 
 import { Customer, EMISchedule, DueBreakdown } from '@/lib/types';
-import { calculateTotalFineFromEmis, getPerEmiFineBreakdown } from '@/lib/fineCalc';
 import { formatCurrency, formatDateOnly } from '@/lib/formatters';
 import { diffDaysIST } from '@/lib/ist';
 import { motion } from 'framer-motion';
@@ -55,9 +54,22 @@ export default function CustomerPaymentSummary({
   const totalEmiDue = Math.max(0, totalEmiScheduled - totalEmiPaid);
 
   // Money: Fines
-  const fineBreakdown    = getPerEmiFineBreakdown(emis, baseFine, weeklyIncrement);
-  const totalFinePaid    = emis.reduce((s, e) => s + Number(e.fine_paid_amount || 0), 0);
-  const totalFineDue     = calculateTotalFineFromEmis(emis, baseFine, weeklyIncrement);
+  const totalFinePaid = emis.reduce((s, e) => s + Number(e.fine_paid_amount || 0), 0);
+  // ABSOLUTE DB TRUTH for the fine balance: prefer the server-computed
+  // get_due_breakdown RPC (fine_settings + the per-EMI frozen fine_amount, IST
+  // server clock); fall back to the sum of the stored per-EMI remaining fines.
+  // The summary must NOT re-derive the daily/weekly accrual client-side — a
+  // client clock/timezone drift made those numbers false vs the database.
+  const storedFineDue = emis.reduce(
+    (s, e) => s + Math.max(0, Number(e.fine_amount || 0) - Number(e.fine_paid_amount || 0)),
+    0,
+  );
+  const totalFineDue = breakdown?.fine_due != null
+    ? Math.max(0, Number(breakdown.fine_due))
+    : storedFineDue;
+  const fineRowsDue = emis.filter(
+    (e) => Number(e.fine_amount || 0) - Number(e.fine_paid_amount || 0) > 0,
+  ).length;
 
   // 1st EMI charge (partial-payment aware)
   const firstChargePaidAmt = firstChargePaid(customer);
@@ -82,7 +94,7 @@ export default function CustomerPaymentSummary({
     ? Math.max(0, Number(nextEmi.amount || 0) - Number(nextEmi.partial_paid_amount || 0))
     : 0;
   const nextFine = nextEmi
-    ? (fineBreakdown.find(r => r.emi_no === nextEmi.emi_no)?.remaining ?? 0)
+    ? Math.max(0, Number(nextEmi.fine_amount || 0) - Number(nextEmi.fine_paid_amount || 0))
     : 0;
 
   const overallProgress = totalEmiScheduled > 0
@@ -162,7 +174,7 @@ export default function CustomerPaymentSummary({
           dueValue={totalFineDue}
           countLabel={
             totalFineDue > 0
-              ? `${fineBreakdown.length} EMI${fineBreakdown.length === 1 ? '' : 's'} carrying fine`
+              ? `${fineRowsDue} EMI${fineRowsDue === 1 ? '' : 's'} carrying fine`
               : totalFinePaid > 0 ? 'All fines cleared' : 'No fines yet'
           }
           tint="emerald"

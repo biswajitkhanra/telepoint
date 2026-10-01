@@ -37,6 +37,7 @@ export const TERMINAL_STATUSES: ReadonlySet<DeviceCommand['status']> = new Set([
   'FAILED',
   'EXPIRED',
   'CANCELLED',
+  'SUPERSEDED',
 ]);
 
 export function isTerminal(status: DeviceCommand['status']): boolean {
@@ -107,7 +108,7 @@ export function executedStatusFor(type: DeviceCommandType): DeviceManagementStat
 /** Audit action for a given command type + lifecycle event. */
 export function auditAction(
   type: DeviceCommandType,
-  event: 'REQUESTED' | 'RECEIVED' | 'EXECUTED' | 'FAILED',
+  event: 'REQUESTED' | 'RECEIVED' | 'EXECUTED' | 'FAILED' | 'SUPERSEDED',
 ): string {
   return `${type}_${event}`;
 }

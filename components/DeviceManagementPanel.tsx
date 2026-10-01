@@ -5,7 +5,7 @@ import {
   Lock, Unlock, Smartphone, ChevronDown, ChevronUp, ShieldCheck, ShieldAlert, RefreshCw,
   Bell, Volume2, VolumeX, Send, MessageSquare, Copy, Camera, Wifi, Bluetooth, Usb, Plane,
   MapPin, Power, EyeOff, Image as ImageIcon, PhoneOff, CreditCard, Sliders, Trash2, Settings2, Link2, KeyRound,
-  Info, Store, ExternalLink, Clock, Activity,
+  Info, Clock, Activity, Cpu, AppWindow, History, CheckCircle2, XCircle, Hourglass, CalendarCheck, CalendarPlus,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import toast from 'react-hot-toast';
@@ -27,12 +27,13 @@ interface DeviceRow {
   last_location?: { lat?: number; lng?: number; accuracy?: number; provider?: string; at?: string } | null;
   sim_info?: { count?: number; at?: string; sims?: { slot?: number; carrier?: string; display?: string; number?: string }[] } | null;
   consent_granted_at?: string | null; registered_at?: string; last_seen_at?: string | null;
-  device_model?: string | null; device_manufacturer?: string | null; android_version?: string | null;
+  device_model?: string | null; device_manufacturer?: string | null; android_version?: string | null; app_version?: string | null;
 }
 interface CommandRow {
-  id: string; command_type: 'LOCK' | 'UNLOCK' | 'EMI_REMINDER'; status: string;
+  id: string; command_type: 'LOCK' | 'UNLOCK' | 'EMI_REMINDER' | 'DEVICE_ACTION'; status: string;
   emi_amount?: number | null; voice?: boolean | null; language?: string | null;
-  created_at: string; executed_at?: string | null; failure_reason?: string | null;
+  payload?: { action?: string; enabled?: boolean } | null;
+  created_at: string; received_at?: string | null; executed_at?: string | null; expires_at?: string | null; failure_reason?: string | null;
 }
 interface ReminderSettings {
   reminder_enabled: boolean; overdue_reminder_enabled: boolean; voice_enabled: boolean;
@@ -224,6 +225,15 @@ export default function DeviceManagementPanel({
     const packages = lockPkg.split(/[,\s]+/).map((s) => s.trim()).filter(Boolean);
     if (packages.length === 0) { toast.error('Enter at least one package name'); return; }
     sendAction('APP_LOCK', suspend, undefined, { packages });
+  };
+
+  const [pinPkg, setPinPkg] = useState('');
+  const [pinCode, setPinCode] = useState('');
+  const pinLock = (enable: boolean) => {
+    const packages = pinPkg.split(/[,\s]+/).map((s) => s.trim()).filter(Boolean);
+    if (packages.length === 0) { toast.error('Enter at least one package name'); return; }
+    if (enable && pinCode.length < 4) { toast.error('Enter a PIN (min 4 digits)'); return; }
+    sendAction('APP_PIN_LOCK', enable, undefined, enable ? { packages, pin: pinCode } : { packages });
   };
 
   // COLLAPSED: a single button (everything hidden until opened).
@@ -432,9 +442,22 @@ export default function DeviceManagementPanel({
                 <div className="flex items-center gap-1.5">
                   <input value={lockPkg} onChange={(e) => setLockPkg(e.target.value)} placeholder="com.whatsapp, com.google.android.youtube"
                     className="flex-1 rounded-md border border-slate-200 px-2 py-1 text-[11px] font-mono" />
-                  <button disabled={!isOwner || actionBusy === 'APP_LOCK'} onClick={() => appLock(true)} className="rounded-md border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600 disabled:opacity-40 hover:bg-slate-50">Lock</button>
-                  <button disabled={!isOwner || actionBusy === 'APP_LOCK'} onClick={() => appLock(false)} className="rounded-md border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600 disabled:opacity-40 hover:bg-slate-50">Unlock</button>
+                  <button disabled={!isOwner || actionBusy === 'APP_LOCK'} onClick={() => appLock(true)} className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600 disabled:opacity-40 hover:bg-slate-50"><Lock size={12} /> Lock</button>
+                  <button disabled={!isOwner || actionBusy === 'APP_LOCK'} onClick={() => appLock(false)} className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600 disabled:opacity-40 hover:bg-slate-50"><Unlock size={12} /> Unlock</button>
                 </div>
+              </div>
+              {/* Per-app PIN lock — PIN overlay (AppLockStore + accessibility), not suspension. */}
+              <div className="py-1">
+                <span className="text-xs text-slate-600 inline-flex items-center gap-2 mb-1"><KeyRound size={14} className="text-slate-400" /> App PIN Lock (PIN overlay)</span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <input value={pinPkg} onChange={(e) => setPinPkg(e.target.value)} placeholder="com.whatsapp"
+                    className="flex-1 min-w-[120px] rounded-md border border-slate-200 px-2 py-1 text-[11px] font-mono" />
+                  <input value={pinCode} onChange={(e) => setPinCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 8))} placeholder="PIN" inputMode="numeric"
+                    className="w-16 rounded-md border border-slate-200 px-2 py-1 text-[11px] font-mono" />
+                  <button disabled={!isOwner || actionBusy === 'APP_PIN_LOCK'} onClick={() => pinLock(true)} className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600 disabled:opacity-40 hover:bg-slate-50"><Lock size={12} /> Lock</button>
+                  <button disabled={!isOwner || actionBusy === 'APP_PIN_LOCK'} onClick={() => pinLock(false)} className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600 disabled:opacity-40 hover:bg-slate-50"><Unlock size={12} /> Unlock</button>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-0.5">Shows the TelePoint PIN screen over the app while the EMI is unpaid — needs accessibility protection ON on the phone.</p>
               </div>
               <div className="flex items-center justify-between pt-1.5 border-t border-slate-100">
                 <span className="text-xs text-slate-600 inline-flex items-center gap-2"><Power size={14} className="text-slate-400" /> Reboot device</span>
@@ -453,8 +476,8 @@ export default function DeviceManagementPanel({
           {isAdmin && (
             <div className="px-3 py-2.5 border-t border-slate-100">
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-semibold text-slate-500 inline-flex items-center gap-1.5"><MapPin size={13} /> Device Location</span>
-                <button onClick={() => sendAction('LOCATION', true)} disabled={actionBusy === 'LOCATION'} className="text-[11px] font-semibold text-blue-600 disabled:opacity-40">Fetch</button>
+                <span className="text-xs font-semibold text-slate-500 inline-flex items-center gap-1.5"><MapPin size={13} /> Current location</span>
+                <button onClick={() => sendAction('LOCATION', true)} disabled={actionBusy === 'LOCATION'} className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 disabled:opacity-40"><MapPin size={12} /> Get current location</button>
               </div>
               {device?.last_location?.lat != null && device?.last_location?.lng != null ? (
                 <div className="text-xs text-slate-600 space-y-0.5">
@@ -462,8 +485,9 @@ export default function DeviceManagementPanel({
                   {typeof device.last_location.accuracy === 'number' && <div className="text-[11px] text-slate-400">±{Math.round(device.last_location.accuracy)} m · {device.last_location.provider || 'gps'}</div>}
                   {device.last_location.at && <div className="text-[11px] text-slate-400">Updated {new Date(device.last_location.at).toLocaleString('en-IN')}</div>}
                   <a className="text-[11px] font-semibold text-blue-600" href={`https://maps.google.com/?q=${device.last_location.lat},${device.last_location.lng}`} target="_blank" rel="noreferrer">View on map ↗</a>
+                  <div className="text-[10px] text-slate-400 mt-1">Location history: only the latest fix is kept. A timestamped trail needs a <code className="font-mono">device_location_history</code> table + route (see PRODUCTION_READINESS.md §7).</div>
                 </div>
-              ) : <p className="text-[11px] text-slate-400">No location reported yet. Tap Fetch (needs location permission on the phone).</p>}
+              ) : <p className="text-[11px] text-slate-400">No location reported yet. Tap “Get current location” (needs location permission on the phone).</p>}
             </div>
           )}
 
@@ -496,39 +520,48 @@ export default function DeviceManagementPanel({
           {openHistory && (
             <div id={`app-info-${customerId}`} className="px-3 py-3 border-t border-slate-100 space-y-3">
               <div className="space-y-2">
-                <h4 className="text-sm font-semibold text-slate-800">Android apps</h4>
-                <p className="text-xs text-slate-600">Version 1.0.0. Open Expo to check build progress and download when ready.</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <a href="https://expo.dev/accounts/biswajitkhas-team/projects/telepoint/builds/c3031e96-4ca3-4159-95a5-d58facb1519e" target="_blank" rel="noopener noreferrer" className="flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 p-3 text-xs font-semibold text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600">
-                    <Smartphone size={16} className="shrink-0" aria-hidden="true" />
-                    <span className="flex-1">Customer app build</span>
-                    <ExternalLink size={14} className="shrink-0" aria-hidden="true" /><span className="sr-only"> (opens in a new tab)</span>
-                  </a>
-                  <a href="https://expo.dev/accounts/biswajitkhas-team/projects/telepoint/builds/81e19605-161d-4beb-8422-04ab160cc3a3" target="_blank" rel="noopener noreferrer" className="flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 p-3 text-xs font-semibold text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600">
-                    <Store size={16} className="shrink-0" aria-hidden="true" />
-                    <span className="flex-1">Retailer app build</span>
-                    <ExternalLink size={14} className="shrink-0" aria-hidden="true" /><span className="sr-only"> (opens in a new tab)</span>
-                  </a>
-                </div>
+                <h4 className="text-sm font-semibold text-slate-800">Device &amp; app</h4>
+                {installed ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600">
+                    <div className="flex items-center gap-2"><Smartphone size={14} className="shrink-0" aria-hidden="true" />Model: <b className="text-slate-800 truncate">{[device?.device_manufacturer, device?.device_model].filter(Boolean).join(' ') || '—'}</b></div>
+                    <div className="flex items-center gap-2"><Cpu size={14} className="shrink-0" aria-hidden="true" />Android: <b className="text-slate-800">{device?.android_version || '—'}</b></div>
+                    <div className="flex items-center gap-2"><AppWindow size={14} className="shrink-0" aria-hidden="true" />App version: <b className="text-slate-800">{device?.app_version || '—'}</b></div>
+                    <div className="flex items-center gap-2"><Settings2 size={14} className="shrink-0" aria-hidden="true" />Mode: <b className="break-all text-slate-800">{device?.management_mode || '—'}</b></div>
+                    <div className="flex items-center gap-2">{device?.admin_enabled ? <><ShieldCheck size={14} className="shrink-0 text-emerald-600" aria-hidden="true" />Admin permission: <b className="text-emerald-700">On</b></> : <><ShieldAlert size={14} className="shrink-0 text-amber-600" aria-hidden="true" />Admin permission: <b className="text-amber-700">Off</b></>}</div>
+                    <div className="flex items-center gap-2"><Activity size={14} className="shrink-0" aria-hidden="true" />State: <b className="break-all text-slate-800">{device?.management_status || '—'}</b></div>
+                    {device?.consent_granted_at && <div className="flex items-center gap-2"><CalendarCheck size={14} className="shrink-0" aria-hidden="true" />Consent: <b className="text-slate-800">{new Date(device.consent_granted_at).toLocaleDateString('en-IN')}</b></div>}
+                    {device?.registered_at && <div className="flex items-center gap-2"><CalendarPlus size={14} className="shrink-0" aria-hidden="true" />Registered: <b className="text-slate-800">{new Date(device.registered_at).toLocaleDateString('en-IN')}</b></div>}
+                    {device?.last_seen_at && <div className="flex items-center gap-2 sm:col-span-2"><Clock size={14} className="shrink-0" aria-hidden="true" />Last seen: <b className="text-slate-800">{new Date(device.last_seen_at).toLocaleString('en-IN')}</b></div>}
+                  </div>
+                ) : <p className="text-xs text-slate-500">The TelePoint app has not registered on this phone yet.</p>}
               </div>
-              {installed ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600">
-                  <div className="flex items-center gap-2"><Smartphone size={14} className="shrink-0" aria-hidden="true" />Android: <b className="text-slate-800">{device?.android_version || '—'}</b></div>
-                  <div className="flex items-center gap-2">{device?.admin_enabled ? <><ShieldCheck size={14} className="shrink-0 text-emerald-600" aria-hidden="true" />Admin permission: <b className="text-emerald-700">On</b></> : <><ShieldAlert size={14} className="shrink-0 text-amber-600" aria-hidden="true" />Admin permission: <b className="text-amber-700">Off</b></>}</div>
-                  <div className="flex items-center gap-2"><Settings2 size={14} className="shrink-0" aria-hidden="true" />Mode: <b className="break-all text-slate-800">{device?.management_mode || '—'}</b></div>
-                  <div className="flex items-center gap-2"><Activity size={14} className="shrink-0" aria-hidden="true" />State: <b className="break-all text-slate-800">{device?.management_status || '—'}</b></div>
-                  {device?.last_seen_at && <div className="flex items-center gap-2 sm:col-span-2"><Clock size={14} className="shrink-0" aria-hidden="true" />Last seen: <b className="text-slate-800">{new Date(device.last_seen_at).toLocaleString('en-IN')}</b></div>}
+
+              {/* Financing protection — LIVE state reported by the phone (real OS readback). */}
+              {installed && device?.policies && (
+                <div className="pt-3 border-t border-slate-100">
+                  <h4 className="text-sm font-semibold text-slate-800 mb-1.5">Financing protection (live from phone)</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
+                    <ProtRow label="FRP enabled" on={device.policies.frpEnabled} />
+                    <ProtRow label="FRP supported" on={device.policies.frpSupported} />
+                    <ProtRow label="Uninstall blocked" on={device.policies.uninstallBlocked} />
+                    <ProtRow label="Factory reset blocked" on={device.policies.factoryResetBlocked} />
+                    <ProtRow label="Safe Mode blocked" on={device.policies.safeBootBlocked} />
+                    <ProtRow label="Add user blocked" on={device.policies.addUserBlocked} />
+                    <ProtRow label="USB debugging blocked" on={device.policies.debuggingBlocked} />
+                    <ProtRow label="Force-stop / clear-data blocked" on={device.policies.userControlDisabled} />
+                    <ProtRow label="Accessibility protection ON" on={device.policies.accessibilityEnabled} />
+                    <ProtRow label="Overlay (lock screen) granted" on={device.policies.overlayGranted} />
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">Reported by the phone with every heartbeat — real OS readback, never a guess.</p>
                 </div>
-              ) : <p className="text-xs text-slate-500">The TelePoint app has not registered on this phone yet.</p>}
+              )}
               {commands.length > 0 && (
-                <ul className="space-y-0.5 max-h-40 overflow-auto pt-1.5 border-t border-slate-100">
-                  {commands.map((c) => (
-                    <li key={c.id} className="text-xs text-slate-600 flex justify-between gap-2">
-                      <span>{c.command_type}{c.command_type === 'EMI_REMINDER' && c.voice && <><Volume2 size={13} className="inline-block ml-1" aria-hidden="true" /><span className="sr-only"> with voice</span></>} · <b>{c.status}</b>{c.failure_reason ? ` (${c.failure_reason})` : ''}</span>
-                      <span className="text-slate-400">{new Date(c.created_at).toLocaleDateString('en-IN')}</span>
-                    </li>
-                  ))}
-                </ul>
+                <div className="pt-2 border-t border-slate-100">
+                  <h4 className="text-sm font-semibold text-slate-800 mb-1.5 flex items-center gap-1.5"><History size={14} className="shrink-0" aria-hidden="true" />Command history</h4>
+                  <ul className="space-y-1 max-h-44 overflow-auto">
+                    {commands.map((c) => <CommandRowItem key={c.id} cmd={c} />)}
+                  </ul>
+                </div>
               )}
             </div>
           )}
@@ -548,5 +581,49 @@ function ToggleRow({ label, checked, onChange, disabled }: { label: string; chec
         <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${checked ? 'translate-x-4' : 'translate-x-0.5'}`} />
       </button>
     </div>
+  );
+}
+
+function ProtRow({ label, on }: { label: string; on?: boolean }) {
+  return (
+    <div className={`flex items-center gap-1.5 rounded-md px-2 py-1.5 ${on ? 'bg-emerald-50 border border-emerald-200' : 'bg-slate-50 border border-slate-100'}`}>
+      {on ? <ShieldCheck size={12} className="text-emerald-600 shrink-0" aria-hidden="true" /> : <ShieldAlert size={12} className="text-slate-400 shrink-0" aria-hidden="true" />}
+      <span className={on ? 'text-emerald-700 font-semibold' : 'text-slate-500'}>{label}</span>
+    </div>
+  );
+}
+
+const STATUS_META: Record<string, { icon: typeof CheckCircle2; cls: string; label: string }> = {
+  EXECUTED: { icon: CheckCircle2, cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', label: 'Executed' },
+  FAILED: { icon: XCircle, cls: 'bg-rose-50 text-rose-700 border-rose-200', label: 'Failed' },
+  PENDING: { icon: Hourglass, cls: 'bg-amber-50 text-amber-700 border-amber-200', label: 'Pending' },
+  RECEIVED: { icon: Hourglass, cls: 'bg-amber-50 text-amber-700 border-amber-200', label: 'Received' },
+  SUPERSEDED: { icon: History, cls: 'bg-slate-100 text-slate-600 border-slate-200', label: 'Superseded' },
+  EXPIRED: { icon: XCircle, cls: 'bg-slate-100 text-slate-500 border-slate-200', label: 'Expired' },
+  CANCELLED: { icon: XCircle, cls: 'bg-slate-100 text-slate-500 border-slate-200', label: 'Cancelled' },
+};
+const TYPE_ICON: Record<string, typeof Lock> = { LOCK: Lock, UNLOCK: Unlock, EMI_REMINDER: Bell, DEVICE_ACTION: Sliders };
+
+function CommandRowItem({ cmd }: { cmd: CommandRow }) {
+  const sm = STATUS_META[cmd.status] ?? STATUS_META.PENDING;
+  const StatusIcon = sm.icon;
+  const TypeIcon = TYPE_ICON[cmd.command_type] ?? Sliders;
+  const actionName = cmd.command_type === 'DEVICE_ACTION' && cmd.payload?.action ? ` · ${cmd.payload.action}` : '';
+  const voiceTag = cmd.command_type === 'EMI_REMINDER' && cmd.voice ? ' · voice' : '';
+  return (
+    <li className="flex items-center gap-2 rounded-md border border-slate-100 bg-slate-50/60 px-2 py-1.5 text-xs">
+      <TypeIcon size={13} className="shrink-0 text-slate-400" aria-hidden="true" />
+      <span className="min-w-0 flex-1">
+        <span className="font-semibold text-slate-700">{cmd.command_type}{actionName}{voiceTag}</span>
+        {cmd.failure_reason ? <span className="text-rose-600"> — {cmd.failure_reason}</span> : null}
+        <span className="block text-[10px] text-slate-400">
+          {new Date(cmd.created_at).toLocaleString('en-IN')}
+          {cmd.executed_at ? ` → done ${new Date(cmd.executed_at).toLocaleString('en-IN')}` : ''}
+        </span>
+      </span>
+      <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-bold ${sm.cls}`}>
+        <StatusIcon size={11} aria-hidden="true" />{sm.label}
+      </span>
+    </li>
   );
 }

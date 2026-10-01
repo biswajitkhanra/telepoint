@@ -5,6 +5,10 @@
     WAKE_LOCK) are declared at the app level (mobile/app.json) so the manifest
     merger unions them into every variant. Here we only register the components.
   -->
+  <!-- Full-screen reminder takeover where the OS allows it (Android ≤13, or
+       granted on 14+); otherwise Android falls back to a heads-up banner. -->
+  <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+
   <application>
     <!--
       Fires each scheduled reminder. Internal only (exported=false): it is

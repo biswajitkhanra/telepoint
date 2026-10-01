@@ -32,6 +32,7 @@ class TelepointDeviceAdminReceiver : DeviceAdminReceiver() {
       val admin = ComponentName(context, TelepointDeviceAdminReceiver::class.java)
       try { dpm.setLockTaskPackages(admin, arrayOf(context.packageName)) } catch (_: Exception) {}
       LockStateStore.setUninstallProtected(context, true)
+      FinancingProtection.restore(context)
     } catch (_: Exception) { /* ignore */ }
 
     try {

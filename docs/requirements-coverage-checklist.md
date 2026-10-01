@@ -71,7 +71,7 @@ Every feature requested across the brief and follow-ups, with honest status.
 | # | Requirement | Status |
 |---|---|---|
 | 42 | **No-computer provisioning** (QR at setup) | ✅ (portal `/admin/provision` generates QR + CLI generator) |
-| 43 | Auto-provision Device Owner from inside the app via Accessibility / wireless debugging | ⛔ **impossible + disallowed** — an app cannot self-grant Device Owner; QR/zero-touch is the no-computer path |
+| 43 | Auto-provision Device Owner from inside the app via Accessibility / wireless debugging | ⛔ **impossible** — an app cannot self-grant Device Owner; QR/zero-touch is the no-computer path. (This does not restrict the required accessibility anti-tamper service.) |
 | 44 | Wireless-debugging provisioning (needs a PC) | ✅ (`scripts/provision-device-owner.ps1`, fallback) |
 
 ## Security, data, hygiene
@@ -81,7 +81,7 @@ Every feature requested across the brief and follow-ups, with honest status.
 | 46 | No service-role key in the app | ✅ |
 | 47 | Audit logging (commands, config, reminders, actions) | ✅ |
 | 48 | DB migrations 030–035, idempotent | ✅ (not applied — you apply) |
-| 49 | Permissions audited; no Accessibility; no QUERY_ALL_PACKAGES | ✅ (see `android-permissions.md`) |
+| 49 | Permissions audited; owner-authorised Accessibility deterrent (not a substitute for Device Owner); no QUERY_ALL_PACKAGES | ✅ code / 🟡 device (see `android-permissions.md` and master checklist §3) |
 | 50 | Command security: expiry, ownership, device/install match, newest-wins | ✅ (unit-tested) |
 
 ## Not testable here (need EAS build + Device-Owner phone)

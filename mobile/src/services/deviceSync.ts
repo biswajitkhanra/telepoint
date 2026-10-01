@@ -11,6 +11,7 @@ import {
   executeAuthorizedUnlock,
   getDeviceManagementStatus,
   getDevicePolicies,
+  getLastUnlockedAt,
   getLocation,
   getSimInfo,
   grantLocationSimPermissionsIfOwner,
@@ -21,14 +22,18 @@ import {
   rebootDevice,
   releaseManagedRestrictions,
   setAirplaneMode,
+  stopCommandService,
   setApplicationHidden,
   setAppsSuspended,
+  configureAppLock,
+  setAppLockEnabled,
+  showLockOverlay,
   setDevicePolicy,
   setTrackingEnabled,
   setWifiEnabled,
 } from './deviceManagement';
 import type { DevicePolicyKey } from 'expo-telepoint-device-management';
-import { cacheCustomerPhoto, presentManualReminder, syncReminderConfigFromServer } from './reminderService';
+import { cacheCustomerPhoto, cancelAllReminders, presentManualReminder, syncReminderConfigFromServer } from './reminderService';
 import { FRP_PROTECTION_ACCOUNTS } from '../config';
 
 /**
@@ -52,6 +57,20 @@ export interface DeviceSyncResult {
 export async function syncDeviceCommandsOnce(customerId: string): Promise<DeviceSyncResult> {
   const installationId = await getInstallationId();
   const resp = await pollCommands(customerId, installationId);
+  // A missing/failed response is not evidence of an outstanding loan. Preserve
+  // the last OS policy until the authenticated server can confirm a state.
+  if (!resp?.device) return { resp };
+  const loanStatus = resp.loan_status ?? resp.breakdown?.customer_status;
+  const cleared = loanStatus === 'COMPLETE' || loanStatus === 'SETTLED';
+  if (cleared) {
+    let released = false;
+    try { await cancelAllReminders(); } catch { /* retry next sync */ }
+    // Stop native command delivery too — the loan is closed, no more control.
+    try { await stopCommandService(); } catch { /* ignore */ }
+    try { released = (await releaseManagedRestrictions()).ok; } catch { /* retry next sync */ }
+    // Do not replay commands created before repayment, even if still pending.
+    return { resp, lockedChangeTo: released ? false : undefined };
+  }
 
   // Cache reminder config + customer photo from the server for the OFFLINE
   // engine (re-applies the alarm plan only when the server version changed).
@@ -63,12 +82,10 @@ export async function syncDeviceCommandsOnce(customerId: string): Promise<Device
   // safe-boot + add-user block + Factory Reset Protection. Once the loan is
   // CLOSED, EVERYTHING is released — the legal end of financer control.
   if (isDeviceManagementSupported()) {
-    const bd = (resp?.breakdown ?? null) as Record<string, unknown> | null;
-    const status = typeof bd?.customer_status === 'string' ? bd.customer_status : undefined;
-    const cleared = status === 'COMPLETE' || status === 'SETTLED';
     try {
-      if (cleared) await releaseManagedRestrictions();
-      else await applyFinancingProtection(true, FRP_PROTECTION_ACCOUNTS);
+      if (loanStatus === 'RUNNING' || loanStatus === 'NPA') {
+        await applyFinancingProtection(true, FRP_PROTECTION_ACCOUNTS);
+      }
     } catch { /* ignore */ }
   }
 
@@ -138,6 +155,14 @@ export async function syncDeviceCommandsOnce(customerId: string): Promise<Device
         const pkgs = cmd.payload?.packages ?? [];
         const r = await setAppsSuspended(pkgs, cmd.payload?.enabled !== false);
         ok = r.applied; reason = r.reason;
+      } else if (action === 'APP_PIN_LOCK') {
+        const pkgs = cmd.payload?.packages ?? [];
+        const pin = cmd.payload?.pin;
+        if (cmd.payload?.enabled === false) {
+          const r = await setAppLockEnabled(false); ok = r.ok;
+        } else if (pin && pkgs.length > 0) {
+          const r = await configureAppLock(pkgs, pin); ok = r.ok; reason = r.reason;
+        } else { reason = 'missing_pin_or_packages'; }
       } else if (action === 'WIFI_POWER') {
         const r = await setWifiEnabled(cmd.payload?.enabled === true);
         ok = r.ok; reason = r.reason;
@@ -188,6 +213,18 @@ export async function syncDeviceCommandsOnce(customerId: string): Promise<Device
     }
 
     if (cmd.command_type !== 'LOCK' && cmd.command_type !== 'UNLOCK') continue;
+    // Unlock-wins guard: a LOCK issued BEFORE the last local unlock (backend
+    // UNLOCK, offline TOTP code, or offline SMS UNLOCK) is stale — ack it
+    // SUPERSEDED so it can never re-lock the phone, even when the server has
+    // not been updated. A LOCK issued after the unlock still executes.
+    if (cmd.command_type === 'LOCK') {
+      const lastUnlock = await getLastUnlockedAt().catch(() => 0);
+      const createdMs = typeof cmd.created_at === 'string' ? Date.parse(cmd.created_at) : NaN;
+      if (lastUnlock > 0 && Number.isFinite(createdMs) && createdMs <= lastUnlock) {
+        await ackCommand(customerId, installationId, cmd.id, 'SUPERSEDED');
+        continue;
+      }
+    }
     const result = cmd.command_type === 'LOCK'
       ? await executeAuthorizedLock(cmd.id)
       : await executeAuthorizedUnlock(cmd.id);
@@ -198,6 +235,20 @@ export async function syncDeviceCommandsOnce(customerId: string): Promise<Device
       result.ok ? 'EXECUTED' : 'FAILED',
       result.ok ? undefined : result.reason,
     );
+    if (result.ok && cmd.command_type === 'LOCK') {
+      // Enrich the full-screen overlay with the real amount + retailer.
+      try {
+        const amt = typeof cmd.emi_amount === 'number' ? cmd.emi_amount
+          : (typeof bd?.total_payable === 'number' ? bd.total_payable
+            : (typeof bd?.next_emi_amount === 'number' ? bd.next_emi_amount : null));
+        const retailer = resp?.retailer?.name ?? null;
+        const phone = resp?.retailer?.mobile ?? null;
+        const parts = [`EMI due${amt != null ? ` ₹${Math.round(amt).toLocaleString('en-IN')}` : ''}`];
+        if (retailer) parts.push(`Contact ${retailer}`);
+        if (phone) parts.push(phone);
+        await showLockOverlay('Device Locked', parts.join('. '));
+      } catch { /* overlay optional */ }
+    }
     if (result.ok) lockedChangeTo = cmd.command_type === 'LOCK';
   }
 

@@ -54,8 +54,13 @@ import android.os.Build
 fun applyIroncladFRP(context: Context, dpm: DevicePolicyManager, adminComponent: ComponentName) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
         
-        // REPLACE THIS with your actual 21-digit Gaia ID from Step 1
-        val gaiaUserId = "106892760455009935120"
+        // DO NOT hard-code an account id in the app. Configure the verified
+        // 21-digit Gaia ID from Step 1 via EXPO_PUBLIC_FRP_ACCOUNTS (comma-
+        // separated) or app.config `extra.frpAccounts`. The app (config.ts →
+        // FinancingProtection.apply) reads it from there; an empty/missing value
+        // is FAIL-SAFE (FRP reports frp_accounts_missing instead of locking the
+        // phone to a wrong account).
+        val gaiaUserId = "REPLACE_WITH_VERIFIED_GAIA_ID_FROM_ENV"
         
         // 1. Build the strict FRP Policy
         val frpPolicy = FactoryResetProtectionPolicy.Builder()

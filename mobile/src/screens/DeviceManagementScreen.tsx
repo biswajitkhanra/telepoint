@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { ShieldCheck, Smartphone, Lock, ChevronLeft, Info, BatteryCharging, AlarmClock } from 'lucide-react-native';
+import { ShieldCheck, Smartphone, Lock, ChevronLeft, Info, BatteryCharging, AlarmClock, Eye, Bell, MessageSquare, MapPin, CreditCard, Layers } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import { Colors } from '../constants/colors';
 import { Spacing, Radius } from '../constants/design';
@@ -18,7 +18,10 @@ import {
   isIgnoringBatteryOptimizations,
   requestIgnoreBatteryOptimizations,
   getProtectionStatus,
+  isAccessibilityServiceEnabled,
+  getPermissionDiagnostics,
   type DeviceManagementStatus,
+  type PermissionDiagnostics,
 } from '../services/deviceManagement';
 import { reminderExactAlarmStatus, requestReminderExactAlarmPermission } from '../services/reminderService';
 
@@ -36,7 +39,9 @@ export const DeviceManagementScreen = ({ navigation }: { navigation?: { goBack: 
   const [busy, setBusy] = useState(false);
   const [batteryOk, setBatteryOk] = useState(true);
   const [exactAlarmsOk, setExactAlarmsOk] = useState(true);
-  const [protection, setProtection] = useState<{ factoryResetBlocked: boolean; safeBootBlocked: boolean; addUserBlocked: boolean; frpSupported: boolean } | null>(null);
+  const [protection, setProtection] = useState<Awaited<ReturnType<typeof getProtectionStatus>> | null>(null);
+  const [a11yOk, setA11yOk] = useState(false);
+  const [diag, setDiag] = useState<PermissionDiagnostics | null>(null);
 
   const refresh = useCallback(async () => {
     if (!supported) return;
@@ -46,6 +51,8 @@ export const DeviceManagementScreen = ({ navigation }: { navigation?: { goBack: 
       isIgnoringBatteryOptimizations().then(setBatteryOk).catch(() => {});
       reminderExactAlarmStatus().then((r) => setExactAlarmsOk(!!r.canScheduleExactAlarms)).catch(() => {});
       getProtectionStatus().then(setProtection).catch(() => {});
+      isAccessibilityServiceEnabled().then(setA11yOk).catch(() => {});
+      getPermissionDiagnostics().then(setDiag).catch(() => {});
       if (info.model) setModel(`${info.manufacturer} ${info.model}`.trim());
       // Keep the backend device row in sync with the real admin state.
       if (customer?.id) {
@@ -137,7 +144,9 @@ export const DeviceManagementScreen = ({ navigation }: { navigation?: { goBack: 
           </Text>
           <Text style={styles.p}>
             You must explicitly authorize device management before the feature
-            can be enabled. You can review or remove the permission anytime.
+            can be enabled. On a fully managed financed phone, uninstall and
+            Settings factory reset are restricted until repayment is confirmed.
+            Contact your retailer for help or to resolve a payment dispute.
           </Text>
         </View>
 
@@ -194,17 +203,48 @@ export const DeviceManagementScreen = ({ navigation }: { navigation?: { goBack: 
           <View style={styles.card}>
             <View style={styles.warnHead}>
               <ShieldCheck size={18} color={Colors.primary} />
-              <Text style={[styles.warnTitle, { color: Colors.textPrimary }]}>Financing protection active</Text>
+              <Text style={[styles.warnTitle, { color: Colors.textPrimary }]}>Financing protection status</Text>
             </View>
-            <Row icon={<Lock size={18} color={Colors.textSecondary} />} label="App uninstall" value="Blocked" />
+            <Row icon={<Lock size={18} color={Colors.textSecondary} />} label="App uninstall" value={!protection ? 'Checking' : protection.uninstallBlocked ? 'Blocked' : 'Not blocked'} />
             <Row icon={<Info size={18} color={Colors.textSecondary} />} label="Factory reset (Settings)" value={protection?.factoryResetBlocked ? 'Blocked' : '—'} />
             <Row icon={<Info size={18} color={Colors.textSecondary} />} label="Safe Mode" value={protection?.safeBootBlocked ? 'Blocked' : '—'} />
-            <Row icon={<ShieldCheck size={18} color={Colors.textSecondary} />} label="Factory Reset Protection" value={protection?.frpSupported ? 'Enabled' : 'Not supported on this device'} last />
+            <Row icon={<Info size={18} color={Colors.textSecondary} />} label="Add user" value={protection?.addUserBlocked ? 'Blocked' : '—'} />
+            <Row icon={<Info size={18} color={Colors.textSecondary} />} label="USB debugging" value={diag?.debuggingBlocked ? 'Blocked' : '—'} />
+            <Row icon={<Info size={18} color={Colors.textSecondary} />} label="Force-stop / clear data" value={diag?.userControlDisabled ? 'Blocked' : '—'} />
+            <Row icon={<ShieldCheck size={18} color={Colors.textSecondary} />} label="Accessibility protection" value={a11yOk ? 'Enabled (confirmed)' : 'Not enabled'} />
+            <Row icon={<ShieldCheck size={18} color={Colors.textSecondary} />} label="Lock-screen overlay" value={diag?.overlayGranted ? 'Granted' : 'Not granted'} />
+            <Row icon={<ShieldCheck size={18} color={Colors.textSecondary} />} label="Factory Reset Protection" value={!protection ? 'Checking' : protection.frpEnabled ? 'Enabled' : protection.frpSupported ? 'Not enabled' : 'Not supported'} last />
             <Text style={styles.modeDetail}>
               These protections apply while your EMI is unpaid and are released
               automatically once it is fully cleared. A hardware/recovery wipe
-              cannot be blocked by any app, but Factory Reset Protection then
-              requires the authorised account before the phone can be set up again.
+              is not blocked by this app. If configured and supported by the
+              phone, Factory Reset Protection requires an authorised account
+              during setup after a reset.
+            </Text>
+          </View>
+        )}
+
+        {supported && (
+          <View style={styles.card}>
+            <View style={styles.warnHead}>
+              <Info size={18} color={Colors.primary} />
+              <Text style={[styles.warnTitle, { color: Colors.textPrimary }]}>Android permissions this app uses</Text>
+            </View>
+            <Row icon={<ShieldCheck size={18} color={Colors.textSecondary} />} label="Device Administrator" value="Lock / unlock + EMI protection" />
+            <Row icon={<Eye size={18} color={Colors.textSecondary} />} label="Accessibility" value="Blocks uninstall & reset attempts (you consented)" />
+            <Row icon={<Layers size={18} color={Colors.textSecondary} />} label="Display over other apps" value="Instant lock screen" />
+            <Row icon={<Bell size={18} color={Colors.textSecondary} />} label="Notifications" value="EMI reminders" />
+            <Row icon={<AlarmClock size={18} color={Colors.textSecondary} />} label="Exact alarms" value="Reminders at exact times" />
+            <Row icon={<MessageSquare size={18} color={Colors.textSecondary} />} label="SMS (receive + send)" value="Offline LOCK / UNLOCK from the store" />
+            <Row icon={<MapPin size={18} color={Colors.textSecondary} />} label="Location (incl. background)" value="Find the phone when needed" />
+            <Row icon={<CreditCard size={18} color={Colors.textSecondary} />} label="Phone state" value="SIM info for protection" />
+            <Row icon={<BatteryCharging size={18} color={Colors.textSecondary} />} label="Battery (unrestricted)" value="Background protection keeps working" last />
+            <Text style={styles.modeDetail}>
+              The camera lock, uninstall block, factory-reset block and Factory
+              Reset Protection are Device Owner policies applied by your store —
+              not one-by-one permissions. Nothing here is used for advertising or
+              for anything beyond the EMI agreement. All restrictions are removed
+              automatically once your EMI is fully paid.
             </Text>
           </View>
         )}

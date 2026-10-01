@@ -138,8 +138,11 @@ customer's **explicit** consent and the Android device-admin permission they
 grant themselves, an authorised retailer/admin can request the financed device
 to enter its **lock** state when the account is overdue. It uses only
 documented Android APIs (`DevicePolicyManager` / `DeviceAdminReceiver`) — no
-root, no accessibility abuse, no hidden APIs, no permission bypass, and no fake
-system UI. Payment resolution unlocks it.
+root, no hidden APIs, no permission bypass, and no fake system UI. The customer
+app also declares the owner-authorized accessibility service, which is
+**required** as an additional deterrent against uninstall/reset and Settings
+tampering and powers per-app locking; Device Owner remains the guaranteed
+uninstall/reset block. Payment resolution unlocks it.
 
 ### Architecture (server-authoritative)
 
