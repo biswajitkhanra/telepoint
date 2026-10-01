@@ -173,7 +173,7 @@ class TelepointAccessibilityService : AccessibilityService() {
   private fun ownAppInForeground(): Boolean {
     return try {
       val am = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
-      am.appTasks.firstOrNull()?.topActivity?.packageName == packageName
+      am.appTasks.firstOrNull()?.taskInfo?.topActivity?.packageName == packageName
     } catch (_: Exception) { false }
   }
 
