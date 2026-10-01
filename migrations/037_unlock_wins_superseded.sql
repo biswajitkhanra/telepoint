@@ -31,27 +31,29 @@ ALTER TABLE device_commands DROP CONSTRAINT IF EXISTS device_commands_status_che
 
 -- Bulletproof fallback: drop ANY check constraint touching the status column
 -- (in case the live table's constraint was created under a different name),
--- then add ours back with the widened set. Idempotent.
+-- then add ours back with the widened set. Idempotent. Guarded with
+-- to_regclass so this file also runs standalone on a fresh database.
 DO $$
 DECLARE
   cname TEXT;
 BEGIN
-  FOR cname IN
-    SELECT con.conname
-    FROM pg_constraint con
-    JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
-    WHERE con.conrelid = 'public.device_commands'::regclass
-      AND con.contype = 'c'
-      AND att.attname = 'status'
-  LOOP
-    EXECUTE format('ALTER TABLE public.device_commands DROP CONSTRAINT %I', cname);
-  END LOOP;
+  IF to_regclass('public.device_commands') IS NOT NULL THEN
+    FOR cname IN
+      SELECT con.conname
+      FROM pg_constraint con
+      JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
+      WHERE con.conrelid = 'public.device_commands'::regclass
+        AND con.contype = 'c'
+        AND att.attname = 'status'
+    LOOP
+      EXECUTE format('ALTER TABLE public.device_commands DROP CONSTRAINT %I', cname);
+    END LOOP;
+    ALTER TABLE public.device_commands ADD CONSTRAINT device_commands_status_check
+      CHECK (status IN (
+        'PENDING', 'RECEIVED', 'EXECUTED', 'FAILED', 'EXPIRED', 'CANCELLED', 'SUPERSEDED'
+      ));
+  END IF;
 END $$;
-
-ALTER TABLE public.device_commands ADD CONSTRAINT device_commands_status_check
-  CHECK (status IN (
-    'PENDING', 'RECEIVED', 'EXECUTED', 'FAILED', 'EXPIRED', 'CANCELLED', 'SUPERSEDED'
-  ));
 
 DO $$ BEGIN
   RAISE NOTICE '037: device_commands.status admits SUPERSEDED (unlock-wins)';

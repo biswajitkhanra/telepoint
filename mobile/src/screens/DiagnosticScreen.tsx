@@ -81,6 +81,8 @@ export const DiagnosticScreen = ({ navigation }: { navigation?: { goBack: () => 
   const [unlocked, setUnlocked] = useState(false);
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState(false);
+  const [pinAttempts, setPinAttempts] = useState(0);
+  const [cooldownUntil, setCooldownUntil] = useState(0);
   const [loading, setLoading] = useState(false);
   const [diag, setDiag] = useState<PermissionDiagnostics | null>(null);
   const [info, setInfo] = useState<DeviceInfo | null>(null);
@@ -104,10 +106,17 @@ export const DiagnosticScreen = ({ navigation }: { navigation?: { goBack: () => 
   }, [unlocked, load]);
 
   const tryUnlock = () => {
+    const now = Date.now();
+    if (now < cooldownUntil) { setPinError(true); return; }
     if (pin === DIAGNOSTIC_PIN) {
+      setPinAttempts(0);
       setPinError(false);
       setUnlocked(true);
     } else {
+      const tries = pinAttempts + 1;
+      setPinAttempts(tries);
+      // Brute-force guard: 5 wrong PINs → 30-second cooldown.
+      if (tries >= 5) { setCooldownUntil(now + 30_000); setPinAttempts(0); }
       setPinError(true);
       setPin('');
     }

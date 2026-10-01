@@ -24,6 +24,27 @@ object DeviceActions {
   fun admin(c: Context) = ComponentName(c, TelepointDeviceAdminReceiver::class.java)
   fun isOwner(c: Context) = dpm(c).isDeviceOwnerApp(c.packageName)
 
+  /**
+   * Parse a UTC ISO-8601 timestamp to epoch millis. Postgres emits up to 6
+   * fraction digits (microseconds) — SimpleDateFormat treats the fraction as
+   * MILLISECONDS when given 6 digits, skewing epochs by up to ~999 s — so the
+   * fraction is truncated to 3 digits first. Returns 0 when unparseable.
+   */
+  fun isoToEpochMillis(s: String?): Long {
+    if (s.isNullOrBlank()) return 0L
+    val truncated = s.trim().replace(Regex("\\.(\\d{3})\\d+"), ".$1").replace("Z", "+0000")
+    val patterns = listOf(
+      "yyyy-MM-dd'T'HH:mm:ss.SSSXX", "yyyy-MM-dd'T'HH:mm:ssXX", "yyyy-MM-dd HH:mm:ssXX", "yyyy-MM-dd HH:mm:ss",
+    )
+    for (p in patterns) {
+      try {
+        val f = java.text.SimpleDateFormat(p, java.util.Locale.US).apply { isLenient = false }
+        return f.parse(truncated)?.time ?: 0L
+      } catch (_: Exception) { /* try next pattern */ }
+    }
+    return 0L
+  }
+
   /** Bring the TelePoint app to the front (used by the lock and by the
    *  accessibility deterrent, which runs from a Service context). */
   fun launchApp(c: Context) {
@@ -56,8 +77,10 @@ object DeviceActions {
   fun releaseLock(c: Context) {
     LockStateStore.setLocked(c, false)
     LockStateStore.setLastUnlockedAt(c, System.currentTimeMillis())
+    LockStateStore.setLastUnlockElapsed(c, android.os.SystemClock.elapsedRealtime())
     try { LockPolicies.apply(c, false) } catch (_: Exception) {}
     WallpaperManagerHelper.restoreCustomerWallpaper(c)
+    TelepointOverlay.resetAppLockAttempts()
     TelepointOverlay.dismiss(c)
   }
 

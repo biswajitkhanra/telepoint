@@ -54,7 +54,10 @@ export async function POST(req: NextRequest) {
     : null;
 
   // Advanced device-action payload (validated).
-  const ACTION_KEYS = new Set(['CAMERA', 'BLUETOOTH', 'WIFI', 'USB', 'AIRPLANE', 'OUTGOING_CALLS', 'WALLPAPER', 'REBOOT', 'APP_HIDE', 'WIFI_POWER', 'AIRPLANE_POWER', 'LOCATION', 'SIM_INFO', 'TRACKING', 'RELEASE', 'OEM_AUTOSTART', 'APP_LOCK']);
+  const ACTION_KEYS = new Set(['CAMERA', 'BLUETOOTH', 'WIFI', 'USB', 'AIRPLANE', 'OUTGOING_CALLS', 'WALLPAPER', 'REBOOT', 'APP_HIDE', 'WIFI_POWER', 'AIRPLANE_POWER', 'LOCATION', 'SIM_INFO', 'TRACKING', 'RELEASE', 'OEM_AUTOSTART', 'APP_LOCK', 'APP_PIN_LOCK']);
+  // Actions that RESTRICT the phone when enabled=true — these must never be
+  // re-applied once the EMI is fully cleared (AGENTS.md rule 5).
+  const RESTRICTIVE_ACTIONS = new Set(['CAMERA', 'BLUETOOTH', 'WIFI', 'USB', 'AIRPLANE', 'OUTGOING_CALLS', 'WALLPAPER', 'APP_HIDE', 'APP_LOCK', 'APP_PIN_LOCK', 'TRACKING']);
   let payload: Record<string, unknown> | null = null;
   let actionKey = '';
   if (isAction) {
@@ -67,6 +70,20 @@ export async function POST(req: NextRequest) {
     if (actionKey === 'APP_HIDE' && typeof p.package === 'string') payload.package = p.package.slice(0, 200);
     if (actionKey === 'APP_LOCK' && Array.isArray(p.packages)) {
       payload.packages = (p.packages as unknown[]).filter((x) => typeof x === 'string').slice(0, 50);
+    }
+    if (actionKey === 'APP_PIN_LOCK') {
+      if (!Array.isArray(p.packages)) {
+        return NextResponse.json({ error: 'APP_PIN_LOCK requires packages' }, { status: 400 });
+      }
+      payload.packages = (p.packages as unknown[]).filter((x) => typeof x === 'string').slice(0, 50);
+      // The PIN rides the command to the device; validated as 4–8 digits and
+      // stripped from every staff-facing response and from the audit log.
+      if (payload.enabled === true) {
+        if (typeof p.pin !== 'string' || !/^\d{4,8}$/.test(p.pin)) {
+          return NextResponse.json({ error: 'APP_PIN_LOCK requires a 4–8 digit pin' }, { status: 400 });
+        }
+        payload.pin = p.pin;
+      }
     }
   }
 
@@ -88,6 +105,12 @@ export async function POST(req: NextRequest) {
   // outstanding. UNLOCK is always allowed; a reminder is always allowed.
   if (commandType === 'LOCK' && (customer.status === 'COMPLETE' || customer.status === 'SETTLED')) {
     return NextResponse.json({ error: 'EMI is fully cleared for this customer; the device cannot be locked' }, { status: 409 });
+  }
+  // BUSINESS RULE (restrictions): a settled loan must never have restrictions
+  // re-applied — DEVICE_ACTION enabled=true on a restrictive key is refused.
+  if (isAction && (customer.status === 'COMPLETE' || customer.status === 'SETTLED')
+    && RESTRICTIVE_ACTIONS.has(actionKey) && payload?.enabled === true) {
+    return NextResponse.json({ error: 'EMI is fully cleared for this customer; restrictions cannot be re-applied' }, { status: 409 });
   }
 
   // A registered, consented device must exist.
@@ -146,15 +169,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Could not create command' }, { status: 500 });
   }
 
-  // Lock-state side effects apply ONLY to LOCK/UNLOCK — a reminder never changes
-  // the device's management status or the is_locked pill.
-  if (!isReminder) {
+  // Lock-state side effects apply ONLY to LOCK/UNLOCK — reminders and device
+  // actions must never change the device's management status or the is_locked
+  // pill (a camera toggle must not mark a locked customer unlocked).
+  if (commandType === 'LOCK' || commandType === 'UNLOCK') {
     await svc.from('devices').update({ management_status: pendingStatusFor(commandType), updated_at: new Date().toISOString() }).eq('id', device.id);
     await svc.from('customers')
       .update({ is_locked: commandType === 'LOCK', lock_provider: 'TelePoint Device' })
       .eq('id', customerId)
       .then(() => {}, () => {});
   }
+
+  // The App-PIN-Lock PIN must never reach the audit log — record it redacted.
+  const auditPayload = payload && payload.pin
+    ? { ...payload, pin: '****' }
+    : payload;
 
   await writeDeviceAudit(svc, {
     actor_user_id: staffUserId,
@@ -163,7 +192,7 @@ export async function POST(req: NextRequest) {
     customer_id: customerId,
     device_id: device.id,
     command_id: command.id,
-    metadata: { reason, emi_amount: emiAmount, voice, language, payload },
+    metadata: { reason, emi_amount: emiAmount, voice, language, payload: auditPayload },
   });
 
   // Wake the customer's app with a real push so the command is applied promptly.

@@ -11,7 +11,7 @@ import {
   executeAuthorizedUnlock,
   getDeviceManagementStatus,
   getDevicePolicies,
-  getLastUnlockedAt,
+  isLockCommandStale,
   getLocation,
   getSimInfo,
   grantLocationSimPermissionsIfOwner,
@@ -213,14 +213,14 @@ export async function syncDeviceCommandsOnce(customerId: string): Promise<Device
     }
 
     if (cmd.command_type !== 'LOCK' && cmd.command_type !== 'UNLOCK') continue;
-    // Unlock-wins guard: a LOCK issued BEFORE the last local unlock (backend
-    // UNLOCK, offline TOTP code, or offline SMS UNLOCK) is stale — ack it
-    // SUPERSEDED so it can never re-lock the phone, even when the server has
-    // not been updated. A LOCK issued after the unlock still executes.
-    if (cmd.command_type === 'LOCK') {
-      const lastUnlock = await getLastUnlockedAt().catch(() => 0);
-      const createdMs = typeof cmd.created_at === 'string' ? Date.parse(cmd.created_at) : NaN;
-      if (lastUnlock > 0 && Number.isFinite(createdMs) && createdMs <= lastUnlock) {
+    // Unlock-wins guard (clock-skew safe): a LOCK issued BEFORE the last local
+    // unlock (backend UNLOCK, offline TOTP, offline SMS UNLOCK) is stale — ack
+    // SUPERSEDED so it can never re-lock, even when the server is not updated.
+    // The native check converts the monotonic watermark to SERVER time via the
+    // poll response's server_now; unverifiable dates fail toward NOT re-locking.
+    if (cmd.command_type === 'LOCK' && typeof cmd.created_at === 'string') {
+      const stale = await isLockCommandStale(cmd.created_at, resp?.server_now ?? '').catch(() => true);
+      if (stale) {
         await ackCommand(customerId, installationId, cmd.id, 'SUPERSEDED');
         continue;
       }

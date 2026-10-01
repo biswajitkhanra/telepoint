@@ -2,7 +2,7 @@
 // Root navigation linking IDFC + Jupiter custom bottom tabs, deep linking, and persistent role routing
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, AppState } from 'react-native';
 import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -46,6 +46,17 @@ function CustomerRoot() {
   const [a11yGatePassed, setA11yGatePassed] = useState(false);
   const handleA11yGateDone = useCallback(() => setA11yGatePassed(true), []);
   const loanOutstanding = customer?.status === 'RUNNING' || customer?.status === 'NPA';
+
+  // Re-arm the gate whenever the app returns to the foreground while the loan
+  // is outstanding: if the service was turned off in Settings, the gate
+  // re-engages immediately (it clears itself in a second when still enabled).
+  useEffect(() => {
+    if (APP_VARIANT !== 'customer' || !loanOutstanding) return;
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active') setA11yGatePassed(false);
+    });
+    return () => sub.remove();
+  }, [loanOutstanding]);
 
   if (dc.locked) {
     return (

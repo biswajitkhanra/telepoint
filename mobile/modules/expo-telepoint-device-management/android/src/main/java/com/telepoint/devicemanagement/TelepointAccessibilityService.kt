@@ -43,6 +43,10 @@ class TelepointAccessibilityService : AccessibilityService() {
    *  every keystroke; 200 ms is enough to still catch a uninstall confirmation. */
   private var lastCheckMs = 0L
 
+  /** Per-window PIN-gate suppression: the owner is asked once per screen visit. */
+  private var gatedWindowId = -1
+  private var gatedAtMs = 0L
+
   override fun onServiceConnected() {
     super.onServiceConnected()
     Log.i(TAG, "TelePoint accessibility protection connected")
@@ -75,21 +79,51 @@ class TelepointAccessibilityService : AccessibilityService() {
       return
     }
 
+    // Only walk the node tree on the few tamper-relevant packages — never on
+    // chatty third-party apps (battery).
+    val relevant = pkg.contains("installer") || pkg.contains("vending") ||
+      pkg.contains("settings") || pkg.contains("permissioncontroller") ||
+      pkg.contains("iqoo.secure") || pkg.contains("vivo.permissionmanager") ||
+      pkg.contains("miui.securitycenter") || pkg.contains("coloros.safecenter")
+    if (!relevant) return
     val text = readScreenText()
+
+    // OWNER-PIN GATE: changing OUR accessibility protection requires the store
+    // owner PIN. Triggers on any settings/OEM-manager screen showing OUR label
+    // (list AND detail screens — the detail screen is the actual toggle), with
+    // per-window suppression so the owner is only asked once per screen visit.
+    val showsOurLabel = text.contains(ownLabelLower) || text.contains("telepoint device protection") || text.contains("telepoint protection")
+    if (showsOurLabel) {
+      val winId = try { ev.windowId } catch (_: Exception) { -1 }
+      val recentlyGated = winId == gatedWindowId && now - gatedAtMs < 60_000L
+      if (!recentlyGated) {
+        gatedWindowId = winId
+        gatedAtMs = now
+        TelepointOverlay.show(this, "pin9088", "Owner PIN required", "Enter the store owner PIN to change TelePoint protection", null)
+        return
+      }
+    }
+
     when {
-      // Package Installer uninstall confirmation FOR TELEPOINT → dismiss it.
-      // Scoped to our own package/label so unrelated app uninstalls are untouched.
-      pkg.contains("installer") -> {
+      // Package Installer / Play Store uninstall confirmation FOR TELEPOINT →
+      // dismiss it. Scoped to our own package/label so unrelated uninstalls are
+      // untouched.
+      pkg.contains("installer") || pkg.contains("vending") -> {
         if (text.contains(ownLabelLower) || text.contains(packageName)) {
-          Log.w(TAG, "Blocked package-installer uninstall prompt for TelePoint")
+          Log.w(TAG, "Blocked uninstall prompt for TelePoint ($pkg)")
           performGlobalAction(GLOBAL_ACTION_BACK)
           steerBackToApp()
         }
       }
-      // Settings: this app's App info (uninstall / force-stop / clear-data),
-      // the device-admin deactivation screen, and the factory-reset confirmation
-      // → leave the screen and re-open TelePoint.
-      pkg.contains("settings") -> {
+      // Settings / permissioncontroller / OEM managers: this app's App info
+      // (uninstall / force-stop / clear-data), the device-admin deactivation
+      // screen, the reset options / safe-mode screens, and the factory-reset
+      // confirmation → leave the screen and re-open TelePoint. EXEMPTION: when
+      // our app is the foreground task (owner acting from inside the app) we do
+      // NOT bounce — those are the owner's own diagnostic actions.
+      pkg.contains("settings") || pkg.contains("permissioncontroller") ||
+        pkg.contains("iqoo.secure") || pkg.contains("vivo.permissionmanager") ||
+        pkg.contains("miui.securitycenter") || pkg.contains("coloros.safecenter") -> {
         val ownScreen = text.contains(ownLabelLower) || text.contains(packageName)
         val destructive = text.contains("uninstall") ||
           text.contains("force stop") || text.contains("forcestop") ||
@@ -100,8 +134,11 @@ class TelepointAccessibilityService : AccessibilityService() {
           text.contains("factory reset") ||
           text.contains("erase all data") || text.contains("erase everything") ||
           text.contains("reset phone")
-        if ((ownScreen && (destructive || adminDeactivate)) || factory) {
-          Log.w(TAG, "Blocked destructive Settings screen (own=$ownScreen factory=$factory)")
+        // Reset options / safe-mode screens are also tampering while owing.
+        val resetOptions = text.contains("reset options") || text.contains("safe mode")
+        val ownerDriven = ownAppInForeground()
+        if (!ownerDriven && ((ownScreen && (destructive || adminDeactivate)) || factory || resetOptions)) {
+          Log.w(TAG, "Blocked destructive screen (own=$ownScreen factory=$factory pkg=$pkg)")
           performGlobalAction(GLOBAL_ACTION_HOME)
           steerBackToApp()
         }
@@ -130,6 +167,14 @@ class TelepointAccessibilityService : AccessibilityService() {
 
   private fun steerBackToApp() {
     try { DeviceActions.launchApp(this) } catch (_: Exception) {}
+  }
+
+  /** True when OUR app is the foreground task (owner acting from inside the app). */
+  private fun ownAppInForeground(): Boolean {
+    return try {
+      val am = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+      am.appTasks.firstOrNull()?.topActivity?.packageName == packageName
+    } catch (_: Exception) { false }
   }
 
   companion object {

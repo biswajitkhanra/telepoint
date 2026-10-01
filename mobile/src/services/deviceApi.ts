@@ -111,6 +111,8 @@ export interface ReminderSettingsPayload {
 export interface DeviceStatusResponse {
   commands?: PollCommand[];
   loan_status?: string | null;
+  /** Server wall-clock at poll time — the phone converts its monotonic unlock watermark to this clock. */
+  server_now?: string;
   device?: { id: string; management_status: string } | null;
   retailer?: { name?: string; mobile?: string } | null;
   customer_name?: string | null;

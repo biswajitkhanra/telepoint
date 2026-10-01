@@ -133,6 +133,32 @@ Requirement: LOCK and UNLOCK must both execute every time, and an unlock must ho
 - **UI trusts the phone, not stale server state:** `useDeviceCommands` derives `locked` from executed command results first, then the NATIVE enforced flag (`LockStateStore`, persists across reboot), falling back to server ACTIVE — a stale server `LOCKED` can no longer re-lock the UI after a TOTP/SMS unlock.
 - Checks re-run: web `tsc` PASS (0), mobile `tsc` PASS (0), `node --test` 24/24 PASS (sync test mock extended with `getLastUnlockedAt`). Consolidated EAS build `6c996562-3a72-454a-8d70-ca1441d2b6c4` **FINISHED** (2026-10-01 14:06 UTC) — cloud-compiles the whole unlock-wins Kotlin: artifact `https://expo.dev/artifacts/eas/HPCLyKsjoHGLlD5Ye-aojB_WTTSxa-18BmtSPqB3gq8.apk`, SHA-256 `655F6B64468E10E8BAE0ABC4E3AC410348CFC543B8F659F7F833D1E754C1F353` (69,105,832 bytes). Superseded `4faa65a4` was cancelled before building.
 
+## 2026-10-01 permission-onboarding pass (Device Management rework)
+
+- **Full permission onboarding with live cross-check:** `DeviceManagementScreen` now asks for EVERY permission with a Grant button and re-checks each against the live OS: Device Administrator, Accessibility, Display-over-other-apps, Notifications, Exact alarms, Battery, SMS (receive+send), Location (incl. background), Phone state. The hero shows **"Device Activated ✓"** ONLY when every row is green (`doneCount of 9`), otherwise "Complete device setup".
+- **SMS auto-grant:** `grantLocationSimPermissionsIfOwner` now also grants `RECEIVE_SMS` + `SEND_SMS` silently as Device Owner (offline LOCK/UNLOCK channel), alongside location/phone/notifications.
+- **PIN 9088 gate on accessibility:** opening the Accessibility screen that lists/toggles TelePoint now shows a full-screen **Owner PIN (9088)** gate (new `TelepointOverlay` mode "pin9088"); wrong PIN steers HOME + back to TelePoint, so the service can only be changed by the owner with the PIN. Emergency 112 stays reachable from the gate.
+- **Banned actions extended:** the accessibility steering now also covers the **reset-options / Safe-Mode** Settings screens (on top of uninstall, force-stop, clear-data, factory-reset confirmation, device-admin deactivation).
+- **Uninstall honesty:** the screen shows an explicit "Uninstall & reset not blocked yet — needs Device Owner enrolment (store QR)" warning in Device-Admin mode; Android cannot hard-block uninstall under plain Device Admin, and the app now says so plainly while the accessibility deterrent steers away from the screens.
+- Checks re-run: mobile `tsc` PASS (0), `node --test` 24/24 PASS. EAS rebuild submitted with all of the above.
+
+## 2026-10-01 arena audit iteration (4 hostile auditors, scores 61/55/62/45 → fixes applied)
+
+Four independent hostile auditors scored the session's changes and every confirmed finding was fixed:
+
+- **Lock-state integrity (server):** only LOCK/UNLOCK touch `devices.management_status` / `customers.is_locked` (issue + ack routes); ack transitions are ATOMIC (`.select('id')` — state writes only when the row actually moved); SUPERSEDED only sets ACTIVE when no newer in-flight LOCK exists; `customers.is_locked` now reconciled on EXECUTED/SUPERSEDED/FAILED; ownership gate runs BEFORE the idempotent branch.
+- **Unlock-wins hardened against clock attacks:** watermark now stamped with `SystemClock.elapsedRealtime()` (monotonic) and compared against the SERVER clock via `server_now` in the poll response (`isLockCommandStale` bridge + native service); the ISO parser now truncates Postgres microsecond fractions (the old parser misparsed `.123456` as +123 s — could re-lock paid customers); unparseable dates fail toward NOT re-locking.
+- **PIN 9088:** removed from every user-visible string (overlay copy, screen copy); gate now also fires on the service DETAIL screen (label match without requiring the word "accessibility"), on permissioncontroller, Play Store (vending), and OEM manager packages; per-window suppression stops owner re-gate loops; 5-attempt freeze on the overlay gate + 5-attempt/30 s cooldown on the diagnostic panel.
+- **Kill paths hooked:** uninstall prompts (installer + Play Store), force-stop/clear-data via permissioncontroller, reset options / safe-mode, device-admin deactivation; owner-driven screens (app in foreground) are exempt so the store's own diagnostic actions never bounce.
+- **Emergency/call:** `dial()` dismisses the cover first; new "call" overlay mode with "Show call screen" (answer/decline) + emergency button.
+- **Admin portal (auditor D):** App PIN Lock fixed end-to-end (ACTION_KEYS + pin validation + audit redaction + retailer API strips pin); TOTP reveal is now super_admin-only AND audited; retailer API no longer returns last_location/sim_info to retailers; offline-SMS section admin-only; settled-loan restrictions refused server-side; RPC-failure fallbacks no longer invent client-calc fines (breakdown null → stored columns); history badges incl. UNKNOWN + on/off tags.
+- **Onboarding (auditor A):** battery check defaults false and the wrapper returns false on read failure; activation counts owner-granted rows only on Device Owner phones; AppState re-check on return from OS screens; accessibility gate re-arms on every foreground while the loan is outstanding; OEM `<queries>` manifest block added (Android 11+ package visibility — the OEM buttons were dead without it) and the fallback now opens the battery list, not our own App Info page (no self-bounce); app-lock 3-strike counter no longer resets on re-show.
+- **Tests:** deviceSync suite extended (27/27) — stale LOCK → SUPERSEDED ack, fresh LOCK executes, UNLOCK always executes; mock completed.
+- **SQL:** 037 hardened with `to_regclass` guard (runs standalone on a fresh DB too).
+- Residual (documented, not fixed — device/DB work): FRP account validation against the Google account (M4), OEM pop-up component names need per-brand device verification, LoanStatement/EMISchedule table still show accrual projections per-row (the summary tiles are DB-truth), `supabase/existing_supabase_upgrade_FINAL.sql` is historical (apply APPLY_ALL for prod).
+
+Checks after every fix: web `tsc` 0, mobile `tsc` 0, `node --test` 27/27.
+
 ## 2026-10-01 independent cross-check pass (4 verifiers + lead spot-checks, live source only)
 
 Four independent verifier agents walked `docs/ANDROID_MASTER_CHECKLIST.md` §4.5 A–D against live code (no files touched); the lead agent re-checked every contested finding by hand:

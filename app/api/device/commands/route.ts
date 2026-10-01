@@ -77,6 +77,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     commands,
     loan_status: customer?.status ?? null,
+    server_now: nowIso,
     device: { id: device.id, management_status: device.management_status },
     retailer: (customer as Record<string, unknown> | null)?.retailer ?? null,
     customer_name: (customer as Record<string, unknown> | null)?.customer_name ?? null,

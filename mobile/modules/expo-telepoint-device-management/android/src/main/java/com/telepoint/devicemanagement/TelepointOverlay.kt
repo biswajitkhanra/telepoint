@@ -38,6 +38,8 @@ object TelepointOverlay {
   private val handler = Handler(Looper.getMainLooper())
   /** Wrong-PIN counter for the app-lock gate; 3 misses escalate to a full phone lock. */
   private var appLockAttempts = 0
+  /** Wrong-PIN counter for the owner-PIN gate; 5 misses freeze the gate. */
+  private var pinGateAttempts = 0
 
   fun canDraw(c: Context): Boolean = try { Settings.canDrawOverlays(c) } catch (_: Exception) { true }
 
@@ -46,7 +48,9 @@ object TelepointOverlay {
       try {
         if (!canDraw(c)) { DeviceActions.launchApp(c); return@post }
         dismissInternal(c)
-        if (mode == "applock") appLockAttempts = 0
+        // App-lock attempt counter resets only on a CORRECT pin or a release —
+        // NOT on every re-show, so the 3-strike escalation cannot be dodged.
+        if (mode == "pin9088") pinGateAttempts = 0
         val wm = c.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         val v = buildView(c, mode, title, body, pkg)
         wm.addView(v, layoutParams())
@@ -130,11 +134,62 @@ object TelepointOverlay {
         col.addView(space(c, 10))
         col.addView(btn(c, "Emergency call", Color.parseColor("#FECACA"), Color.parseColor("#7F1D1D")) { dial(c, "112") })
       }
+      "pin9088" -> {
+        col.addView(text(c, "Owner PIN required", 15f, Color.parseColor("#FEE2E2")))
+        col.addView(text(c, "Enter the store owner PIN to change the TelePoint accessibility protection. Customers cannot change it without the owner PIN.", 14f, Color.parseColor("#FEE2E2")))
+        col.addView(space(c, 14))
+        val pin = EditText(c).apply {
+          setSingleLine(true)
+          setTextColor(Color.WHITE)
+          setHintTextColor(Color.parseColor("#FECACA"))
+          hint = "PIN"
+          setBackgroundColor(Color.parseColor("#991F2937"))
+          setPadding(dp(c, 16), dp(c, 12), dp(c, 16), dp(c, 12))
+          inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD
+        }
+        col.addView(pin)
+        col.addView(space(c, 12))
+        col.addView(btn(c, "UNLOCK", Color.WHITE, Color.parseColor("#7F1D1D")) {
+          if (pin.text.toString() == "9088") {
+            // Owner confirmed — allow the change (overlay clears).
+            pinGateAttempts = 0
+            dismissInternal(c)
+          } else {
+            pinGateAttempts += 1
+            if (pinGateAttempts >= 5) {
+              // Brute-force guard: freeze this gate instance.
+              pin.isEnabled = false
+              pin.error = "Too many attempts — contact the store"
+            } else {
+              // No PIN → steer HOME and back to TelePoint; the setting stays.
+              pin.error = "Incorrect PIN"
+              try {
+                val home = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+                  .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                c.startActivity(home)
+              } catch (_: Exception) {}
+              DeviceActions.launchApp(c)
+              dismissInternal(c)
+            }
+          }
+        })
+        col.addView(space(c, 10))
+        col.addView(btn(c, "Emergency call", Color.parseColor("#FECACA"), Color.parseColor("#7F1D1D")) { dial(c, "112") })
+      }
       "reminder" -> {
         col.addView(space(c, 6))
         col.addView(btn(c, "OK — I understand", Color.WHITE, Color.parseColor("#7F1D1D")) { dismissInternal(c) })
         col.addView(space(c, 10))
         col.addView(btn(c, "Emergency call", Color.parseColor("#FECACA"), Color.parseColor("#7F1D1D")) { dial(c, "112") })
+      }
+      "call" -> {
+        // Locked-device call cover: incoming/outgoing call while locked.
+        col.addView(text(c, "Device Locked — EMI payment required", 15f, Color.parseColor("#FEE2E2")))
+        col.addView(text(c, "The call screen is hidden while the device is locked. Use the button below to show the call (answer/decline), or make an emergency call.", 14f, Color.parseColor("#FEE2E2")))
+        col.addView(space(c, 14))
+        col.addView(btn(c, "Show call screen", Color.WHITE, Color.parseColor("#7F1D1D")) { dismissInternal(c) })
+        col.addView(space(c, 10))
+        col.addView(btn(c, "Emergency call (112)", Color.parseColor("#FECACA"), Color.parseColor("#7F1D1D")) { dial(c, "112") })
       }
       else -> {
         col.addView(text(c, "Your EMI is overdue. Contact your retailer to arrange payment.", 15f, Color.parseColor("#FEE2E2")))
@@ -172,9 +227,14 @@ object TelepointOverlay {
     (v * c.resources.displayMetrics.density).toInt()
 
   private fun dial(c: Context, number: String) {
+    // Dismiss the cover FIRST so the dialer opens on top and can be used.
+    dismissInternal(c)
     try {
       val i = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
       c.startActivity(i)
     } catch (_: Exception) {}
   }
+
+  /** Release paths reset the app-lock attempt counter (lock cleared entirely). */
+  fun resetAppLockAttempts() { appLockAttempts = 0 }
 }

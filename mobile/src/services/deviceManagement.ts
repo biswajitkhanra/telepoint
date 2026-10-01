@@ -111,6 +111,11 @@ export function getLastUnlockedAt() {
   return DeviceMgmt.getLastUnlockedAt();
 }
 
+/** Clock-skew-safe stale-LOCK check (monotonic watermark vs server_now). */
+export function isLockCommandStale(createdAtIso: string, serverNowIso: string) {
+  return DeviceMgmt.isLockCommandStale(createdAtIso, serverNowIso);
+}
+
 /** Open this app's system settings page (notifications / permission review). */
 export function openAppSettings() {
   return DeviceMgmt.openAppSettings();
@@ -183,6 +188,11 @@ export function releaseManagedRestrictions() {
 }
 export function openOemAutostartSettings() {
   return DeviceMgmt.openOemAutostartSettings();
+}
+
+/** Vivo/MIUI/Huawei "background pop-up windows" — lock overlay while backgrounded. */
+export function openOemBackgroundPopups() {
+  return DeviceMgmt.openOemBackgroundPopups();
 }
 export function setAppsSuspended(packages: string[], suspended: boolean) {
   return DeviceMgmt.setAppsSuspended(packages, suspended);

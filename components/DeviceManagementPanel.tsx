@@ -337,7 +337,8 @@ export default function DeviceManagementPanel({
             </div>
           </div>
 
-          {/* Offline SMS commands */}
+          {/* Offline SMS commands — admin only (reveals the allowlist + grammar). */}
+          {isAdmin && (
           <div className="px-3 py-2.5 border-t border-slate-100">
             <span className="text-xs font-semibold text-slate-500 inline-flex items-center gap-1.5 mb-2"><MessageSquare size={13} /> Offline lock by SMS</span>
             {smsCode ? (
@@ -354,6 +355,7 @@ export default function DeviceManagementPanel({
               </div>
             ) : <p className="text-xs text-slate-400">Customer code unavailable — SMS command can’t be shown.</p>}
           </div>
+          )}
 
           {/* Offline unlock code (TOTP) — read to the customer over the phone */}
           {isAdmin && (
@@ -601,20 +603,24 @@ const STATUS_META: Record<string, { icon: typeof CheckCircle2; cls: string; labe
   SUPERSEDED: { icon: History, cls: 'bg-slate-100 text-slate-600 border-slate-200', label: 'Superseded' },
   EXPIRED: { icon: XCircle, cls: 'bg-slate-100 text-slate-500 border-slate-200', label: 'Expired' },
   CANCELLED: { icon: XCircle, cls: 'bg-slate-100 text-slate-500 border-slate-200', label: 'Cancelled' },
+  UNKNOWN: { icon: Info, cls: 'bg-slate-100 text-slate-500 border-slate-200', label: 'Unknown' },
 };
 const TYPE_ICON: Record<string, typeof Lock> = { LOCK: Lock, UNLOCK: Unlock, EMI_REMINDER: Bell, DEVICE_ACTION: Sliders };
 
 function CommandRowItem({ cmd }: { cmd: CommandRow }) {
-  const sm = STATUS_META[cmd.status] ?? STATUS_META.PENDING;
+  const sm = STATUS_META[cmd.status] ?? STATUS_META.UNKNOWN;
   const StatusIcon = sm.icon;
   const TypeIcon = TYPE_ICON[cmd.command_type] ?? Sliders;
   const actionName = cmd.command_type === 'DEVICE_ACTION' && cmd.payload?.action ? ` · ${cmd.payload.action}` : '';
+  const enabledTag = cmd.command_type === 'DEVICE_ACTION' && typeof cmd.payload?.enabled === 'boolean'
+    ? (cmd.payload.enabled ? ' · on' : ' · off')
+    : '';
   const voiceTag = cmd.command_type === 'EMI_REMINDER' && cmd.voice ? ' · voice' : '';
   return (
     <li className="flex items-center gap-2 rounded-md border border-slate-100 bg-slate-50/60 px-2 py-1.5 text-xs">
       <TypeIcon size={13} className="shrink-0 text-slate-400" aria-hidden="true" />
       <span className="min-w-0 flex-1">
-        <span className="font-semibold text-slate-700">{cmd.command_type}{actionName}{voiceTag}</span>
+        <span className="font-semibold text-slate-700">{cmd.command_type}{actionName}{enabledTag}{voiceTag}</span>
         {cmd.failure_reason ? <span className="text-rose-600"> — {cmd.failure_reason}</span> : null}
         <span className="block text-[10px] text-slate-400">
           {new Date(cmd.created_at).toLocaleString('en-IN')}

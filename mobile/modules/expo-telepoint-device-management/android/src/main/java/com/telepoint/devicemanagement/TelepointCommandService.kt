@@ -187,13 +187,16 @@ class TelepointCommandService : Service() {
       val id = cmd.optString("id", "")
       if (id.isBlank()) continue
       val type = cmd.optString("command_type", "")
-      // Unlock-wins guard: a LOCK issued BEFORE the last local unlock (backend
-      // UNLOCK, offline TOTP, or offline SMS UNLOCK) is stale — ack SUPERSEDED
-      // instead of re-locking. A LOCK issued AFTER it still executes every time.
+      // Unlock-wins guard (clock-skew safe): a LOCK issued before the last local
+      // unlock (backend UNLOCK, offline TOTP, offline SMS UNLOCK) is stale —
+      // ack SUPERSEDED instead of re-locking. The comparison converts the
+      // monotonic unlock watermark to SERVER time via server_now, so moving the
+      // device clock cannot void or re-arm locks. When we cannot prove the
+      // command is fresh, do NOT re-lock (unlock always wins).
       if (type == "LOCK") {
-        val createdMs = epochOfIso(cmd.optString("created_at", ""))
-        val lastUnlock = LockStateStore.getLastUnlockedAt(this)
-        if (lastUnlock > 0L && createdMs > 0L && createdMs <= lastUnlock) {
+        val createdMs = DeviceActions.isoToEpochMillis(cmd.optString("created_at", ""))
+        val serverNowMs = DeviceActions.isoToEpochMillis(resp.optString("server_now", ""))
+        if (LockStateStore.isLockStale(this, createdMs, serverNowMs)) {
           ack(baseUrl, customerId, installationId, token, id, "SUPERSEDED")
           continue
         }
@@ -234,24 +237,9 @@ class TelepointCommandService : Service() {
     TelepointOverlay.dismiss(this)
     try { LockStateStore.setUninstallProtected(this, false) } catch (_: Exception) {}
     LockStateStore.setLastUnlockedAt(this, System.currentTimeMillis())
+    LockStateStore.setLastUnlockElapsed(this, android.os.SystemClock.elapsedRealtime())
     try { CommandServiceStore.clear(this) } catch (_: Exception) {}
     stopSelf()
-  }
-
-  /** Parse a UTC ISO-8601 timestamp to epoch millis; 0 when unparseable. */
-  private fun epochOfIso(s: String?): Long {
-    if (s.isNullOrBlank()) return 0L
-    val t = s.trim().replace("Z", "+0000")
-    val patterns = listOf(
-      "yyyy-MM-dd'T'HH:mm:ss.SSSSSSXX", "yyyy-MM-dd'T'HH:mm:ss.SSSXX", "yyyy-MM-dd'T'HH:mm:ssXX",
-    )
-    for (p in patterns) {
-      try {
-        val f = java.text.SimpleDateFormat(p, java.util.Locale.US).apply { isLenient = false }
-        return f.parse(t)?.time ?: 0L
-      } catch (_: Exception) { /* try next pattern */ }
-    }
-    return 0L
   }
 
   private fun runDeviceAction(payload: JSONObject?): Boolean {

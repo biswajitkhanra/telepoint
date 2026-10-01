@@ -44,6 +44,15 @@ export async function POST(req: NextRequest) {
     .select('reminder_enabled, overdue_reminder_enabled, voice_enabled, voice_language, voice_on_overdue, schedule_version')
     .eq('customer_id', customerId).maybeSingle();
 
+  // The App-PIN-Lock PIN lives in the command payload; it must NEVER be echoed
+  // back to any client (the device already has it). Strip it server-side.
+  const safePayload = (payload: unknown) => {
+    if (!payload || typeof payload !== 'object') return payload;
+    const p = payload as Record<string, unknown>;
+    const { pin: _pin, ...rest } = p;
+    return rest;
+  };
+
   return NextResponse.json({
     customer: {
       id: customer.id,
@@ -54,8 +63,12 @@ export async function POST(req: NextRequest) {
       photo_url: customer.customer_photo_url ?? null,
       status: customer.status ?? null,
     },
-    device: device ?? null,
-    commands: commands ?? [],
+    // Role-aware field selection: location + SIM info are admin-only views;
+    // retailers get the device row without them (the UI hides them anyway).
+    device: device && staff.role === 'retailer'
+      ? (() => { const { last_location: _l, sim_info: _s, ...rest } = device; return rest; })()
+      : device,
+    commands: (commands ?? []).map((c) => ({ ...c, payload: safePayload(c.payload) })),
     breakdown,
     reminder_settings: rs ?? {
       reminder_enabled: true,

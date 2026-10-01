@@ -18,6 +18,9 @@ object LockStateStore {
   private const val KEY_LOCKED = "emi_locked"
   private const val KEY_UNINSTALL_PROTECTED = "uninstall_protected"
   private const val KEY_LAST_UNLOCKED_AT = "last_unlocked_at"
+  // Monotonic-clock unlock watermark (SystemClock.elapsedRealtime) — immune to
+  // user wall-clock changes; compared against the SERVER's clock via server_now.
+  private const val KEY_LAST_UNLOCK_ELAPSED = "last_unlocked_elapsed"
 
   private fun prefs(context: Context) =
     context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -54,5 +57,34 @@ object LockStateStore {
 
   fun setLastUnlockedAt(context: Context, at: Long) {
     prefs(context).edit().putLong(KEY_LAST_UNLOCKED_AT, at).apply()
+  }
+
+  /** Monotonic elapsed-realtime timestamp of the last unlock (clock-skew safe). */
+  fun getLastUnlockElapsed(context: Context): Long =
+    prefs(context).getLong(KEY_LAST_UNLOCK_ELAPSED, 0L)
+
+  fun setLastUnlockElapsed(context: Context, elapsed: Long) {
+    prefs(context).edit().putLong(KEY_LAST_UNLOCK_ELAPSED, elapsed).apply()
+  }
+
+  /**
+   * Stale-LOCK check: is `commandCreatedMs` (server wall-clock) on or before the
+   * moment of the last unlock, expressed in SERVER time? Computed as
+   * serverNowMs − (elapsedRealtime() − lastUnlockElapsed), so a customer moving
+   * the device clock ahead or back cannot void or re-arm genuine locks.
+   * On any unreadable state this returns TRUE (when in doubt, do NOT re-lock).
+   */
+  fun isLockStale(context: Context, commandCreatedMs: Long, serverNowMs: Long): Boolean {
+    // Cannot prove the command is fresh (unparseable date / missing server_now)
+    // → do NOT re-lock: unlock always wins when the truth is unverifiable.
+    if (commandCreatedMs <= 0L) return true
+    if (serverNowMs <= 0L) return true
+    val lastUnlock = getLastUnlockElapsed(context)
+    if (lastUnlock <= 0L) return false // never unlocked locally → the lock executes
+    return try {
+      val sinceUnlock = android.os.SystemClock.elapsedRealtime() - lastUnlock
+      val unlockAtServerMs = serverNowMs - sinceUnlock
+      commandCreatedMs <= unlockAtServerMs
+    } catch (_: Exception) { true }
   }
 }

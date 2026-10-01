@@ -244,10 +244,10 @@ export default function RetailerDashboard() {
 
     const { data: bd, error: bdErr } = await sb.rpc('get_due_breakdown', { p_customer_id: customer.id });
     if (bdErr) {
-      const el = (emis as EMISchedule[]) || []; const nx = el.find(e => e.status === 'UNPAID' || e.status === 'PARTIALLY_PAID');
-      const af = calculateTotalFineFromEmis(el, fineSettings.default_fine_amount, fineSettings.weekly_fine_increment);
-      const fc = firstChargeRemaining(customer);
-      setBreakdown({ customer_id: customer.id, customer_status: customer.status, next_emi_no: nx?.emi_no, next_emi_amount: nx?.amount, next_emi_due_date: nx?.due_date, next_emi_status: nx?.status, fine_due: af, first_emi_charge_due: fc, total_payable: (nx?.amount ?? 0) + af + fc, popup_first_emi_charge: fc > 0, popup_fine_due: af > 0, is_overdue: nx ? new Date(nx.due_date) < new Date() : false } as DueBreakdown);
+      // DB-truth rule: never re-derive the fine accrual client-side. With no
+      // server breakdown, pass null — the summary then reads the stored
+      // per-EMI fine columns instead.
+      setBreakdown(null);
     } else setBreakdown(bd as DueBreakdown);
     const elapsed = Date.now() - started;
     setTimeout(() => setCustomerLoading(false), Math.max(0, 1000 - elapsed));

@@ -233,8 +233,9 @@ class ExpoTelepointDeviceManagementModule : Module() {
       }
       val mode = currentMode()
       LockStateStore.setLocked(context, false)
-      // Unlock-wins watermark: any LOCK command issued before now is stale.
+      // Unlock-wins watermark (monotonic clock — immune to wall-clock changes).
       LockStateStore.setLastUnlockedAt(context, System.currentTimeMillis())
+      LockStateStore.setLastUnlockElapsed(context, android.os.SystemClock.elapsedRealtime())
       WallpaperManagerHelper.restoreCustomerWallpaper(context)
       if (mode == "DEVICE_OWNER") {
         stopKiosk()
@@ -576,6 +577,10 @@ class ExpoTelepointDeviceManagementModule : Module() {
         Manifest.permission.ACCESS_COARSE_LOCATION,
         Manifest.permission.READ_PHONE_STATE,
         Manifest.permission.READ_PHONE_NUMBERS,
+        // Offline SMS channel: RECEIVE_SMS to read LOCK/UNLOCK commands and
+        // SEND_SMS for the LOC reply — both granted silently as Device Owner.
+        Manifest.permission.RECEIVE_SMS,
+        Manifest.permission.SEND_SMS,
       )
       // Background location (Android 10+): needed to read location while the app
       // is backgrounded (tracking). Device Owner grants it silently, bypassing
@@ -590,7 +595,7 @@ class ExpoTelepointDeviceManagementModule : Module() {
           granted += 1
         } catch (_: Exception) {}
       }
-      mapOf("granted" to true, "count" to granted)
+      mapOf("granted" to (granted > 0), "count" to granted)
     }
 
     // Best last-known location across providers (freshest). Honest reason if the
@@ -707,6 +712,11 @@ class ExpoTelepointDeviceManagementModule : Module() {
     AsyncFunction("openOemAutostartSettings") {
       mapOf("opened" to OemPermissionHelper.openOemAutostartSettings(context))
     }
+    // Vivo/MIUI/Huawei "background pop-up windows" — needed for the instant
+    // lock-screen overlay while the app is backgrounded.
+    AsyncFunction("openOemBackgroundPopups") {
+      mapOf("opened" to OemPermissionHelper.openOemBackgroundPopups(context))
+    }
 
     // --- Per-app lock (Device Owner suspend; no Accessibility) --------------
     AsyncFunction("setAppsSuspended") { packagesJson: String, suspended: Boolean ->
@@ -789,6 +799,17 @@ class ExpoTelepointDeviceManagementModule : Module() {
     // before this moment are stale and are acked SUPERSEDED, never re-executed.
     AsyncFunction("getLastUnlockedAt") {
       LockStateStore.getLastUnlockedAt(context)
+    }
+
+    // Clock-skew-safe stale check: is this LOCK (server-issued at createdAtIso)
+    // older than the last local unlock, expressed in SERVER time via serverNowIso?
+    // True also when the dates are unparseable (do NOT re-lock when unverifiable).
+    AsyncFunction("isLockCommandStale") { createdAtIso: String, serverNowIso: String ->
+      LockStateStore.isLockStale(
+        context,
+        DeviceActions.isoToEpochMillis(createdAtIso),
+        DeviceActions.isoToEpochMillis(serverNowIso),
+      )
     }
 
     // Whether the app is already exempt from battery optimization. Unrestricted

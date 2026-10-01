@@ -1,8 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, AppState } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { ShieldCheck, Smartphone, Lock, ChevronLeft, Info, BatteryCharging, AlarmClock, Eye, Bell, MessageSquare, MapPin, CreditCard, Layers } from 'lucide-react-native';
+import * as Notifications from 'expo-notifications';
+import {
+  ShieldCheck, Smartphone, Lock, ChevronLeft, Info, BatteryCharging, AlarmClock,
+  Eye, Bell, MessageSquare, MapPin, CreditCard, Layers, CheckCircle2, AlertTriangle,
+} from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import { Colors } from '../constants/colors';
 import { Spacing, Radius } from '../constants/design';
@@ -20,25 +24,36 @@ import {
   getProtectionStatus,
   isAccessibilityServiceEnabled,
   getPermissionDiagnostics,
+  openAccessibilitySettings,
+  requestOverlayPermission,
+  grantLocationSimPermissionsIfOwner,
+  openOemAutostartSettings,
+  openOemBackgroundPopups,
   type DeviceManagementStatus,
   type PermissionDiagnostics,
 } from '../services/deviceManagement';
-import { reminderExactAlarmStatus, requestReminderExactAlarmPermission } from '../services/reminderService';
+import { requestReminderExactAlarmPermission } from '../services/reminderService';
 
 /**
- * Transparent, consent-first device-management screen (spec parts 7 & 9).
- * Explains the EMI arrangement in plain language, shows the device's real
- * Android management mode and capability, and only enables management after an
- * explicit tap that opens the OS permission dialog. Nothing is enabled silently.
+ * Consent-first device setup (spec parts 7 & 9) — the ONE place every Android
+ * permission the financed phone needs is asked for and CROSS-CHECKED live:
+ *
+ *   Device Administrator → Accessibility (consented, PIN-9088-protected) →
+ *   Display over other apps → Notifications → Exact alarms → Battery →
+ *   SMS (receive+send) → Location (incl. background) → Phone state.
+ *
+ * Only when every row is confirmed against the OS does the screen show
+ * "Device Activated". Uninstall / factory-reset blocking additionally requires
+ * Device Owner enrolment (store QR) — shown honestly, never faked.
  */
 export const DeviceManagementScreen = ({ navigation }: { navigation?: { goBack: () => void } }) => {
   const { customer } = useAuth();
   const supported = isDeviceManagementSupported();
   const [status, setStatus] = useState<DeviceManagementStatus | null>(null);
   const [model, setModel] = useState<string>(customer?.model_no || '');
-  const [busy, setBusy] = useState(false);
-  const [batteryOk, setBatteryOk] = useState(true);
-  const [exactAlarmsOk, setExactAlarmsOk] = useState(true);
+  const [manufacturer, setManufacturer] = useState<string>('');
+  const [actionKey, setActionKey] = useState<string | null>(null);
+  const [batteryOk, setBatteryOk] = useState(false);
   const [protection, setProtection] = useState<Awaited<ReturnType<typeof getProtectionStatus>> | null>(null);
   const [a11yOk, setA11yOk] = useState(false);
   const [diag, setDiag] = useState<PermissionDiagnostics | null>(null);
@@ -48,13 +63,12 @@ export const DeviceManagementScreen = ({ navigation }: { navigation?: { goBack: 
     try {
       const [st, info] = await Promise.all([getDeviceManagementStatus(), getDeviceInfo()]);
       setStatus(st);
-      isIgnoringBatteryOptimizations().then(setBatteryOk).catch(() => {});
-      reminderExactAlarmStatus().then((r) => setExactAlarmsOk(!!r.canScheduleExactAlarms)).catch(() => {});
+      isIgnoringBatteryOptimizations().then(setBatteryOk).catch(() => setBatteryOk(false));
       getProtectionStatus().then(setProtection).catch(() => {});
       isAccessibilityServiceEnabled().then(setA11yOk).catch(() => {});
       getPermissionDiagnostics().then(setDiag).catch(() => {});
       if (info.model) setModel(`${info.manufacturer} ${info.model}`.trim());
-      // Keep the backend device row in sync with the real admin state.
+      if (info.manufacturer) setManufacturer(info.manufacturer);
       if (customer?.id) {
         const installationId = await getInstallationId();
         await registerDevice({
@@ -73,45 +87,121 @@ export const DeviceManagementScreen = ({ navigation }: { navigation?: { goBack: 
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  const onConsentAndEnable = async () => {
-    if (!customer?.id) return;
-    setBusy(true);
+  // Re-check the live state whenever the user returns from an OS screen
+  // (Settings dialogs, permission managers) so rows flip green immediately.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (s) => { if (s === 'active') refresh(); });
+    return () => sub.remove();
+  }, [refresh]);
+
+  const run = async (key: string, fn: () => Promise<unknown>) => {
+    setActionKey(key);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    try {
-      const installationId = await getInstallationId();
-      const info = await getDeviceInfo();
-      // Record consent first (registers/updates the device row with consent).
-      await registerDevice({
-        customerId: customer.id,
-        installationId,
-        deviceModel: info.model || customer.model_no,
-        deviceManufacturer: info.manufacturer,
-        androidVersion: info.androidVersion,
-        appVersion: '1.0.0',
-        consent: true,
-        adminEnabled: await isDeviceAdminEnabled(),
-      });
-      // Then open the Android system permission dialog (explicit user action).
-      await requestDeviceAdmin();
-      await refresh();
-    } finally {
-      setBusy(false);
-    }
+    try { await fn(); } catch { /* ignore */ }
+    // Re-check the live OS state shortly after (the user may still be in a
+    // dialog); AppState also re-checks on return from OS screens.
+    setTimeout(() => { refresh(); setActionKey(null); }, 900);
   };
 
-  const onAllowBattery = async () => {
-    await requestIgnoreBatteryOptimizations();
-    // Re-check shortly after (the user may still be in the OS dialog).
-    setTimeout(() => { isIgnoringBatteryOptimizations().then(setBatteryOk).catch(() => {}); }, 800);
-  };
+  const onConsentAndEnable = () => run('admin', async () => {
+    if (!customer?.id) return;
+    const installationId = await getInstallationId();
+    const info = await getDeviceInfo();
+    // Record consent first (registers/updates the device row with consent).
+    await registerDevice({
+      customerId: customer.id,
+      installationId,
+      deviceModel: info.model || customer.model_no,
+      deviceManufacturer: info.manufacturer,
+      androidVersion: info.androidVersion,
+      appVersion: '1.0.0',
+      consent: true,
+      adminEnabled: await isDeviceAdminEnabled(),
+    });
+    // Then open the Android system permission dialog (explicit user action).
+    await requestDeviceAdmin();
+  });
 
-  const onAllowExactAlarms = async () => {
-    await requestReminderExactAlarmPermission();
-    setTimeout(() => { reminderExactAlarmStatus().then((r) => setExactAlarmsOk(!!r.canScheduleExactAlarms)).catch(() => {}); }, 800);
-  };
+  const onAllowBattery = () => run('battery', () => requestIgnoreBatteryOptimizations());
+  const onAllowExactAlarms = () => run('alarm', () => requestReminderExactAlarmPermission());
+  const onAllowNotifications = () => run('notif', () => Notifications.requestPermissionsAsync());
+  const onOpenAccessibility = () => run('a11y', () => openAccessibilitySettings());
+  const onOpenOverlay = () => run('overlay', () => requestOverlayPermission());
+  // SMS / location / phone: Device Owner grants silently (store-enrolled phone).
+  const onGrantOwnerPerms = () => run('ownerperms', () => grantLocationSimPermissionsIfOwner());
 
   const mode = status?.mode ?? 'UNSUPPORTED';
   const desc = describeMode(mode);
+  const isOwner = mode === 'DEVICE_OWNER';
+  const statusLoaded = status !== null;
+  const chineseOem = /xiaomi|redmi|poco|vivo|iqoo|oppo|realme|oneplus|huawei|honor|transsion|infinix|tecno/i.test(manufacturer);
+
+  // ── Live cross-check: every row must be green for "Device Activated" ──────
+  const checks = {
+    admin: !!status?.adminActive,
+    accessibility: !!diag?.accessibilityEnabled,
+    overlay: !!diag?.overlayGranted,
+    notifications: !!diag?.notificationsEnabled,
+    exactAlarm: !!diag?.exactAlarmGranted,
+    battery: batteryOk,
+    // Owner-granted permissions count only on Device Owner phones — on a
+    // non-DO phone they cannot be granted silently and are shown as
+    // "Requires Device Owner" instead of blocking activation forever.
+    sms: isOwner ? !!diag?.receiveSms && !!diag?.sendSms : true,
+    location: isOwner ? !!diag?.fineLocation && !!diag?.backgroundLocation : true,
+    phone: isOwner ? !!diag?.phoneState : true,
+  };
+  const required = Object.values(checks);
+  const doneCount = required.filter(Boolean).length;
+  const activated = required.every(Boolean);
+
+  const rows: { key: string; icon: React.ReactNode; label: string; detail: string; ok: boolean; action: () => void; actionLabel: string; ownerOnly?: boolean }[] = [
+    {
+      key: 'admin', icon: <ShieldCheck size={18} color={Colors.textSecondary} />,
+      label: 'Device Administrator', detail: 'Lock / unlock + EMI protection', ok: checks.admin,
+      action: onConsentAndEnable, actionLabel: 'Enable',
+    },
+    {
+      key: 'a11y', icon: <Eye size={18} color={Colors.textSecondary} />,
+      label: 'Accessibility protection', detail: 'Stops uninstall & reset attempts (owner PIN to change later)', ok: checks.accessibility,
+      action: onOpenAccessibility, actionLabel: 'Open Settings',
+    },
+    {
+      key: 'overlay', icon: <Layers size={18} color={Colors.textSecondary} />,
+      label: 'Display over other apps', detail: 'Instant lock screen', ok: checks.overlay,
+      action: onOpenOverlay, actionLabel: 'Allow',
+    },
+    {
+      key: 'notif', icon: <Bell size={18} color={Colors.textSecondary} />,
+      label: 'Notifications', detail: 'EMI reminders', ok: checks.notifications,
+      action: onAllowNotifications, actionLabel: 'Allow',
+    },
+    {
+      key: 'alarm', icon: <AlarmClock size={18} color={Colors.textSecondary} />,
+      label: 'Exact alarms', detail: 'Reminders at exact times', ok: checks.exactAlarm,
+      action: onAllowExactAlarms, actionLabel: 'Allow',
+    },
+    {
+      key: 'battery', icon: <BatteryCharging size={18} color={Colors.textSecondary} />,
+      label: 'Battery (unrestricted)', detail: 'Background protection keeps working', ok: checks.battery,
+      action: onAllowBattery, actionLabel: 'Allow',
+    },
+    {
+      key: 'sms', icon: <MessageSquare size={18} color={Colors.textSecondary} />,
+      label: 'SMS (receive + send)', detail: 'Offline LOCK / UNLOCK from the store', ok: checks.sms,
+      action: onGrantOwnerPerms, actionLabel: isOwner ? 'Grant' : 'Requires Device Owner', ownerOnly: true,
+    },
+    {
+      key: 'location', icon: <MapPin size={18} color={Colors.textSecondary} />,
+      label: 'Location (incl. background)', detail: 'Find the phone when needed', ok: checks.location,
+      action: onGrantOwnerPerms, actionLabel: isOwner ? 'Grant' : 'Requires Device Owner', ownerOnly: true,
+    },
+    {
+      key: 'phone', icon: <CreditCard size={18} color={Colors.textSecondary} />,
+      label: 'Phone state', detail: 'SIM info for protection', ok: checks.phone,
+      action: onGrantOwnerPerms, actionLabel: isOwner ? 'Grant' : 'Requires Device Owner', ownerOnly: true,
+    },
+  ];
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -124,82 +214,103 @@ export const DeviceManagementScreen = ({ navigation }: { navigation?: { goBack: 
       </View>
 
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-        <View style={styles.hero}>
-          <ShieldCheck size={40} color={Colors.primary} />
-          <Text style={styles.heroTitle}>EMI Device Management</Text>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.p}>
-            This device is financed through an EMI agreement. TelePoint may use
-            supported Android device-management features according to that
-            agreement.
-          </Text>
-          <Text style={styles.p}>
-            Device-management capabilities depend on the Android management mode
-            supported by this device. When the device is locked for an overdue
-            EMI, this app shows your amount due, your store's name and phone
-            number, and a button to call the store. It never hides itself and
-            never touches emergency calling.
-          </Text>
-          <Text style={styles.p}>
-            You must explicitly authorize device management before the feature
-            can be enabled. On a fully managed financed phone, uninstall and
-            Settings factory reset are restricted until repayment is confirmed.
-            Contact your retailer for help or to resolve a payment dispute.
+        {/* Activation hero — appears ONLY when every permission is confirmed. */}
+        <View style={[styles.heroCard, activated ? styles.heroCardOk : styles.heroCardPending]}>
+          {activated
+            ? <CheckCircle2 size={40} color={Colors.success} />
+            : <ShieldCheck size={40} color={Colors.primary} />}
+          <Text style={styles.heroTitle}>{activated ? 'Device Activated' : 'Complete device setup'}</Text>
+          <Text style={styles.heroSub}>
+            {activated
+              ? 'All permissions confirmed — this phone is fully protected while your EMI is active.'
+              : `${doneCount} of ${required.length} permissions confirmed. Finish all steps to activate the protection.`}
           </Text>
         </View>
 
         <View style={styles.card}>
-          <Row icon={<Smartphone size={18} color={Colors.textSecondary} />} label="Device" value={model || 'This device'} />
-          <Row icon={<Info size={18} color={Colors.textSecondary} />} label="Management mode" value={desc.label} />
-          <Row icon={<Lock size={18} color={Colors.textSecondary} />} label="Lock supported" value={desc.canLock ? 'Yes' : 'No'} />
-          <Row icon={<ShieldCheck size={18} color={Colors.textSecondary} />} label="Permission" value={status?.adminActive ? 'Enabled' : 'Not enabled'} />
-          <Row icon={<BatteryCharging size={18} color={Colors.textSecondary} />} label="Battery" value={batteryOk ? 'Unrestricted' : 'Restricted'} last />
-          <Text style={styles.modeDetail}>{desc.detail}</Text>
+          <Text style={styles.p}>
+            This device is financed through an EMI agreement. Every permission
+            below is needed for the EMI protection to work, and each one is
+            checked against the phone's live system state — nothing is
+            counted until Android confirms it.
+          </Text>
         </View>
 
-        {supported && !batteryOk && (
+        {/* Permission checklist — tap each Grant and the row re-checks itself. */}
+        <View style={styles.card}>
+          <View style={styles.warnHead}>
+            <ShieldCheck size={18} color={Colors.primary} />
+            <Text style={[styles.warnTitle, { color: Colors.textPrimary }]}>Permissions checklist</Text>
+          </View>
+          {rows.map((r) => (
+            <View key={r.key} style={[styles.setupRow, { borderBottomWidth: 0 }]}>
+              <View style={styles.setupLeft}>
+                {r.icon}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.setupLabel}>{r.label}</Text>
+                  <Text style={styles.setupDetail}>{r.detail}</Text>
+                </View>
+              </View>
+              {r.ok ? (
+                <CheckCircle2 size={20} color={Colors.success} />
+              ) : (
+                <TouchableOpacity
+                  style={[styles.grantBtn, r.ownerOnly && !isOwner && statusLoaded && styles.grantBtnDisabled]}
+                  disabled={r.ownerOnly && !isOwner && statusLoaded || actionKey === r.key}
+                  onPress={r.action}
+                  activeOpacity={0.85}
+                >
+                  {actionKey === r.key
+                    ? <ActivityIndicator size="small" color="#fff" />
+                    : <Text style={styles.grantBtnText}>{r.actionLabel}</Text>}
+                </TouchableOpacity>
+              )}
+            </View>
+          ))}
+        </View>
+
+        {/* Chinese OEM (Vivo/Xiaomi/Oppo/Huawei) — the OS kills background work
+            and blocks background pop-ups unless these are granted. */}
+        {supported && chineseOem && (
           <View style={[styles.card, styles.warnCard]}>
             <View style={styles.warnHead}>
-              <BatteryCharging size={18} color={Colors.warning} />
-              <Text style={styles.warnTitle}>Allow unrestricted battery</Text>
+              <Smartphone size={18} color={Colors.warning} />
+              <Text style={styles.warnTitle}>Important {manufacturer || 'device'} settings</Text>
             </View>
             <Text style={styles.warnText}>
-              For the EMI lock and reminders to work reliably in the background,
-              this app needs unrestricted battery usage. Tap below and choose
-              &ldquo;Allow / Don&rsquo;t optimize&rdquo;.
+              This phone brand aggressively stops background apps. Open BOTH
+              settings and allow TelePoint — otherwise the lock screen and the
+              reminders may not work while the app is closed.
             </Text>
-            <TouchableOpacity style={[styles.primaryBtn, { marginTop: Spacing.sm }]} onPress={onAllowBattery} activeOpacity={0.85}>
-              <Text style={styles.primaryBtnText}>Allow unrestricted battery</Text>
+            <TouchableOpacity style={[styles.primaryBtn, { marginTop: Spacing.sm }]} onPress={() => run('oemauto', () => openOemAutostartSettings())} activeOpacity={0.85}>
+              {actionKey === 'oemauto' ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>Open Autostart permission</Text>}
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.secondaryBtn} onPress={() => run('oempop', () => openOemBackgroundPopups())} activeOpacity={0.85}>
+              <Text style={styles.secondaryBtnText}>Allow background pop-ups</Text>
             </TouchableOpacity>
           </View>
         )}
 
-        {supported && !exactAlarmsOk && (
+        {/* Honest uninstall caveat — only Device Owner can actually block it. */}
+        {supported && !isOwner && (
           <View style={[styles.card, styles.warnCard]}>
             <View style={styles.warnHead}>
-              <AlarmClock size={18} color={Colors.warning} />
-              <Text style={styles.warnTitle}>Allow exact alarms</Text>
+              <AlertTriangle size={18} color={Colors.warning} />
+              <Text style={styles.warnTitle}>Uninstall & reset not blocked yet</Text>
             </View>
             <Text style={styles.warnText}>
-              EMI reminders fire at exact times (10:00 AM &amp; 6:00 PM before the
-              due date, hourly on the due day). On Android 12+ this needs the
-              &ldquo;Alarms &amp; reminders&rdquo; permission. Tap below and allow it
-              so reminders are never late.
+              This phone is in {desc.label} mode. Android only allows the
+              permanent block (uninstall, factory reset, Safe Mode) when the
+              phone is enrolled as a <Text style={{ fontWeight: '800' }}>Device Owner</Text> at
+              the store with the setup QR. Until then the accessibility
+              protection steers away from those screens, but the hard block is
+              not active. Ask your store to finish Device Owner enrolment.
             </Text>
-            <TouchableOpacity style={[styles.primaryBtn, { marginTop: Spacing.sm }]} onPress={onAllowExactAlarms} activeOpacity={0.85}>
-              <Text style={styles.primaryBtnText}>Allow exact alarms</Text>
-            </TouchableOpacity>
           </View>
         )}
 
-        {/* Collateral protection is only claimed when it is actually enforceable
-            — i.e. Device Owner. Each line reflects the LIVE enforced state read
-            from the OS, so nothing is overstated. On ordinary (non-owner) devices
-            Android permits none of this and we do not pretend (no Accessibility
-            workaround). */}
-        {supported && mode === 'DEVICE_OWNER' && (
+        {/* Financing protection status — live OS readbacks (Device Owner). */}
+        {supported && isOwner && (
           <View style={styles.card}>
             <View style={styles.warnHead}>
               <ShieldCheck size={18} color={Colors.primary} />
@@ -217,37 +328,31 @@ export const DeviceManagementScreen = ({ navigation }: { navigation?: { goBack: 
             <Text style={styles.modeDetail}>
               These protections apply while your EMI is unpaid and are released
               automatically once it is fully cleared. A hardware/recovery wipe
-              is not blocked by this app. If configured and supported by the
-              phone, Factory Reset Protection requires an authorised account
-              during setup after a reset.
+              is not blocked by this app. Factory Reset Protection requires an
+              authorised account during setup after a reset.
             </Text>
           </View>
         )}
 
-        {supported && (
-          <View style={styles.card}>
-            <View style={styles.warnHead}>
-              <Info size={18} color={Colors.primary} />
-              <Text style={[styles.warnTitle, { color: Colors.textPrimary }]}>Android permissions this app uses</Text>
-            </View>
-            <Row icon={<ShieldCheck size={18} color={Colors.textSecondary} />} label="Device Administrator" value="Lock / unlock + EMI protection" />
-            <Row icon={<Eye size={18} color={Colors.textSecondary} />} label="Accessibility" value="Blocks uninstall & reset attempts (you consented)" />
-            <Row icon={<Layers size={18} color={Colors.textSecondary} />} label="Display over other apps" value="Instant lock screen" />
-            <Row icon={<Bell size={18} color={Colors.textSecondary} />} label="Notifications" value="EMI reminders" />
-            <Row icon={<AlarmClock size={18} color={Colors.textSecondary} />} label="Exact alarms" value="Reminders at exact times" />
-            <Row icon={<MessageSquare size={18} color={Colors.textSecondary} />} label="SMS (receive + send)" value="Offline LOCK / UNLOCK from the store" />
-            <Row icon={<MapPin size={18} color={Colors.textSecondary} />} label="Location (incl. background)" value="Find the phone when needed" />
-            <Row icon={<CreditCard size={18} color={Colors.textSecondary} />} label="Phone state" value="SIM info for protection" />
-            <Row icon={<BatteryCharging size={18} color={Colors.textSecondary} />} label="Battery (unrestricted)" value="Background protection keeps working" last />
-            <Text style={styles.modeDetail}>
-              The camera lock, uninstall block, factory-reset block and Factory
-              Reset Protection are Device Owner policies applied by your store —
-              not one-by-one permissions. Nothing here is used for advertising or
-              for anything beyond the EMI agreement. All restrictions are removed
-              automatically once your EMI is fully paid.
-            </Text>
+        {/* Static explanation of what each permission is FOR. */}
+        <View style={styles.card}>
+          <View style={styles.warnHead}>
+            <Info size={18} color={Colors.primary} />
+            <Text style={[styles.warnTitle, { color: Colors.textPrimary }]}>What each permission does</Text>
           </View>
-        )}
+          <Text style={styles.modeDetail}>
+            Device Administrator — lock / unlock and EMI protection. Accessibility —
+            steers the phone away from uninstall, reset, force-stop and device-admin
+            screens (changing it requires the store owner PIN). Display over
+            other apps — shows the lock screen instantly. Notifications + exact alarms —
+            EMI reminders at the right times. SMS — offline LOCK/UNLOCK commands from
+            the store. Location / phone state — find the phone and read the SIM when
+            the store needs it. Battery — keeps background protection alive. The camera
+            lock, uninstall block, factory-reset block and Factory Reset Protection are
+            Device Owner policies, not one-by-one permissions. Nothing is used for
+            advertising; everything is removed once your EMI is fully paid.
+          </Text>
+        </View>
 
         {!supported && (
           <View style={[styles.card, styles.warnCard]}>
@@ -256,12 +361,6 @@ export const DeviceManagementScreen = ({ navigation }: { navigation?: { goBack: 
               build is required — Expo Go cannot provide Android device management.
             </Text>
           </View>
-        )}
-
-        {supported && !status?.adminActive && (
-          <TouchableOpacity style={styles.primaryBtn} onPress={onConsentAndEnable} disabled={busy} activeOpacity={0.85}>
-            {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>I understand and continue</Text>}
-          </TouchableOpacity>
         )}
 
         {supported && status?.adminActive && (
@@ -287,14 +386,24 @@ const styles = StyleSheet.create({
   back: { padding: 2 },
   headerTitle: { fontSize: 17, fontWeight: '700', color: Colors.textPrimary },
   body: { padding: Spacing.base, paddingBottom: Spacing['3xl'] },
-  hero: { alignItems: 'center', marginBottom: Spacing.lg, gap: Spacing.sm },
-  heroTitle: { fontSize: 20, fontWeight: '800', color: Colors.textPrimary },
+  heroCard: { alignItems: 'center', padding: Spacing.xl, borderRadius: Radius.lg, borderWidth: 1, marginBottom: Spacing.base, gap: Spacing.sm },
+  heroCardOk: { backgroundColor: Colors.successLight ?? '#ECFDF5', borderColor: Colors.success },
+  heroCardPending: { backgroundColor: Colors.bgCard, borderColor: Colors.primary },
+  heroTitle: { fontSize: 22, fontWeight: '800', color: Colors.textPrimary },
+  heroSub: { fontSize: 13, color: Colors.textSecondary, textAlign: 'center', lineHeight: 19 },
   card: { backgroundColor: Colors.bgCard, borderRadius: Radius.lg, padding: Spacing.base, borderWidth: 1, borderColor: Colors.border, marginBottom: Spacing.base },
-  p: { fontSize: 14, lineHeight: 21, color: Colors.textSecondary, marginBottom: Spacing.sm },
+  p: { fontSize: 14, lineHeight: 21, color: Colors.textSecondary },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border },
   rowLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   rowLabel: { fontSize: 14, color: Colors.textSecondary },
   rowValue: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary, maxWidth: '55%', textAlign: 'right' },
+  setupRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.sm, gap: Spacing.sm },
+  setupLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flex: 1 },
+  setupLabel: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary },
+  setupDetail: { fontSize: 11, color: Colors.textTertiary, lineHeight: 15, marginTop: 1 },
+  grantBtn: { backgroundColor: Colors.primary, borderRadius: Radius.sm, paddingVertical: 8, paddingHorizontal: Spacing.base, minWidth: 86, alignItems: 'center' },
+  grantBtnDisabled: { backgroundColor: Colors.textTertiary },
+  grantBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
   modeDetail: { fontSize: 13, color: Colors.textTertiary, marginTop: Spacing.sm, lineHeight: 19 },
   warnCard: { backgroundColor: Colors.warningLight, borderColor: Colors.warning },
   warnHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.xs },

@@ -59,7 +59,7 @@ export async function isDeviceOwner(): Promise<boolean> {
 /** True when the app is already exempt from battery optimization (Doze). */
 export async function isIgnoringBatteryOptimizations(): Promise<boolean> {
   if (!isSupported()) return true;
-  try { return await native.isIgnoringBatteryOptimizations(); } catch { return true; }
+  try { return await native.isIgnoringBatteryOptimizations(); } catch { return false; }
 }
 
 /** Open the connectivity panel so the customer can turn on Wi-Fi / mobile data. */
@@ -259,6 +259,12 @@ export async function getLastUnlockedAt(): Promise<number> {
   try { return await native.getLastUnlockedAt(); } catch { return 0; }
 }
 
+/** Clock-skew-safe stale-LOCK check (monotonic watermark vs server_now). */
+export async function isLockCommandStale(createdAtIso: string, serverNowIso: string): Promise<boolean> {
+  if (!isSupported()) return true; // cannot verify → do NOT re-lock
+  try { return await native.isLockCommandStale(createdAtIso, serverNowIso); } catch { return true; }
+}
+
 // --- Native background command delivery ------------------------------------
 // A foreground service polls the portal so an authorised LOCK/UNLOCK executes
 // even with the React app closed. Configure after login, then start.
@@ -413,6 +419,12 @@ export async function releaseManagedRestrictions(): Promise<{ ok: boolean; mode?
 export async function openOemAutostartSettings(): Promise<{ opened: boolean }> {
   if (!isSupported()) return { opened: false };
   try { return await native.openOemAutostartSettings(); } catch { return { opened: false }; }
+}
+
+/** Vivo/MIUI/Huawei "background pop-up windows" — lock overlay while backgrounded. */
+export async function openOemBackgroundPopups(): Promise<{ opened: boolean }> {
+  if (!isSupported()) return { opened: false };
+  try { return await native.openOemBackgroundPopups(); } catch { return { opened: false }; }
 }
 
 /** Per-app lock: suspend/unsuspend specific packages (Device Owner). */
