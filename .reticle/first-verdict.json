@@ -1,8 +1,0 @@
-{
-  "kind": "allOf",
-  "predicates": [
-    { "kind": "route", "urlContains": "login" },
-    { "kind": "text", "contains": "Sign in to manage customers and collections" },
-    { "kind": "element", "query": { "role": "button", "text": "Sign in" }, "state": "visible" }
-  ]
-}
