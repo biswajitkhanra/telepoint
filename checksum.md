@@ -166,13 +166,21 @@ Checks after every fix: web `tsc` 0, mobile `tsc` 0, `node --test` 27/27.
 - **Background guarantees verified:** `TelepointCommandService` is `START_STICKY`, self-reschedules (30 s idle / 6 s locked), runs as a foreground `dataSync` service, restarts on boot via the receiver, and executes LOCK/UNLOCK/RELEASE/DEVICE_ACTION with the app fully closed — plus the OEM autostart/background-pop-ups cards for vivo/Xiaomi/Oppo/Huawei.
 - **Honest limit re-stated:** on a DEVICE_ADMIN phone Android forbids a kiosk — the 6 s re-lock is the strongest app-side mitigation; the hard block still requires **Device Owner enrolment (store QR)**. Checksum items above remain the acceptance evidence.
 - **Verifier flags closed (2026-10-01, 2nd iteration):** the non-DO re-assert now runs at the TOP of `tick()` BEFORE any network call (offline re-lock, not just on 2xx polls); Android 15+ FGS budget handled via `onTimeout` override (clean stop instead of crash); `TelepointOverlay.view` is `@Volatile`; boot receiver uses `applicationContext` for the overlay; receiver marked `directBootAware` (pre-unlock enforcement still needs device-protected storage — BOOT_COMPLETED remains the enforcement point, documented).
-- Checks: mobile `tsc` PASS (0), `node --test` PASS. Final consolidated EAS build `8dc37791-2e3e-421d-84ff-ecb663d6bd23` submitted (supersedes `2de953f9`).
+- Checks: mobile `tsc` PASS (0), `node --test` PASS. Final consolidated EAS build `8dc37791-2e3e-421d-84ff-ecb663d6bd23` submitted (supersedes `2de953f9`). **8dc37791 ERRORED in Gradle** — one Kotlin error: `TelepointAccessibilityService.kt:176:34 Unresolved reference: topActivity` (must be `taskInfo.topActivity`). Fixed (`fce36bd`, pushed) and rebuilt as `874a9005-417b-4d53-a59f-451b333e325c` — this is the build that carries the reboot/background enforcement + all audit fixes.
 
 ## 2026-10-01 reticle E2E instrumentation + first verdict (LATER UNINSTALLED at user request)
 
 - History: reticle was installed + wired (`npx @reticlehq/server init`), the login flow was driven once and produced **`verified: yes · proved`** (route ✓, sign-in copy ✓, visible button ✓). The user then asked to uninstall it ("its weird").
 - **UNINSTALLED cleanly:** `withReticle` removed from next.config.js; `app/reticle-dev.tsx` + its layout usage removed; `@reticlehq/next`/`@reticlehq/react` uninstalled; `.reticle.json`, `.reticle/`, `RETICLE.md`, `.claude/commands/reticle.md` deleted; reticle sections stripped from AGENTS.md/CLAUDE.md; the `reticle` entry removed from `~/.claude.json` mcpServers; `~/.reticle` data dir and the `reticle*` npm bins deleted; `claude plugin marketplace remove reticlehq` ran. No reticle references remain in source (grep-verified).
 - Honest limit (historical): deeper admin flows were never driven with reticle — staff credentials + a service-role key are still the requirement for any future E2E verification tool.
+
+## 2026-10-01 provisioning QR upgrade (one QR for every customer)
+
+- `app/admin/provision` upgraded: env defaults (`NEXT_PUBLIC_PROVISIONING_APK_URL` / `_APK_SIGNATURE`) + localStorage persistence (same QR reused store-wide); **"Fetch APK URL from GitHub"** button (auto-fills the latest/tagged Release asset URL for `NEXT_PUBLIC_GITHUB_REPO`, default biswajitkhanra/telepoint); recorded-consent checkbox gate (AGENTS rule 4); raw QR-JSON preview + copy button for cross-checking the checksum/link before printing.
+- Flow: GitHub Release hosts the APK (permanent URL) → one QR for ALL customers (identity binds at login) → fresh phone: 6 taps → scan → auto-download + enrol as Device Owner → `onProfileProvisioningComplete` finalizes.
+- No-PC wireless-debugging fallback documented (LADB, Android 11+): factory reset → no Google account → wireless debugging → `pm install` + `dpm set-device-owner com.telepoint.customer/com.telepoint.devicemanagement.TelepointDeviceAdminReceiver` (the app cannot self-enrol — dpm must come from the shell; documented in docs/DEVICE_OWNER_PROVISIONING.md).
+- Cross-check chain after each build: poller downloads APK + SHA-256 + download QR; signing-cert SHA from `eas credentials` feeds the QR page.
+- Build: stuck `874a9005` cancelled; fresh `5015d1d5-67f1-4f32-a5ea-9cd0424bb7f8` submitted. Web `tsc` PASS (0).
 
 ## 2026-10-01 independent cross-check pass (4 verifiers + lead spot-checks, live source only)
 

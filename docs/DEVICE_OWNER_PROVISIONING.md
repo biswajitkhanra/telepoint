@@ -144,3 +144,27 @@ After the loan is COMPLETE/SETTLED, unlock from the admin panel. To fully remove
 management (so the device is a normal personal phone again), factory reset the
 device, or add a one-tap "release" that calls `clearDeviceOwnerApp` — ask the
 dev team to enable this if you want it in-app.
+
+## GitHub-hosted APK + one QR for every customer (2026-10-01)
+
+- Upload the customer APK to a GitHub Release (permanent URL, no 30-day expiry):
+  `gh release create telepoint-v1 <apk-file>`
+- Portal → **/admin/provision**: press "Fetch APK URL from GitHub" (auto-fills the release URL), paste the
+  signing-cert SHA-256 once (`eas credentials` → Android keystore SHA-256 fingerprint), tick the recorded-consent
+  box, Generate QR. The page remembers the values on that device, so the SAME QR is reused for every customer —
+  customer identity is bound at app login, never in the QR.
+- Cross-check after each build: the page shows the raw QR JSON (component name + checksum + download location) —
+  verify the checksum matches the signing cert of the built APK.
+
+## No-PC wireless-debugging path (LADB, Android 11+, one device at a time)
+
+Only when the QR cannot be used. Still requires a factory-reset, account-free phone:
+1. Factory reset → complete setup WITHOUT adding a Google account.
+2. Settings → Developer options → Wireless debugging ON.
+3. Sideload LADB (or any local-adb app) and pair it to the phone's own wireless-debugging code.
+4. In the phone's browser, download the APK from the GitHub Release link above.
+5. In LADB's shell run:
+   `pm install /sdcard/Download/telepoint-customer.apk`
+   `dpm set-device-owner com.telepoint.customer/com.telepoint.devicemanagement.TelepointDeviceAdminReceiver`
+6. The app finalizes enrolment automatically (onProfileProvisioningComplete) — log the customer in and finish the
+   permission checklist. Note: the app CANNOT enroll itself as Device Owner — the dpm command must come from the shell.
